@@ -9,7 +9,7 @@ from .labelme_annotation import LabelMeAnnotationHandler
 from .coco_structs import COCO_Info, COCO_License_Handler, COCO_License, \
     COCO_Image_Handler, COCO_Image, COCO_Annotation_Handler, COCO_Annotation, \
     COCO_Category_Handler, COCO_Category
-from ..util.utils import polygon2segmentation, polygon2bbox, point_inside_polygon, \
+from .util.utils import polygon2segmentation, polygon2bbox, point_inside_polygon, \
     labeled_points2keypoints, rectangle2bbox, point_inside_rectangle
 
 class LabelMeCOCOConverter:
