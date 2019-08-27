@@ -11,7 +11,7 @@ In order to be able to use this repository, the following dependencies must be m
 ### Pip Dependencies
 You can install the pip dependencies to this repository with the following command:
 ```console
-pip install json matplotlib pycocotools
+pip install json matplotlib pycocotools shapely numpy
 ```
 
 Note: It is recommended that you install pip dependencies inside of a virtual environment.
