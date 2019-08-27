@@ -101,6 +101,9 @@ class COCO_Image_Handler:
     def add(self, coco_image: COCO_Image):
         self.image_list.append(coco_image)
 
+    def get_images_from_imgIds(self, imgIds: list):		
+	        return [x for x in self.image_list if x.id in imgIds]
+
 class COCO_Annotation:
     def __init__(
         self, segmentation: dict, num_keypoints: int, area: int, iscrowd: int,
@@ -195,6 +198,12 @@ class COCO_Annotation_Handler:
 
     def add(self, coco_annotation: COCO_Annotation):
         self.annotation_list.append(coco_annotation)
+
+    def get_annotations_from_annIds(self, annIds: list):		
+        return [x for x in self.annotation_list if x.id in annIds]		
+        
+    def get_annotations_from_imgIds(self, imgIds: list):		
+        return [x for x in self.annotation_list if x.image_id in imgIds]
 
 class COCO_Category:
     def __init__(
