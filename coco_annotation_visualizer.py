@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimage
-from ..submodules.logger.logger_handler import logger
 from pycocotools.coco import COCO
+from ..logger.logger_handler import logger
 
 class COCOAnnotationVisualizer:
     def __init__(self, img_dir: str, coco_annotation_path: str, visualization_dump_dir: str, included_categories: list):

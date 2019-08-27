@@ -1,6 +1,6 @@
-from ..submodules.logger.logger_handler import logger
-from ..submodules.common_utils.file_utils import dir_exists, file_exists, move_file
-from ..submodules.common_utils.path_utils import get_all_files_of_extension, get_rootname_from_path, \
+from ..logger.logger_handler import logger
+from ..common_utils.file_utils import dir_exists, file_exists, move_file
+from ..common_utils.path_utils import get_all_files_of_extension, get_rootname_from_path, \
     get_dirpath_from_filepath, get_filename
 
 class DataMover:

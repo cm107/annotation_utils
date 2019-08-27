@@ -1,7 +1,7 @@
 import json
-from ..submodules.logger.logger_handler import logger
-from ..submodules.common_utils.path_utils import rel_to_abs_path, get_dirpath_from_filepath
-from ..submodules.common_utils.utils import beautify_dict
+from ..logger.logger_handler import logger
+from ..common_utils.path_utils import rel_to_abs_path, get_dirpath_from_filepath
+from ..common_utils.utils import beautify_dict
 
 class Shape:
     def __init__(self, label: str, line_color: str, fill_color: str, points: list, shape_type: str, flags: str):

@@ -1,5 +1,5 @@
-from ..submodules.logger.logger_handler import logger
-from ..submodules.common_utils.common_types import Point, Keypoint, BoundingBox
+from ..logger.logger_handler import logger
+from ..common_utils.common_types import Point, Keypoint, BoundingBox
 
 class COCO_Info:
     def __init__(

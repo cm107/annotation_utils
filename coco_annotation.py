@@ -1,4 +1,4 @@
-from ..submodules.logger.logger_handler import logger
+from ..logger.logger_handler import logger
 import json
 from .coco_structs import COCO_Info, COCO_License_Handler, COCO_License, \
     COCO_Image_Handler, COCO_Image, COCO_Annotation_Handler, COCO_Annotation, \

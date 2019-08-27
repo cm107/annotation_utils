@@ -1,10 +1,10 @@
-from ..submodules.logger.logger_handler import logger
-from ..submodules.common_utils.path_utils import get_all_files_of_extension, get_rootname_from_path, \
+from ..logger.logger_handler import logger
+from ..common_utils.path_utils import get_all_files_of_extension, get_rootname_from_path, \
     get_filename, get_dirpath_from_filepath
-from ..submodules.common_utils.file_utils import file_exists
-from ..submodules.common_utils.time_utils import get_present_year, get_present_time_Ymd, \
+from ..common_utils.file_utils import file_exists
+from ..common_utils.time_utils import get_present_year, get_present_time_Ymd, \
     get_ctime
-from ..submodules.common_utils.user_utils import get_username
+from ..common_utils.user_utils import get_username
 from .labelme_annotation import LabelMeAnnotationHandler
 from .coco_structs import COCO_Info, COCO_License_Handler, COCO_License, \
     COCO_Image_Handler, COCO_Image, COCO_Annotation_Handler, COCO_Annotation, \

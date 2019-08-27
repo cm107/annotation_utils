@@ -1,5 +1,5 @@
-from ..submodules.logger.logger_handler import logger
-from ..lib.labelme_annotation import Shape
+from ...logger.logger_handler import logger
+from ..labelme_annotation import Shape
 
 def check_shape_type(shape: Shape, shape_type: str):
     if shape.shape_type != shape_type:
