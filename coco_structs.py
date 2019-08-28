@@ -101,6 +101,9 @@ class COCO_Image_Handler:
     def add(self, coco_image: COCO_Image):
         self.image_list.append(coco_image)
 
+    def get_images_from_imgIds(self, imgIds: list):		
+	        return [x for x in self.image_list if x.id in imgIds]
+
 class COCO_Annotation:
     def __init__(
         self, segmentation: dict, num_keypoints: int, area: int, iscrowd: int,
@@ -196,6 +199,12 @@ class COCO_Annotation_Handler:
     def add(self, coco_annotation: COCO_Annotation):
         self.annotation_list.append(coco_annotation)
 
+    def get_annotations_from_annIds(self, annIds: list):		
+        return [x for x in self.annotation_list if x.id in annIds]		
+        
+    def get_annotations_from_imgIds(self, imgIds: list):		
+        return [x for x in self.annotation_list if x.image_id in imgIds]
+
 class COCO_Category:
     def __init__(
         self, supercategory: str, id: int, name: str, keypoints: list, skeleton: list
@@ -245,3 +254,25 @@ class COCO_Category_Handler:
 
     def add(self, coco_category: COCO_Category):
         self.category_list.append(coco_category)
+
+    def get_categories_from_name(self, name: str):		
+        return [x for x in self.category_list if x.name == name]
+
+    def get_unique_category_from_name(self, name: str):
+        found_categories = self.get_categories_from_name(name)
+        if len(found_categories) == 0:
+            logger.error(f"Couldn't find any categories by the name: {name}")
+            raise Exception
+        elif len(found_categories) > 1:
+            logger.error(f"Found {len(found_categories)} categories with the name {name}")
+            logger.error(f"Found Categories:")
+            for category in found_categories:
+                logger.error(category)
+            raise Exception
+        return found_categories[0]
+
+    def get_skeleton_from_name(self, name: str) -> (list, list):
+        unique_category = self.get_unique_category_from_name(name)
+        skeleton = unique_category.skeleton
+        label_skeleton = unique_category.get_label_skeleton()
+        return skeleton, label_skeleton
