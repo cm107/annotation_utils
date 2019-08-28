@@ -254,3 +254,25 @@ class COCO_Category_Handler:
 
     def add(self, coco_category: COCO_Category):
         self.category_list.append(coco_category)
+
+    def get_categories_from_name(self, name: str):		
+        return [x for x in self.category_list if x.name == name]
+
+    def get_unique_category_from_name(self, name: str):
+        found_categories = self.get_categories_from_name(name)
+        if len(found_categories) == 0:
+            logger.error(f"Couldn't find any categories by the name: {name}")
+            raise Exception
+        elif len(found_categories) > 1:
+            logger.error(f"Found {len(found_categories)} categories with the name {name}")
+            logger.error(f"Found Categories:")
+            for category in found_categories:
+                logger.error(category)
+            raise Exception
+        return found_categories[0]
+
+    def get_skeleton_from_name(self, name: str) -> (list, list):
+        unique_category = self.get_unique_category_from_name(name)
+        skeleton = unique_category.skeleton
+        label_skeleton = unique_category.get_label_skeleton()
+        return skeleton, label_skeleton
