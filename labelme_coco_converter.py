@@ -13,7 +13,10 @@ from .util.utils import polygon2segmentation, polygon2bbox, point_inside_polygon
     labeled_points2keypoints, rectangle2bbox, point_inside_rectangle
 
 class LabelMeCOCOConverter:
-    def __init__(self, labelme_annotation_dir_list: list, labelme_img_dir_list: list, bound_type_list: str, category_dict: dict=None):
+    def __init__(
+        self, labelme_img_dir_list: list, labelme_annotation_dir_list: list, labelme_index_range_list: list=None,
+        bound_type_list: str=None, category_dict: dict=None
+    ):
         # Image Directory List (for getting dates modified)
         self.labelme_img_dir_list = labelme_img_dir_list
 
@@ -21,7 +24,7 @@ class LabelMeCOCOConverter:
         self.category_dict = category_dict
 
         # Bound type used for grouping keypoints
-        self.bound_type_list = bound_type_list
+        self.bound_type_list = bound_type_list if bound_type_list is not None else ['poly'] * len(self.labelme_img_dir_list)
 
         # Annotation Paths List
         self.labelme_annotation_dir_list = labelme_annotation_dir_list
@@ -32,6 +35,9 @@ class LabelMeCOCOConverter:
                 extension="json"
             )
             self.annotation_pathlist_list.append(annotation_pathlist)
+
+        # Index ranges to be loaded
+        self.labelme_index_range_list = labelme_index_range_list if labelme_index_range_list is not None else ['all'] * len(self.labelme_img_dir_list)
 
         # LabelMe Handler
         self.labelme_annotation_handler = LabelMeAnnotationHandler()
@@ -48,11 +54,25 @@ class LabelMeCOCOConverter:
 
     def load_annotation_paths(self):
         for i, annotation_pathlist in zip(range(len(self.annotation_pathlist_list)), self.annotation_pathlist_list):
-            for annotation_path in annotation_pathlist:
-                self.labelme_annotation_handler.add(
-                    key=len(self.labelme_annotation_handler.annotations), annotation_path=annotation_path, img_dir=self.labelme_img_dir_list[i],
-                    bound_type=self.bound_type_list[i]
-                )
+            index_range = self.labelme_index_range_list[i]
+            if index_range == 'none':
+                continue
+            elif index_range == 'all':
+                for annotation_path in annotation_pathlist:
+                    self.labelme_annotation_handler.add(
+                        key=len(self.labelme_annotation_handler.annotations), annotation_path=annotation_path, img_dir=self.labelme_img_dir_list[i],
+                        bound_type=self.bound_type_list[i]
+                    )
+            else:
+                for annotation_path in annotation_pathlist:
+                    annotation_index = int(get_rootname_from_path(annotation_path))
+                    for start_index, end_index in index_range:
+                        if annotation_index >= start_index and annotation_index <= end_index:
+                            self.labelme_annotation_handler.add(
+                                key=len(self.labelme_annotation_handler.annotations), annotation_path=annotation_path, img_dir=self.labelme_img_dir_list[i],
+                                bound_type=self.bound_type_list[i]
+                            )
+                            break
 
     def load_annotation_data(self):
         self.labelme_annotation_handler.load_remaining()
