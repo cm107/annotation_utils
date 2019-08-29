@@ -17,6 +17,8 @@ class LabelMeAnnotationWriter:
         img_path = self.labelme_annotation.img_path
         img_data = open(img_path, 'rb').read()
         img_data = base64.b64encode(img_data).decode('utf-8')
+        img_height = self.labelme_annotation.img_height
+        img_width = self.labelme_annotation.img_width
 
         json_dict = {}
         json_dict['version'] = version
@@ -26,6 +28,8 @@ class LabelMeAnnotationWriter:
         json_dict['fillColor'] = fill_color
         json_dict['imagePath'] = img_path
         json_dict['imageData'] = img_data
+        json_dict['imageHeight'] = img_height
+        json_dict['imageWidth'] = img_width
         return json_dict
 
     def write_json_dict(self, json_dict: dict):
