@@ -4,6 +4,7 @@ from ..labelme_annotation import Shape
 from .checks import check_shape_type
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+from .common_types import BBox
 
 def polygon2segmentation(polygon: Shape):
     check_shape_type(shape=polygon, shape_type='polygon')
@@ -13,7 +14,7 @@ def polygon2segmentation(polygon: Shape):
         segmentation.append(round(point[1], 2))
     return segmentation
 
-def polygon2bbox(polygon: Shape) -> (float, list):
+def polygon2bbox(polygon: Shape) -> BBox:
     check_shape_type(shape=polygon, shape_type='polygon')
     x_values = np.array(polygon.points).T[0]
     y_values = np.array(polygon.points).T[1]
@@ -21,9 +22,7 @@ def polygon2bbox(polygon: Shape) -> (float, list):
     ymin = round(y_values.min(), 2)
     xmax = round(x_values.max(), 2)
     ymax = round(y_values.max(), 2)
-    area = (xmax - xmin) * (ymax - ymin)
-    bbox = [xmin, ymin, xmax, ymax]
-    return area, bbox
+    return BBox(x=xmin, y=ymin, width=xmax-xmin, height=ymax-ymin)
 
 def point_inside_polygon(point: Shape, polygon: Shape):
     check_shape_type(shape=point, shape_type='point')
@@ -82,14 +81,14 @@ def labeled_points2keypoints(keypoint_labels: list, labeled_points: list, img_pa
             keypoints.extend(entry)
     return keypoints
 
-def rectangle2bbox(rectangle: Shape):
+def rectangle2bbox(rectangle: Shape) -> BBox:
     check_shape_type(shape=rectangle, shape_type='rectangle')
     p0, p1 = rectangle.points
     xmin = round(min(p0[0], p1[0]), 2)
     xmax = round(max(p0[0], p1[0]), 2)
     ymin = round(min(p0[1], p1[1]), 2)
     ymax = round(max(p0[1], p1[1]), 2)
-    return [xmin, ymin, xmax, ymax]
+    return BBox(x=xmin, y=ymin, width=xmax-xmin, height=ymax-ymin)
 
 def point_inside_rectangle(point: Shape, rectangle: Shape):
     check_shape_type(shape=point, shape_type='point')
@@ -97,7 +96,7 @@ def point_inside_rectangle(point: Shape, rectangle: Shape):
     px = point.points[0][0]
     py = point.points[0][1]
     bbox = rectangle2bbox(rectangle)
-    if px >= bbox[0] and px <= bbox[2] and py >= bbox[1] and py <= bbox[3]:
+    if px >= bbox.xmin and px <= bbox.xmax and py >= bbox.ymin and py <= bbox.ymax:
         return True
     else:
         return False

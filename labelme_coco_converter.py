@@ -145,10 +145,10 @@ class LabelMeCOCOConverter:
                         segmentation_list = []
                         segmentation = polygon2segmentation(polygon)
                         segmentation_list.append(segmentation)
-                        seg_bbox_area, seg_bbox = polygon2bbox(polygon)
+                        seg_bbox = polygon2bbox(polygon)
                         seg_dict[len(seg_dict)] = {
                             'segmentation_list': segmentation_list,
-                            'seg_bbox_area': seg_bbox_area,
+                            'seg_bbox_area': seg_bbox.area,
                             'seg_bbox': seg_bbox,
                             'shape_obj': polygon,
                             'labeled_points': [],
@@ -159,10 +159,9 @@ class LabelMeCOCOConverter:
                 if len(rectangles) > 0:
                     for rectangle in rectangles:
                         bbox = rectangle2bbox(rectangle=rectangle)
-                        bbox_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
                         seg_dict[len(seg_dict)] = {
                             'segmentation_list': [],
-                            'seg_bbox_area': bbox_area,
+                            'seg_bbox_area': bbox.area,
                             'seg_bbox': bbox,
                             'shape_obj': rectangle,
                             'labeled_points': [],
@@ -216,6 +215,7 @@ class LabelMeCOCOConverter:
                     logger.warning(f"{num_keypoints} labeled_points ignored.")
                 
                 image_id = img_id
+                seg_bbox = seg_item['seg_bbox']
                 coco_annotation = COCO_Annotation(
                     segmentation=seg_item['segmentation_list'],
                     num_keypoints=num_keypoints,
@@ -223,7 +223,7 @@ class LabelMeCOCOConverter:
                     iscrowd=0,
                     keypoints=keypoints,
                     image_id=image_id,
-                    bbox=seg_item['seg_bbox'],
+                    bbox=[seg_bbox.xmin, seg_bbox.ymin, seg_bbox.width, seg_bbox.height],
                     category_id=category_id,
                     id=len(coco_annotation_handler.annotation_list)
                 )
