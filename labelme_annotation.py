@@ -90,6 +90,7 @@ class LabelMeAnnotationParser:
         self.shape_handler = None
 
     def load(self):
+        logger.purple(f"Loading: {self.annotation_path}")
         self.load_data()
         self.load_shapes()
         logger.info(f"LabelMe Annotation Loaded: {self.annotation_path}")
@@ -114,7 +115,10 @@ class LabelMeAnnotationParser:
             fill_color = shape['fill_color']
             points = shape['points']
             shape_type = shape['shape_type']
-            flags = shape['flags']
+            flags = shape['flags'] if 'flags' in shape else None
+            if flags is None:
+                logger.warning(f"'flags' field not found in {self.annotation_path}")
+                logger.warning(f"Ignoring flags field. Modify the json if you want to use flags.")
             shape_object = Shape(
                 label=label,
                 line_color=line_color,
