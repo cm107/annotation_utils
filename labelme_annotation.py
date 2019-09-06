@@ -24,6 +24,9 @@ class Shape:
     def __repr__(self):
         return self.__str__()
 
+    def show_full(self):
+        return f"shape_type: {self.shape_type}, label: {self.label}, points: {self.points}"
+
 class ShapeHandler:
     def __init__(self):
         self.polygons = []
@@ -56,6 +59,27 @@ class ShapeHandler:
 
     def __repr__(self):
         return self.__str__()
+
+    def show_full(self):
+        print_str = f"polygons:\n"
+        for polygon in self.polygons:
+            print_str += f"\t{polygon.show_full()}\n"
+        print_str += f"rectangles:\n"
+        for rectangle in self.rectangles:
+            print_str += f"\t{rectangle.show_full()}\n"
+        print_str += f"circles:\n"
+        for circle in self.circles:
+            print_str += f"\t{circle.show_full()}\n"
+        print_str += f"lines:\n"
+        for line in self.lines:
+            print_str += f"\t{line.show_full()}\n"
+        print_str += f"points:\n"
+        for point in self.points:
+            print_str += f"\t{point.show_full()}\n"
+        print_str += f"linestrips:\n"
+        for linestrip in self.linestrips:
+            print_str += f"\t{linestrip.show_full()}\n"
+        return print_str
 
     def add(self, shape: Shape):
         if shape.shape_type == 'polygon':
@@ -149,7 +173,9 @@ class LabelMeAnnotation:
     def load(self):
         parser = LabelMeAnnotationParser(self.annotation_path)
         parser.load()
+        self.copy_from_parser(parser=parser)
 
+    def copy_from_parser(self, parser: LabelMeAnnotationParser):
         self.version = parser.version
         self.flags = parser.flags
         self.shapes = parser.shapes

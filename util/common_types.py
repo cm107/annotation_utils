@@ -1,3 +1,5 @@
+from ...logger.logger_handler import logger
+
 class BBox:
     def __init__(self, x: float, y: float, width: float, height: float):
         self.x = x
