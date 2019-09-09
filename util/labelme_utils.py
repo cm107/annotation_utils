@@ -18,8 +18,9 @@ def write_resized_image(input_path: str, output_path: str, target_size: Size, si
 
 def write_resized_json(
     input_img_path: str, input_json_path: str, output_img_path: str, output_json_path: str,
-    target_size: Size, bound_type: str, silent: bool=False
+    target_size: Size, bound_type: str='rect', silent: bool=False
 ):
+    # Note: bound_type doesn't have any significance right now.
     check_input_path_and_output_dir(input_path=input_img_path, output_path=output_img_path)
     check_input_path_and_output_dir(input_path=input_json_path, output_path=output_json_path)
 
