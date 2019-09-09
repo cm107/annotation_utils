@@ -36,9 +36,6 @@ def write_resized_json(
     orig_size = Size.from_cv2_shape(img.shape)
     resize = Resize(old_size=orig_size, new_size=target_size)
 
-    logger.yellow("Before")
-    logger.purple(parser.shape_handler.show_full())
-
     for shape in parser.shape_handler.points:
         shape.points = resize.on_point(
             Point.from_labelme_point_list(shape.points)
@@ -52,8 +49,8 @@ def write_resized_json(
             Polygon.from_labelme_point_list(shape.points)
         ).to_labelme_format()
 
-    logger.yellow("After")
-    logger.purple(parser.shape_handler.show_full())
+    # Update Shapes
+    parser.shape_handler2shapes()
 
     # Get Info From Resized Image
     check_file_exists(output_img_path)
@@ -61,9 +58,13 @@ def write_resized_json(
     img = cv2.imread(output_img_path)
     parser.img_height, parser.img_width = img.shape[:2]
 
-    # import sys
-    # sys.exit()
-    annotation.copy_from_parser(parser=parser)
+    annotation.copy_from_parser(
+        parser=parser,
+        annotation_path=output_json_path,
+        img_dir=output_img_dir,
+        bound_type='rect'
+    )
+    
     annotation_writer = LabelMeAnnotationWriter(labelme_annotation=annotation)
     annotation_writer.write()
     if not silent:

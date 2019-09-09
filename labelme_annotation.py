@@ -27,6 +27,16 @@ class Shape:
     def show_full(self):
         return f"shape_type: {self.shape_type}, label: {self.label}, points: {self.points}"
 
+    def to_dict(self) -> dict:
+        shape_dict = {}
+        shape_dict['label'] = self.label if not self.hidden else f"&{self.label}"
+        shape_dict['line_color'] = self.line_color
+        shape_dict['fill_color'] = self.fill_color
+        shape_dict['points'] = self.points
+        shape_dict['shape_type'] = self.shape_type
+        shape_dict['flags'] = self.flags
+        return shape_dict
+
 class ShapeHandler:
     def __init__(self):
         self.polygons = []
@@ -98,6 +108,22 @@ class ShapeHandler:
             logger.error(f"Invalid shape_type: {shape.shape_type}")
             raise Exception
 
+    def to_shape_list(self):
+        shape_list = []
+        for shape in self.polygons:
+            shape_list.append(shape.to_dict())
+        for shape in self.rectangles:
+            shape_list.append(shape.to_dict())
+        for shape in self.circles:
+            shape_list.append(shape.to_dict())
+        for shape in self.lines:
+            shape_list.append(shape.to_dict())
+        for shape in self.points:
+            shape_list.append(shape.to_dict())
+        for shape in self.linestrips:
+            shape_list.append(shape.to_dict())
+        return shape_list
+
 class LabelMeAnnotationParser:
     def __init__(self, annotation_path: str):
         self.annotation_path = annotation_path
@@ -153,6 +179,10 @@ class LabelMeAnnotationParser:
             )
             self.shape_handler.add(shape_object)
 
+    def shape_handler2shapes(self):
+        self.shapes = self.shape_handler.to_shape_list()
+
+
 class LabelMeAnnotation:
     def __init__(self, annotation_path: str, img_dir: str, bound_type: str):
         self.annotation_path = annotation_path
@@ -169,13 +199,39 @@ class LabelMeAnnotation:
         self.img_width = None
         self.shape_handler = None
 
+    def __str__(self):
+        print_str = f"annotation_path: {self.annotation_path}"
+        print_str += f"\nimg_dir: {self.img_dir}"
+        print_str += f"\nbound_type: {self.bound_type}"
+        print_str += f"\nversion: {self.version}"
+        print_str += f"\nflags: {self.flags}"
+        print_str += f"\nshapes: {self.shapes}"
+        print_str += f"\nline_color: {self.line_color}"
+        print_str += f"\nfill_color: {self.fill_color}"
+        print_str += f"\nimg_path: {self.img_path}"
+        print_str += f"\nimg_height: {self.img_height}"
+        print_str += f"\nimg_width: {self.img_width}"
+        if self.shape_handler is not None:
+            print_str += f"\nshape_handler:\n{self.shape_handler.show_full()}"
+        else:
+            print_str += f"\nshape_handler:\n{self.shape_handler}"
+        return print_str
+
+    def __repr__(self):
+        return self.__str__()
 
     def load(self):
         parser = LabelMeAnnotationParser(self.annotation_path)
         parser.load()
         self.copy_from_parser(parser=parser)
 
-    def copy_from_parser(self, parser: LabelMeAnnotationParser):
+    def copy_from_parser(self, parser: LabelMeAnnotationParser,
+        annotation_path: str=None, img_dir: str=None, bound_type: str=None
+    ):
+        self.annotation_path = annotation_path if annotation_path is not None else self.annotation_path
+        self.img_dir = img_dir if img_dir is not None else self.img_dir
+        self.bound_type = bound_type if bound_type is not None else self.bound_type
+
         self.version = parser.version
         self.flags = parser.flags
         self.shapes = parser.shapes
