@@ -10,8 +10,8 @@ class COCOAnnotationVisualizer:
         self.visualization_dump_dir = visualization_dump_dir
         self.included_categories = included_categories
 
-    def save(self, coco: COCO, img: dict, anns: list):
-        I = mpimage.imread(f"{self.img_dir}/{img['file_name']}")
+    def save(self, coco: COCO, img: dict, anns: list, filename_key: str='file_name'):
+        I = mpimage.imread(f"{self.img_dir}/{img[filename_key]}")
         plt.axis('off')
         plt.imshow(I)
         ax = plt.gca()
@@ -35,11 +35,13 @@ class COCOAnnotationVisualizer:
         imgs = coco.loadImgs(imgIds)
         return catIds, annIds, imgs
 
-    def generate_visualizations(self):
+    def generate_visualizations(self, filename_key: str='file_name', limit: int=None):
         coco = COCO(annotation_file=self.coco_annotation_path)
         catIds, annIds, imgs = self.get_data(coco)
 
-        for img in imgs:
+        for i, img in zip(range(len(imgs)), imgs):
+            if limit is not None and i >= limit:
+                break
             annIds = coco.getAnnIds(imgIds=img['id'], catIds=catIds, iscrowd=None)
             anns = coco.loadAnns(annIds)
 
@@ -51,4 +53,4 @@ class COCOAnnotationVisualizer:
             if not has_keypoints:
                 continue
 
-            self.save(coco, img, anns)
+            self.save(coco, img, anns, filename_key=filename_key)
