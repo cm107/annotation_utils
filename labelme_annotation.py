@@ -153,7 +153,9 @@ class LabelMeAnnotationParser:
         self.line_color = data['lineColor']
         self.fill_color = data['fillColor']
         img_path = data['imagePath']
-        self.img_path = rel_to_abs_path(f"{get_dirpath_from_filepath(self.annotation_path)}/{img_path}")
+        # get_dirpath_from_filepath(self.annotation_path)
+        # self.img_path = rel_to_abs_path(f"{}/{img_path}")
+        self.img_path = img_path
         self.img_height = data['imageHeight']
         self.img_width = data['imageWidth']
 

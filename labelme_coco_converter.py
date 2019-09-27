@@ -113,6 +113,8 @@ class LabelMeCOCOConverter:
         for annotation in self.labelme_annotation_handler.annotations.values():
             height = annotation.img_height
             filename = get_filename(annotation.img_path)
+            logger.yellow(f"annotation.img_dir: {annotation.img_dir}")
+            logger.purple(f"annotation.img_path: {annotation.img_path}")
             img_path = f"{annotation.img_dir}/{filename}"
             if file_exists(img_path):
                 date_captured = get_ctime(img_path)
