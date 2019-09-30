@@ -4,13 +4,17 @@ from ..common_utils.path_utils import get_all_files_of_extension, get_rootname_f
     get_dirpath_from_filepath, get_filename, get_next_dump_path
 
 class DataMover:
-    def __init__(self, img_src: str, ann_src: str, img_dst: str, ann_dst: str, ann_extension: str, auto_renaming: bool=False):
+    def __init__(
+        self, img_src: str, ann_src: str, img_dst: str, ann_dst: str,
+        ann_extension: str, auto_renaming: bool=False, assume_labelme: bool=False
+    ):
         self.img_src = img_src
         self.ann_src = ann_src
         self.img_dst = img_dst
         self.ann_dst = ann_dst
         self.ann_extension = ann_extension
         self.auto_renaming = auto_renaming
+        self.assume_labelme = assume_labelme
         if not dir_exists(self.img_src):
             logger.error(f"Directory doesn't exist: {self.img_src}")
             raise Exception
@@ -37,7 +41,10 @@ class DataMover:
         if nonempty:
             self.check_dst_size(img_dst_pathlist, ann_dst_pathlist)
             self.check_all_ann_exists_in_img(img_src_pathlist, ann_src_pathlist, img_dst_pathlist, ann_dst_pathlist)
-            self.move_all_src_to_dst(img_src_pathlist, ann_src_pathlist)
+            if not self.assume_labelme:
+                self.move_all_src_to_dst(img_src_pathlist, ann_src_pathlist)
+            else:
+                self.labelme_move_all_src_to_dst(img_dst_pathlist, ann_src_pathlist)
             self.post_move_check()
         else:
             logger.warning(f"Since the src directory is empty, there is nothing to be done.")
@@ -97,6 +104,37 @@ class DataMover:
             self.premove_check(img_src_path, img_dst_path, ann_src_path, ann_dst_path)
             move_file(ann_src_path, ann_dst_path, silent=False)
             move_file(img_src_path, img_dst_path, silent=False)
+
+    def labelme_move_all_src_to_dst(self, img_src_pathlist: list, ann_src_pathlist: list):
+        from .util.labelme_utils import move_annotation
+
+        for ann_src_path in ann_src_pathlist:
+            rootname = get_rootname_from_path(ann_src_path)
+            img_src_path = f"{self.img_src}/{rootname}.png"
+            if not self.auto_renaming:
+                ann_dst_path = f"{self.ann_dst}/{rootname}.{self.ann_extension}"
+                img_dst_path = f"{self.img_dst}/{rootname}.png"
+                
+            else:
+                ann_dst_path = get_next_dump_path(
+                    dump_dir=self.ann_dst,
+                    file_extension=self.ann_extension
+                )
+                rootname = get_rootname_from_path(ann_dst_path)
+                img_dst_path = f"{self.img_dst}/{rootname}.png"
+
+            self.premove_check(img_src_path, img_dst_path, ann_src_path, ann_dst_path)
+            move_file(img_src_path, img_dst_path, silent=False)
+            move_annotation(
+                src_img_path=img_src_path,
+                src_json_path=ann_src_path,
+                dst_img_path=img_dst_path,
+                dst_json_path=ann_dst_path,
+                bound_type='rect'
+            )
+            src_preview = '/'.join(ann_src_path.split('/')[-3:])
+            dest_preview = '/'.join(ann_dst_path.split('/')[-3:])
+            print('Moved {} to {}'.format(src_preview, dest_preview))
 
     def premove_check(self, img_src_path: str, img_dst_path: str, ann_src_path: str, ann_dst_path: str):
         paths_not_found = []

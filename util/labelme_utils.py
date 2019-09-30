@@ -4,6 +4,7 @@ from ...common_utils.check_utils import check_input_path_and_output_dir, check_d
     check_file_exists
 from ...common_utils.image_utils import resize_img
 from ...common_utils.path_utils import get_dirpath_from_filepath
+from ...common_utils.file_utils import delete_file
 from ..labelme_annotation import LabelMeAnnotation, LabelMeAnnotationParser
 from ..labelme_annotation_writer import LabelMeAnnotationWriter
 from ...common_utils.common_types import Point, Rectangle, Polygon, Size, Resize
@@ -70,3 +71,28 @@ def write_resized_json(
     annotation_writer.write()
     if not silent:
         logger.info(f"Wrote resized labelme annotation to {output_json_path}")
+
+def copy_annotation(src_img_path: str, src_json_path: str, dst_img_path: str, dst_json_path: str, bound_type: str):
+    src_img_dir = get_dirpath_from_filepath(src_img_path)
+    dst_img_dir = get_dirpath_from_filepath(dst_img_path)
+    labelme_annotation = LabelMeAnnotation(
+        annotation_path=src_json_path,
+        img_dir=src_img_dir,
+        bound_type=bound_type
+    )
+    labelme_annotation.load()
+    labelme_annotation.img_dir = dst_img_dir
+    labelme_annotation.img_path = dst_img_path
+    labelme_annotation.annotation_path = dst_json_path
+    writer = LabelMeAnnotationWriter(labelme_annotation)
+    writer.write()
+
+def move_annotation(src_img_path: str, src_json_path: str, dst_img_path: str, dst_json_path: str, bound_type: str):
+    copy_annotation(
+        src_img_path=src_img_path,
+        src_json_path=src_json_path,
+        dst_img_path=dst_img_path,
+        dst_json_path=dst_json_path,
+        bound_type=bound_type
+    )
+    delete_file(src_json_path)
