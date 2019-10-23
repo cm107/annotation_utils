@@ -1,6 +1,14 @@
 # annotation_utils
 Utilities that are used for assisting with making annotated data.
 
+## Standard Installation (recommended)
+```console
+pip install git+https://github.com/cm107/annotation_utils#egg=annotation_utils
+```
+
+## Submodule Installation
+See below.
+
 ## Explanation
 This repository is meant to be used as a submodule.
 This repository by itself is a collection of useful methods and classes that relate to creating and managing annotated data.
