@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimage
+import matplotlib.patches as patches
 from pycocotools.coco import COCO
 from logger import logger
 
@@ -10,7 +11,7 @@ class COCOAnnotationVisualizer:
         self.visualization_dump_dir = visualization_dump_dir
         self.included_categories = included_categories
 
-    def save(self, coco: COCO, img: dict, anns: list, filename_key: str='file_name'):
+    def save(self, coco: COCO, img: dict, anns: list, show_bbox: bool=False, filename_key: str='file_name'):
         I = mpimage.imread(f"{self.img_dir}/{img[filename_key]}")
         plt.axis('off')
         plt.imshow(I)
@@ -20,6 +21,15 @@ class COCOAnnotationVisualizer:
         ax.xaxis.set_major_locator(plt.NullLocator())
         ax.yaxis.set_major_locator(plt.NullLocator())
         coco.showAnns(anns)
+
+        if show_bbox:
+            for ann in anns:
+                xmin, ymin, width, height = ann['bbox']
+                # Create a Rectangle patch
+                rect = patches.Rectangle((xmin, ymin), width, height, linewidth=1, edgecolor='yellow', facecolor='none')
+                # Add the patch to the Axes
+                ax.add_patch(rect)
+
         rootname = str(img['id'])
         while len(rootname) < 6:
             rootname = '0' + rootname
@@ -35,7 +45,7 @@ class COCOAnnotationVisualizer:
         imgs = coco.loadImgs(imgIds)
         return catIds, annIds, imgs
 
-    def generate_visualizations(self, filename_key: str='file_name', limit: int=None):
+    def generate_visualizations(self, show_bbox: bool=False, filename_key: str='file_name', limit: int=None):
         coco = COCO(annotation_file=self.coco_annotation_path)
         catIds, annIds, imgs = self.get_data(coco)
 
@@ -53,4 +63,4 @@ class COCOAnnotationVisualizer:
             if not has_keypoints:
                 continue
 
-            self.save(coco, img, anns, filename_key=filename_key)
+            self.save(coco, img, anns, show_bbox=show_bbox, filename_key=filename_key)

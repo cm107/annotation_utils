@@ -97,7 +97,7 @@ class COCO_Writer:
         return categories_list
 
     def write_json_dict(self, json_dict: dict):
-        json.dump(json_dict, open(self.output_path, 'w'))
+        json.dump(json_dict, open(self.output_path, 'w'), indent=2)
         logger.info(f"JSON dict has been written to:\n{self.output_path}")
 
     def test(self):

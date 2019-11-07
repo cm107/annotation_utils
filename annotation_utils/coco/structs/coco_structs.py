@@ -1,5 +1,6 @@
 from logger import logger
-from common_utils.common_types import Point, Keypoint, BoundingBox, Rectangle
+from common_utils.common_types import Point, Keypoint, Rectangle
+from common_utils.common_types.bbox import BBox
 
 class COCO_Info:
     def __init__(
@@ -179,8 +180,8 @@ class COCO_Annotation:
             keypoint_list.append(keypoint)
         return keypoint_list
 
-    def get_bounding_box(self) -> BoundingBox:
-        return BoundingBox(self.bbox[0], self.bbox[1], self.bbox[0]+self.bbox[2], self.bbox[1]+self.bbox[3])
+    def get_bounding_box(self) -> BBox:
+        return BBox.from_list([self.bbox[0], self.bbox[1], self.bbox[0]+self.bbox[2], self.bbox[1]+self.bbox[3]])
 
     def get_rect(self) -> Rectangle:
         return Rectangle(self.bbox[0], self.bbox[1], self.bbox[0]+self.bbox[2], self.bbox[1]+self.bbox[3])
