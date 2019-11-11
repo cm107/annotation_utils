@@ -14,10 +14,9 @@ class COCO_AnnotationFileParser:
         self.annotations = None
         self.categories = None
 
-    def load(self, silent: bool=False):
+    def load(self, verbose: bool=False):
         self.load_data()
-        if not silent:
-            logger.info("COCO Annotation Loaded")
+        if verbose: logger.info("COCO Annotation Loaded")
 
     def get_info(self, info: dict) -> COCO_Info:
         description = info['description']
