@@ -1,6 +1,8 @@
+from __future__ import annotations
 from logger import logger
 from common_utils.common_types import Point, Keypoint, Rectangle
 from common_utils.common_types.bbox import BBox
+from common_utils.path_utils import get_extension_from_filename
 
 class COCO_Info:
     def __init__(
@@ -27,6 +29,16 @@ class COCO_Info:
     def __repr__(self):
         return self.__str__()
 
+    def copy(self) -> COCO_Info:
+        return COCO_Info(
+            description=self.description,
+            url=self.url,
+            version=self.version,
+            year=self.year,
+            contributor=self.contributor,
+            date_created=self.date_created
+        )
+
 class COCO_License:
     def __init__(self, url: str, id: int, name: str):
         self.url = url
@@ -38,6 +50,13 @@ class COCO_License:
 
     def __repr__(self):
         return self.__str__()
+
+    def copy(self) -> COCO_License:
+        return COCO_License(
+            url=self.url,
+            id=self.id,
+            name=self.name
+        )
 
 class COCO_License_Handler:
     def __init__(self):
@@ -53,8 +72,47 @@ class COCO_License_Handler:
     def __repr__(self):
         return self.__str__()
 
+    def copy(self) -> COCO_License_Handler:
+        result = COCO_License_Handler()
+        result.license_list = self.license_list
+        return result
+
     def add(self, coco_license: COCO_License):
         self.license_list.append(coco_license)
+
+    def get_license_from_id(self, id: int) -> COCO_License:
+        license_id_list = []
+        for coco_license in self.license_list:
+            if id == coco_license.id:
+                return coco_license
+            else:
+                license_id_list.append(coco_license.id)
+        license_id_list.sort()
+        logger.error(f"Couldn't find coco_license with id={id}")
+        logger.error(f"Possible ids: {license_id_list}")
+        raise Exception
+
+    def is_in_handler(self, coco_license: COCO_License, ignore_ids: bool=True, check_name_only: bool=False) -> bool:
+        same_url = False
+        same_id = False
+        same_name = False
+
+        found = False
+
+        for existing_coco_license in self.license_list:
+            same_url = True if existing_coco_license.url == coco_license.url else False
+            same_id = True if existing_coco_license.id == coco_license.id else False
+            same_name = True if existing_coco_license.name == coco_license.name else False
+            if check_name_only:
+                found = same_name
+            else:
+                if ignore_ids:
+                    found = same_url and same_name
+                else:
+                    found = same_url and same_name and same_id
+            if found:
+                break
+        return found
 
 class COCO_Image:
     def __init__(
@@ -85,6 +143,18 @@ class COCO_Image:
     def __repr__(self):
         return self.__str__()
 
+    def copy(self) -> COCO_Image:
+        return COCO_Image(
+            license_id=self.license_id,
+            file_name=self.file_name,
+            coco_url=self.coco_url,
+            height=self.height,
+            width=self.width,
+            date_captured=self.date_captured,
+            flickr_url=self.flickr_url,
+            id=self.id
+        )
+
 class COCO_Image_Handler:
     def __init__(self):
         self.image_list = []
@@ -99,11 +169,71 @@ class COCO_Image_Handler:
     def __repr__(self):
         return self.__str__()
 
+    def copy(self) -> COCO_Image_Handler:
+        result = COCO_Image_Handler()
+        result.image_list = self.image_list
+        return result
+
     def add(self, coco_image: COCO_Image):
         self.image_list.append(coco_image)
 
+    def get_image_from_id(self, id: int) -> COCO_Image:
+        image_id_list = []
+        for coco_image in self.image_list:
+            if id == coco_image.id:
+                return coco_image
+            else:
+                image_id_list.append(coco_image.id)
+        image_id_list.sort()
+        logger.error(f"Couldn't find coco_image with id={id}")
+        logger.error(f"Possible ids: {image_id_list}")
+        raise Exception
+
+    def get_extensions(self) -> list:
+        extension_list = []
+        for coco_image in self.image_list:
+            extension = get_extension_from_filename(coco_image.file_name)
+            if extension not in extension_list:
+                extension_list.append(extension)
+        return extension_list
+
     def get_images_from_imgIds(self, imgIds: list):		
 	        return [x for x in self.image_list if x.id in imgIds]
+
+    def is_in_handler(self, coco_image: COCO_Image, ignore_ids: bool=True, check_file_name_only: bool=False) -> bool:
+        same_license_id = False
+        same_file_name = False
+        same_coco_url = False
+        same_height = False
+        same_width = False
+        same_date_captured = False
+        same_flickr_url = False
+        same_id = False
+
+        found = False
+
+        for existing_coco_image in self.image_list:
+            same_file_name = True if existing_coco_image.file_name == coco_image.file_name else False
+            same_coco_url = True if existing_coco_image.coco_url == coco_image.coco_url else False
+            same_height = True if existing_coco_image.height == coco_image.height else False
+            same_width = True if existing_coco_image.width == coco_image.width else False
+            same_date_captured = True if existing_coco_image.date_captured == coco_image.date_captured else False
+            same_flickr_url = True if existing_coco_image.flickr_url == coco_image.flickr_url else False
+            same_license_id = True if existing_coco_image.license_id == coco_image.license_id else False
+            same_id = True if existing_coco_image.id == coco_image.id else False
+            if check_file_name_only:
+                found = same_file_name
+            else:
+                if ignore_ids:
+                    found = same_file_name and same_coco_url and same_height and same_width and \
+                        same_date_captured and same_flickr_url
+                else:
+                    found = same_file_name and same_coco_url and same_height and same_width and \
+                        same_date_captured and same_flickr_url and same_license_id and same_id
+            if found:
+                break
+        return found
+
 
 class COCO_Annotation:
     def __init__(
@@ -141,6 +271,19 @@ class COCO_Annotation:
 
     def __repr__(self):
         return self.__str__()
+
+    def copy(self) -> COCO_Annotation:
+        return COCO_Annotation(
+            segmentation=self.segmentation,
+            num_keypoints=self.num_keypoints,
+            area=self.area,
+            iscrowd=self.iscrowd,
+            keypoints=self.keypoints,
+            image_id=self.image_id,
+            bbox=self.bbox,
+            category_id=self.category_id,
+            id=self.id
+        )
 
     def _chunk2pointlist(self, chunk: list) -> list:
         if len(chunk) % 2 != 0:
@@ -200,13 +343,30 @@ class COCO_Annotation_Handler:
     def __repr__(self):
         return self.__str__()
 
+    def copy(self) -> COCO_Annotation_Handler:
+        result = COCO_Annotation_Handler()
+        result.annotation_list = self.annotation_list
+        return result
+
     def add(self, coco_annotation: COCO_Annotation):
         self.annotation_list.append(coco_annotation)
 
-    def get_annotations_from_annIds(self, annIds: list):		
+    def get_annotation_from_id(self, id: int) -> COCO_Annotation:
+        annotation_id_list = []
+        for coco_annotation in self.annotation_list:
+            if id == coco_annotation.id:
+                return coco_annotation
+            else:
+                annotation_id_list.append(coco_annotation.id)
+        annotation_id_list.sort()
+        logger.error(f"Couldn't find coco_annotation with id={id}")
+        logger.error(f"Possible ids: {annotation_id_list}")
+        raise Exception
+
+    def get_annotations_from_annIds(self, annIds: list) -> list:		
         return [x for x in self.annotation_list if x.id in annIds]		
         
-    def get_annotations_from_imgIds(self, imgIds: list):		
+    def get_annotations_from_imgIds(self, imgIds: list) -> list:		
         return [x for x in self.annotation_list if x.image_id in imgIds]
 
 class COCO_Category:
@@ -233,7 +393,16 @@ class COCO_Category:
     def __repr__(self):
         return self.__str__()
 
-    def get_label_skeleton(self):
+    def copy(self) -> COCO_Category:
+        return COCO_Category(
+            supercategory=self.supercategory,
+            id=self.id,
+            name=self.name,
+            keypoints=self.keypoints,
+            skeleton=self.skeleton
+        )
+
+    def get_label_skeleton(self) -> list:
         str_skeleton = []
         for int_bone in self.skeleton:
             bone_start = self.keypoints[int_bone[0]-1] 
@@ -256,13 +425,18 @@ class COCO_Category_Handler:
     def __repr__(self):
         return self.__str__()
 
+    def copy(self) -> COCO_Category_Handler:
+        result = COCO_Category_Handler()
+        result.category_list = self.category_list
+        return result
+
     def add(self, coco_category: COCO_Category):
         self.category_list.append(coco_category)
 
-    def get_categories_from_name(self, name: str):		
+    def get_categories_from_name(self, name: str) -> list:		
         return [x for x in self.category_list if x.name == name]
 
-    def get_unique_category_from_name(self, name: str):
+    def get_unique_category_from_name(self, name: str) -> COCO_Category:
         found_categories = self.get_categories_from_name(name)
         if len(found_categories) == 0:
             logger.error(f"Couldn't find any categories by the name: {name}")
@@ -275,8 +449,46 @@ class COCO_Category_Handler:
             raise Exception
         return found_categories[0]
 
+    def get_category_from_id(self, id: int) -> COCO_Category:
+        category_id_list = []
+        for coco_category in self.category_list:
+            if id == coco_category.id:
+                return coco_category
+            else:
+                category_id_list.append(coco_category.id)
+        category_id_list.sort()
+        logger.error(f"Couldn't find coco_category with id={id}")
+        logger.error(f"Possible ids: {category_id_list}")
+        raise Exception
+
     def get_skeleton_from_name(self, name: str) -> (list, list):
         unique_category = self.get_unique_category_from_name(name)
         skeleton = unique_category.skeleton
         label_skeleton = unique_category.get_label_skeleton()
         return skeleton, label_skeleton
+
+    def is_in_handler(self, coco_category: COCO_Category, ignore_ids: bool=True, check_name_only: bool=True) -> bool:
+        same_supercategory = False
+        same_id = False
+        same_name = False
+        same_keypoints = False
+        same_skeleton = False
+
+        found = False
+
+        for existing_coco_category in self.category_list:
+            same_supercategory = True if existing_coco_category.supercategory == coco_category.supercategory else False
+            same_id = True if existing_coco_category.id == coco_category.id else False
+            same_name = True if existing_coco_category.name == coco_category.name else False
+            same_keypoints = True if existing_coco_category.keypoints == coco_category.keypoints else False
+            same_skeleton = True if existing_coco_category.skeleton == coco_category.skeleton else False
+            if check_name_only:
+                found = same_name
+            else:
+                if ignore_ids:
+                    found = same_supercategory and same_name and same_keypoints and same_skeleton
+                else:
+                    found = same_supercategory and same_name and same_keypoints and same_skeleton and same_id
+            if found:
+                break
+        return found

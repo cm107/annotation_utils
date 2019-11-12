@@ -1,7 +1,9 @@
+from __future__ import annotations
 import json
 from logger import logger
 from ..structs import COCO_Info, COCO_License_Handler, \
     COCO_Image_Handler, COCO_Annotation_Handler, COCO_Category_Handler
+from ...util.utils.coco import COCO_Field_Buffer
 
 class COCO_Writer:
     def __init__(
@@ -16,6 +18,17 @@ class COCO_Writer:
         self.categories = categories
 
         self.output_path = output_path
+
+    @classmethod
+    def from_buffer(self, buffer: COCO_Field_Buffer, output_path: str) -> COCO_Writer:
+        return COCO_Writer(
+            info=buffer.info,
+            licenses=buffer.licenses,
+            images=buffer.images,
+            annotations=buffer.annotations,
+            categories=buffer.categories,
+            output_path=output_path
+        )
 
     def build_json_dict(self, verbose: bool=False) -> dict:
         info_dict = self.get_info_dict()

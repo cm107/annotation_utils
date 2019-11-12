@@ -1,7 +1,9 @@
+from __future__ import annotations
 import json
 from logger import logger
 from ..structs import COCO_Info, COCO_License_Handler, \
     COCO_Image_Handler, COCO_Annotation_Handler, COCO_Category_Handler
+from ...util.utils.coco import COCO_Field_Buffer
 
 class COCO_Writer:
     def __init__(
@@ -17,7 +19,18 @@ class COCO_Writer:
 
         self.output_path = output_path
 
-    def build_json_dict(self) -> dict:
+    @classmethod
+    def from_buffer(self, buffer: COCO_Field_Buffer, output_path: str) -> COCO_Writer:
+        return COCO_Writer(
+            info=buffer.info,
+            licenses=buffer.licenses,
+            images=buffer.images,
+            annotations=buffer.annotations,
+            categories=buffer.categories,
+            output_path=output_path
+        )
+
+    def build_json_dict(self, verbose: bool=False) -> dict:
         info_dict = self.get_info_dict()
         licenses_list = self.get_licenses_list()
         images_list = self.get_images_list()
@@ -30,7 +43,7 @@ class COCO_Writer:
         json_dict['images'] = images_list
         json_dict['annotations'] = annotations_list
         json_dict['categories'] = categories_list
-        logger.info("COCO json has been built successfully.")
+        if verbose: logger.info("COCO json has been built successfully.")
         return json_dict
     
     def get_info_dict(self) -> dict:
@@ -96,9 +109,9 @@ class COCO_Writer:
             categories_list.append(category_dict)
         return categories_list
 
-    def write_json_dict(self, json_dict: dict):
+    def write_json_dict(self, json_dict: dict, verbose: bool=False):
         json.dump(json_dict, open(self.output_path, 'w'), indent=2)
-        logger.info(f"JSON dict has been written to:\n{self.output_path}")
+        if verbose: logger.info(f"JSON dict has been written to:\n{self.output_path}")
 
     def test(self):
         json_dict = self.build_json_dict()
