@@ -5,7 +5,7 @@ from logger import logger
 
 from common_utils.path_utils import get_next_dump_path
 from common_utils.file_utils import dir_exists, delete_all_files_in_dir, make_dir_if_not_exists, make_dir, copy_file
-from common_utils.path_utils import get_filename, get_dirpath_from_filepath
+from common_utils.path_utils import get_filename, get_dirpath_from_filepath, get_extension_from_path, get_extension_from_filename
 
 from ..annotation import COCO_AnnotationFileParser
 from ..structs import \
@@ -188,19 +188,6 @@ class COCO_Splitter:
             )
 
     def load_split(self, preserve_filenames: bool=False, verbose: bool=False):
-        img_extension_list = self.buffer.images.get_extensions()
-        if len(img_extension_list) == 0:
-            logger.error(f"Couldn't find any image extensions in buffer.")
-            raise Exception
-        elif len(img_extension_list) > 1:
-            logger.error(f"Found more than one image extension in buffer.")
-            logger.error(f"Found the following extensions: {img_extension_list}")
-            raise Exception
-        elif len(img_extension_list) == 1:
-            img_extension = img_extension_list[0]
-        else:
-            raise Exception
-
         self.setup_directories(verbose=verbose)
         random.shuffle(self.buffer.images.image_list)
         train_image_list, test_image_list, val_image_list = self.split_image_list(image_list=self.buffer.images.image_list)
@@ -217,6 +204,7 @@ class COCO_Splitter:
             for coco_image in image_list:
                 image_id = coco_image.id
                 if not preserve_filenames:
+                    img_extension = get_extension_from_filename(coco_image.file_name)
                     new_img_filename = get_filename(get_next_dump_path(dump_dir=dest_img_dir, file_extension=img_extension))
                     self.copy_image(coco_image=coco_image, dest_img_dir=dest_img_dir, new_img_filename=new_img_filename, verbose=verbose)
                 else:

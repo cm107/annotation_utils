@@ -31,9 +31,11 @@ class COCO_Annotations_Combiner:
             added_new, old_id, new_id = self.buffer.process_license(coco_license=coco_license, id_mapper=self.id_mapper, unique_key=ann_key)
             if verbose: print_id_update(added_new=added_new, old_id=old_id, new_id=new_id)
 
-    def add_images(self, ann_key: str, coco_image_handler: COCO_Image_Handler, verbose: bool=False):
+    def add_images(self, ann_key: str, coco_image_handler: COCO_Image_Handler, img_dir: str, update_img_paths: bool=True, verbose: bool=False):
         for coco_image in coco_image_handler.image_list:
-            added_new, old_id, new_id = self.buffer.process_image(coco_image=coco_image, id_mapper=self.id_mapper, unique_key=ann_key)
+            added_new, old_id, new_id = self.buffer.process_image(
+                coco_image=coco_image, id_mapper=self.id_mapper, unique_key=ann_key, img_dir=img_dir, update_img_path=update_img_paths
+            )
             if verbose: print_id_update(added_new=added_new, old_id=old_id, new_id=new_id)
 
     def add_annotations(self, ann_key: str, coco_annotation_handler: COCO_Annotation_Handler, verbose: bool=False):
@@ -50,7 +52,7 @@ class COCO_Annotations_Combiner:
             )
             if verbose: print_id_update(added_new=added_new, old_id=old_id, new_id=new_id)
 
-    def load_combined(self, verbose: bool=False, detailed_verbose: bool=False):
+    def load_combined(self, update_img_paths: bool=True, verbose: bool=False, detailed_verbose: bool=False):
         for i, [img_dir, ann_path] in enumerate(zip(self.img_dir_list, self.ann_path_list)):
             if verbose: logger.info(f"{i}: Parsing {img_dir}, {ann_path}")
             parser = COCO_AnnotationFileParser(annotation_path=ann_path)
@@ -58,7 +60,7 @@ class COCO_Annotations_Combiner:
             if verbose: logger.good("Annotations Loaded")
             self.add_licenses(ann_key=ann_path, coco_license_handler=parser.licenses, verbose=detailed_verbose)
             if verbose: logger.good(f"Licenses Updated")
-            self.add_images(ann_key=ann_path, coco_image_handler=parser.images, verbose=detailed_verbose)
+            self.add_images(ann_key=ann_path, coco_image_handler=parser.images, img_dir=img_dir, update_img_paths=update_img_paths, verbose=detailed_verbose)
             if verbose: logger.good(f"Images Updated")
             self.add_categories(ann_key=ann_path, coco_category_handler=parser.categories, verbose=detailed_verbose)
             if verbose: logger.good(f"Categories Updated")

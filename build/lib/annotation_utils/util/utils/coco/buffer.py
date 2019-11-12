@@ -2,6 +2,7 @@ from __future__ import annotations
 from logger import logger
 from common_utils.time_utils import get_present_year, get_present_time_Ymd
 from common_utils.user_utils import get_username
+from common_utils.path_utils import get_filename
 
 from ....coco.structs import COCO_Info, \
     COCO_License, COCO_Image, COCO_Annotation, COCO_Category, \
@@ -108,8 +109,18 @@ class COCO_Field_Buffer:
         )
         return added_new, old_id, new_id
 
-    def process_image(self, coco_image: COCO_Image, id_mapper: COCO_Mapper_Handler, unique_key: str) -> (bool, int, int):
+    def process_image(self, coco_image: COCO_Image, id_mapper: COCO_Mapper_Handler, unique_key: str, img_dir: str=None, update_img_path: bool=False) -> (bool, int, int):
         pending_coco_image = coco_image.copy()
+
+        if update_img_path:
+            if img_dir is None:
+                logger.error(f"img_dir is required in order to update the img_path")
+                raise Exception
+            coco_url_filename = get_filename(pending_coco_image.coco_url)
+            if coco_url_filename != pending_coco_image.file_name:
+                logger.error(f"coco_url_filename == {coco_url_filename} != pending_coco_image.file_name == {pending_coco_image.file_name}")
+                raise Exception
+            pending_coco_image.coco_url = f"{img_dir}/{coco_url_filename}"
 
         # No checks should be necessary
         old_id = pending_coco_image.id
