@@ -11,7 +11,7 @@ Description: # annotation_utils
         
         ## Standard Installation (recommended)
         ```console
-        pip install git+https://github.com/cm107/annotation_utils#egg=annotation_utils
+        pip install https://github.com/cm107/annotation_utils/archive/python3.6.zip
         ```
         
         ## Submodule Installation

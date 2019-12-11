@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logger import logger
 from common_utils.common_types import Point, Keypoint, Rectangle
 from common_utils.common_types.bbox import BBox
@@ -29,7 +28,7 @@ class COCO_Info:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Info:
+    def copy(self):
         return COCO_Info(
             description=self.description,
             url=self.url,
@@ -51,7 +50,7 @@ class COCO_License:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_License:
+    def copy(self):
         return COCO_License(
             url=self.url,
             id=self.id,
@@ -72,7 +71,7 @@ class COCO_License_Handler:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_License_Handler:
+    def copy(self):
         result = COCO_License_Handler()
         result.license_list = self.license_list
         return result
@@ -143,7 +142,7 @@ class COCO_Image:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Image:
+    def copy(self):
         return COCO_Image(
             license_id=self.license_id,
             file_name=self.file_name,
@@ -169,7 +168,7 @@ class COCO_Image_Handler:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Image_Handler:
+    def copy(self):
         result = COCO_Image_Handler()
         result.image_list = self.image_list
         return result
@@ -272,7 +271,7 @@ class COCO_Annotation:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Annotation:
+    def copy(self):
         return COCO_Annotation(
             segmentation=self.segmentation,
             num_keypoints=self.num_keypoints,
@@ -343,7 +342,7 @@ class COCO_Annotation_Handler:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Annotation_Handler:
+    def copy(self):
         result = COCO_Annotation_Handler()
         result.annotation_list = self.annotation_list
         return result
@@ -393,7 +392,7 @@ class COCO_Category:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Category:
+    def copy(self):
         return COCO_Category(
             supercategory=self.supercategory,
             id=self.id,
@@ -425,7 +424,7 @@ class COCO_Category_Handler:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Category_Handler:
+    def copy(self):
         result = COCO_Category_Handler()
         result.category_list = self.category_list
         return result

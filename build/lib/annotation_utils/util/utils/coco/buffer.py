@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logger import logger
 from common_utils.time_utils import get_present_year, get_present_time_Ymd
 from common_utils.user_utils import get_username
@@ -23,7 +22,7 @@ class COCO_Field_Buffer:
         self.categories = categories
 
     @classmethod
-    def from_scratch(self, description: str, url: str, version: str='1.0') -> COCO_Field_Buffer:
+    def from_scratch(self, description: str, url: str, version: str='1.0'):
         info = COCO_Info(
             description=description,
             url=url,
