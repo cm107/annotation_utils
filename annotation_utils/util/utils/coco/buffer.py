@@ -45,7 +45,7 @@ class COCO_Field_Buffer:
     def from_parser(
         self, parser: COCO_AnnotationFileParser,
         new_description: str=None, new_url: str=None, new_version: str='1.0'
-    ) -> COCO_Field_Buffer:
+    ):
         info = parser.info
         info.description = new_description if new_description is not None else info.description
         info.url = new_url if new_url is not None else info.url
