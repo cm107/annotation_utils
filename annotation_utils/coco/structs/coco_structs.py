@@ -342,7 +342,7 @@ class COCO_Annotation_Handler:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Annotation_Handler:
+    def copy(self):
         result = COCO_Annotation_Handler()
         result.annotation_list = self.annotation_list
         return result
@@ -392,7 +392,7 @@ class COCO_Category:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Category:
+    def copy(self):
         return COCO_Category(
             supercategory=self.supercategory,
             id=self.id,
@@ -424,7 +424,7 @@ class COCO_Category_Handler:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> COCO_Category_Handler:
+    def copy(self):
         result = COCO_Category_Handler()
         result.category_list = self.category_list
         return result
