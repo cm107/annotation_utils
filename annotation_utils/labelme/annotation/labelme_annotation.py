@@ -1,6 +1,9 @@
+from __future__ import annotations
 import json
 from logger import logger
 from common_utils.path_utils import rel_to_abs_path, get_dirpath_from_filepath
+
+# TODO: These classes really need to be refactored.
 
 class Shape:
     def __init__(self, label: str, line_color: str, fill_color: str, points: list, shape_type: str, flags: str):
@@ -22,6 +25,20 @@ class Shape:
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def buffer(self, shape: Shape) -> Shape:
+        return shape
+
+    def copy(self) -> Shape:
+        return Shape(
+            label=self.label,
+            line_color=self.line_color,
+            fill_color=self.fill_color,
+            points=self.points,
+            shape_type=self.shape_type,
+            flags=self.flags
+        )
 
     def show_full(self):
         return f"shape_type: {self.shape_type}, label: {self.label}, points: {self.points}"
@@ -220,6 +237,23 @@ class LabelMeAnnotation:
 
     def __repr__(self):
         return self.__str__()
+
+    def copy(self) -> LabelMeAnnotation:
+        labelme_annotation = LabelMeAnnotation(
+            annotation_path=self.annotation_path,
+            img_dir=self.img_dir,
+            bound_type=self.bound_type
+        )
+        labelme_annotation.version = self.version
+        labelme_annotation.flags = self.flags
+        labelme_annotation.shapes = self.shapes
+        labelme_annotation.line_color = self.line_color
+        labelme_annotation.fill_color = self.fill_color
+        labelme_annotation.img_path = self.img_path
+        labelme_annotation.img_height = self.img_height
+        labelme_annotation.img_width = self.img_width
+        labelme_annotation.shape_handler = self.shape_handler
+        return labelme_annotation
 
     def load(self):
         parser = LabelMeAnnotationParser(self.annotation_path)
