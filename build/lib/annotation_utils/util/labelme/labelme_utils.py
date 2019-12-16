@@ -9,8 +9,7 @@ from common_utils.file_utils import delete_file
 from ...labelme.annotation import LabelMeAnnotation, LabelMeAnnotationParser, Shape, ShapeHandler
 from ...labelme.writer import LabelMeAnnotationWriter
 from common_utils.common_types import Point, Rectangle, Polygon, Size, Resize
-# from common_utils.common_types.bbox import BBox
-from ....common_utils.common_types.bbox import BBox
+from common_utils.common_types.bbox import BBox
 from ...labelme.writer import LabelMeAnnotationWriter
 
 def write_cropped_image(src_path: str, dst_path: str, bbox: BBox, verbose: bool=False):
