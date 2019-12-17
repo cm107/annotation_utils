@@ -33,7 +33,8 @@ setup(
         'pycocotools>=2.0.0',
         'pylint>=2.4.2',
         'labelme>=3.16.7',
-        'common_utils @ https://github.com/cm107/common_utils/archive/master.zip#egg=common_utils-0.1',
+        'PyYAML>=5.1.2',
+        'common_utils @ https://github.com/cm107/common_utils/archive/python3.6.zip#egg=common_utils-0.1',
         'logger @ https://github.com/cm107/logger/archive/master.zip#egg=logger-0.1'
     ],
     python_requires='>=3.6'
