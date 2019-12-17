@@ -74,9 +74,9 @@ class DatasetPathConfig:
     def write_config(self, dest_path: str, verbose: bool=False):
         extension = get_extension_from_path(dest_path)
         if extension == 'yaml':
-            yaml.dump(self.data, open(dest_path, 'w'))
+            yaml.dump(self.data, open(dest_path, 'w'), allow_unicode=True)
         elif extension == 'json':
-            json.dump(self.data, open(dest_path, 'w'), indent=2)
+            json.dump(self.data, open(dest_path, 'w'), indent=2, ensure_ascii=False)
         else:
             logger.error(f"Invalid extension: {extension}")
             logger.error(f"Valid file extensions: {self.valid_extensions}")
