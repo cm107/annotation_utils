@@ -3,7 +3,7 @@ Utilities that are used for assisting with making annotated data.
 
 ## Standard Installation (recommended)
 ```console
-pip install git+https://github.com/cm107/annotation_utils#egg=annotation_utils
+pip install https://github.com/cm107/annotation_utils/archive/v0.1.zip
 ```
 
 ## Submodule Installation

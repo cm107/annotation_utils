@@ -11,7 +11,7 @@ Description: # annotation_utils
         
         ## Standard Installation (recommended)
         ```console
-        pip install git+https://github.com/cm107/annotation_utils#egg=annotation_utils
+        pip install https://github.com/cm107/annotation_utils/archive/v0.1.zip
         ```
         
         ## Submodule Installation
@@ -71,5 +71,5 @@ Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
