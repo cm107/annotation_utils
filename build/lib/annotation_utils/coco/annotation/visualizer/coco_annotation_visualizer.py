@@ -60,7 +60,7 @@ class COCOAnnotationVisualizer:
                 if ann['num_keypoints'] > 0:
                     has_keypoints = True
                     break
-            if not has_keypoints:
+            if not has_keypoints and not show_bbox:
                 continue
 
             self.save(coco, img, anns, show_bbox=show_bbox, filename_key=filename_key)

@@ -53,6 +53,78 @@ class Shape:
         shape_dict['flags'] = self.flags
         return shape_dict
 
+class PolygonShape(Shape):
+    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+        super().__init__(
+            label=label,
+            line_color=line_color,
+            fill_color=fill_color,
+            points=points,
+            shape_type='polygon',
+            flags=flags
+        )
+        raise NotImplementedError
+
+class RectangleShape(Shape):
+    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+        super().__init__(
+            label=label,
+            line_color=line_color,
+            fill_color=fill_color,
+            points=points,
+            shape_type='rectangle',
+            flags=flags
+        )
+        raise NotImplementedError
+
+class CircleShape(Shape):
+    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+        super().__init__(
+            label=label,
+            line_color=line_color,
+            fill_color=fill_color,
+            points=points,
+            shape_type='circle',
+            flags=flags
+        )
+        raise NotImplementedError
+
+class LineShape(Shape):
+    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+        super().__init__(
+            label=label,
+            line_color=line_color,
+            fill_color=fill_color,
+            points=points,
+            shape_type='line',
+            flags=flags
+        )
+        raise NotImplementedError
+
+class PointShape(Shape):
+    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+        super().__init__(
+            label=label,
+            line_color=line_color,
+            fill_color=fill_color,
+            points=points,
+            shape_type='point',
+            flags=flags
+        )
+        raise NotImplementedError
+
+class LinestripShape(Shape):
+    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+        super().__init__(
+            label=label,
+            line_color=line_color,
+            fill_color=fill_color,
+            points=points,
+            shape_type='linestrip',
+            flags=flags
+        )
+        raise NotImplementedError
+
 class ShapeHandler:
     def __init__(self):
         self.polygons = []
