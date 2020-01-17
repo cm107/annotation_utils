@@ -34,8 +34,8 @@ setup(
         'pylint>=2.4.2',
         'labelme>=3.16.7',
         'PyYAML>=5.1.2',
-        'common_utils @ https://github.com/cm107/common_utils/archive/v0.1.zip#egg=common_utils-0.1',
-        'logger @ https://github.com/cm107/logger/archive/v0.1.zip#egg=logger-0.1'
+        'common_utils @ https://github.com/cm107/common_utils/archive/master.zip#egg=common_utils-0.1',
+        'logger @ https://github.com/cm107/logger/archive/master.zip#egg=logger-0.1'
     ],
     python_requires='>=3.7'
 )
