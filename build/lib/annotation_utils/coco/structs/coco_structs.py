@@ -29,6 +29,10 @@ class COCO_Info:
     def __repr__(self):
         return self.__str__()
 
+    @classmethod
+    def buffer(self, coco_info: COCO_Info) -> COCO_Info:
+        return coco_info
+
     def copy(self) -> COCO_Info:
         return COCO_Info(
             description=self.description,
@@ -50,6 +54,10 @@ class COCO_License:
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def buffer(self, coco_license: COCO_License) -> COCO_License:
+        return coco_license
 
     def copy(self) -> COCO_License:
         return COCO_License(
@@ -143,6 +151,10 @@ class COCO_Image:
     def __repr__(self):
         return self.__str__()
 
+    @classmethod
+    def buffer(self, coco_image: COCO_Image) -> COCO_Image:
+        return coco_image
+
     def copy(self) -> COCO_Image:
         return COCO_Image(
             license_id=self.license_id,
@@ -188,6 +200,27 @@ class COCO_Image_Handler:
         logger.error(f"Couldn't find coco_image with id={id}")
         logger.error(f"Possible ids: {image_id_list}")
         raise Exception
+
+    def get_images_from_file_name(self, file_name: str) -> list:
+        image_list = []
+        for coco_image in self.image_list:
+            if file_name == coco_image.file_name:
+                image_list.append(coco_image)
+        return image_list
+
+    def get_images_from_coco_url(self, coco_url: str) -> list:
+        image_list = []
+        for coco_image in self.image_list:
+            if coco_url == coco_image.coco_url:
+                image_list.append(coco_image)
+        return image_list
+
+    def get_images_from_flickr_url(self, flickr_url: str) -> list:
+        image_list = []
+        for coco_image in self.image_list:
+            if flickr_url == coco_image.flickr_url:
+                image_list.append(coco_image)
+        return image_list
 
     def get_extensions(self) -> list:
         extension_list = []
@@ -271,6 +304,10 @@ class COCO_Annotation:
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def buffer(self, coco_annotation: COCO_Annotation) -> COCO_Annotation:
+        return coco_annotation
 
     def copy(self) -> COCO_Annotation:
         return COCO_Annotation(
@@ -392,6 +429,10 @@ class COCO_Category:
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def buffer(self, coco_category: COCO_Category) -> COCO_Category:
+        return coco_category
 
     def copy(self) -> COCO_Category:
         return COCO_Category(
