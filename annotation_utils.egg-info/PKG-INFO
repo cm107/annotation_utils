@@ -11,7 +11,7 @@ Description: # annotation_utils
         
         ## Standard Installation (recommended)
         ```console
-        pip install https://github.com/cm107/annotation_utils/archive/v0.1.zip
+        pip install https://github.com/cm107/annotation_utils/archive/master.zip
         ```
         
         ## Submodule Installation
