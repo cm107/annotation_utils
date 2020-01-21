@@ -53,11 +53,11 @@ class COCO_AnnotationFileParser:
         for image_dict in images:
             license_id = image_dict['license']
             file_name = image_dict['file_name']
-            coco_url = image_dict['coco_url']
+            coco_url = image_dict['coco_url'] if 'coco_url' in image_dict else None
             height = image_dict['height']
             width = image_dict['width']
             date_captured = image_dict['date_captured']
-            flickr_url = image_dict['flickr_url']
+            flickr_url = image_dict['flickr_url'] if 'flickr_url' in image_dict else None
             id = image_dict['id']
             coco_image = COCO_Image(
                 license_id=license_id,

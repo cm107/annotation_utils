@@ -1,11 +1,25 @@
+import cv2
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimage
 import matplotlib.patches as patches
 from pycocotools.coco import COCO
 from logger import logger
+from common_utils.file_utils import delete_dir_if_exists, make_dir, file_exists
+from common_utils.path_utils import get_rootname_from_filename, get_extension_from_filename
+from src.submodules.pkg_dev.common_utils.cv_drawing_utils import draw_bbox, draw_segmentation, draw_skeleton, draw_keypoints
+from common_utils.common_types.segmentation import Segmentation
 
-class COCOAnnotationVisualizer:
-    def __init__(self, img_dir: str, coco_annotation_path: str, visualization_dump_dir: str, included_categories: list):
+from ..coco_annotation import COCO_AnnotationFileParser
+from ...structs import COCO_Image, COCO_Annotation
+
+class COCO_API_COCOAnnotationVisualizer:
+    """
+    Obsolete. Please use COCOAnnotationVisualizer instead.
+    """
+    def __init__(
+        self, img_dir: str, coco_annotation_path: str, visualization_dump_dir: str, included_categories: list
+    ):
         self.img_dir = img_dir
         self.coco_annotation_path = coco_annotation_path
         self.visualization_dump_dir = visualization_dump_dir
@@ -33,7 +47,7 @@ class COCOAnnotationVisualizer:
         rootname = str(img['id'])
         while len(rootname) < 6:
             rootname = '0' + rootname
-        img_filename = f"{rootname}.png"
+        img_filename = f"{rootname}.jpg"
         plt.savefig(f'{self.visualization_dump_dir}/{img_filename}', bbox_inches='tight', pad_inches=0)
         logger.info(f'Created {self.visualization_dump_dir}/{img_filename}')
         plt.clf()
@@ -46,10 +60,12 @@ class COCOAnnotationVisualizer:
         return catIds, annIds, imgs
 
     def generate_visualizations(self, show_bbox: bool=False, filename_key: str='file_name', limit: int=None):
+        delete_dir_if_exists(self.visualization_dump_dir)
+        make_dir(self.visualization_dump_dir)
         coco = COCO(annotation_file=self.coco_annotation_path)
         catIds, annIds, imgs = self.get_data(coco)
 
-        for i, img in zip(range(len(imgs)), imgs):
+        for i, img in enumerate(imgs):
             if limit is not None and i >= limit:
                 break
             annIds = coco.getAnnIds(imgIds=img['id'], catIds=catIds, iscrowd=None)
@@ -64,3 +80,99 @@ class COCOAnnotationVisualizer:
                 continue
 
             self.save(coco, img, anns, show_bbox=show_bbox, filename_key=filename_key)
+
+class COCOAnnotationVisualizer:
+    """
+    Visualize COCO Annotations given the annotation json path and corresponding image directory.
+    """
+    def __init__(
+        self, img_dir: str, coco_annotation_path: str, visualization_dump_dir: str, included_categories: list,
+        bbox_color: list=[0, 255, 255], kpt_color: list=[0, 0, 255], skeleton_color: list=[255, 0, 0], seg_color: list=[255, 255, 0],
+        transparent_seg: bool=True, kpt_radius: int=10, bbox_thickness: int=2, skeleton_thickness: int=2, show_cat_name: bool=False,
+        skeleton_index_offset: int=0,
+        viz_limit: int=None
+    ):
+        self.img_dir = img_dir
+        self.coco_annotation_path = coco_annotation_path
+        self.visualization_dump_dir = visualization_dump_dir
+        self.included_categories = included_categories
+
+        self.parser = COCO_AnnotationFileParser(coco_annotation_path)
+        self.parser.load()
+
+        self.bbox_color = bbox_color
+        self.kpt_color = kpt_color
+        self.skeleton_color = skeleton_color
+        self.seg_color = seg_color
+
+        self.transparent_seg = transparent_seg
+        self.kpt_radius = kpt_radius
+        self.bbox_thickness = bbox_thickness
+        self.skeleton_thickness = skeleton_thickness
+        self.show_cat_name = show_cat_name
+        self.skeleton_index_offset = skeleton_index_offset
+
+        self.viz_limit = viz_limit
+        self.viz_count = 0
+
+    def save(self, img: np.ndarray, bbox_list: list, kpt_list_list: list, kpt_skeleton_list: list, seg_list: list, cat_name_list: list, file_name: str):
+        result = img.copy()
+        save_path = f"{self.visualization_dump_dir}/{file_name}"
+        retry_count = 0
+        while file_exists(save_path):
+            rootname = get_rootname_from_filename(file_name)
+            extension = get_extension_from_filename(file_name)
+            save_path = f"{self.visualization_dump_dir}/{rootname}_{retry_count}.{extension}"
+            if retry_count == 9:
+                logger.error(f"Can't resolve save_path.")
+                raise Exception
+            retry_count += 1
+
+        for bbox, kpt_list, kpt_skeleton, seg, cat_name in zip(bbox_list, kpt_list_list, kpt_skeleton_list, seg_list, cat_name_list):
+            result = draw_segmentation(img=result, segmentation=seg, color=self.seg_color, transparent=self.transparent_seg)
+            result = draw_skeleton(
+                img=result, keypoints=kpt_list, keypoint_skeleton=kpt_skeleton, index_offset=self.skeleton_index_offset,
+                thickness=self.skeleton_thickness, color=self.skeleton_color
+            )
+            result = draw_keypoints(img=result, keypoints=kpt_list, radius=self.kpt_radius, color=self.kpt_color)
+            result = draw_bbox(img=result, bbox=bbox, color=self.bbox_color, thickness=self.bbox_thickness, text=cat_name)
+        cv2.imwrite(filename=save_path, img=result)
+        logger.info(f"Wrote {save_path}")
+        self.viz_count += 1
+
+    def generate_visualizations(self):
+        delete_dir_if_exists(self.visualization_dump_dir)
+        make_dir(self.visualization_dump_dir)
+        for coco_image in self.parser.images.image_list:
+            coco_image = COCO_Image.buffer(coco_image)
+            img_path = f"{self.img_dir}/{coco_image.file_name}"
+            img = cv2.imread(img_path)
+            coco_annotation_list = self.parser.annotations.get_annotations_from_imgIds(imgIds=[coco_image.id])
+            bbox_list = []
+            kpt_list_list = []
+            kpt_skeleton_list = []
+            seg_list = []
+            cat_name_list = []
+            for coco_annotation in coco_annotation_list:
+                coco_annotation = COCO_Annotation.buffer(coco_annotation)
+                bbox = coco_annotation.bounding_box
+                keypoint_list = coco_annotation.get_keypoint_list()
+                kpt_list = [[kpt.x, kpt.y] for kpt in keypoint_list]
+                seg = Segmentation.from_list(points_list=coco_annotation.segmentation)
+                bbox_list.append(bbox)
+                kpt_list_list.append(kpt_list)
+                seg_list.append(seg)
+                coco_category = self.parser.categories.get_category_from_id(id=coco_annotation.category_id)
+                cat_name_list.append(coco_category.name)
+                kpt_skeleton_list.append(coco_category.skeleton)
+            self.save(
+                img=img,
+                bbox_list=bbox_list,
+                kpt_list_list=kpt_list_list,
+                kpt_skeleton_list=kpt_skeleton_list,
+                seg_list=seg_list,
+                cat_name_list=cat_name_list,
+                file_name=coco_image.file_name
+            )
+            if self.viz_limit is not None and self.viz_count >= self.viz_limit:
+                break
