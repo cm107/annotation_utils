@@ -7,7 +7,7 @@ from pycocotools.coco import COCO
 from logger import logger
 from common_utils.file_utils import delete_dir_if_exists, make_dir, file_exists
 from common_utils.path_utils import get_rootname_from_filename, get_extension_from_filename
-from src.submodules.pkg_dev.common_utils.cv_drawing_utils import draw_bbox, draw_segmentation, draw_skeleton, draw_keypoints
+from common_utils.cv_drawing_utils import draw_bbox, draw_segmentation, draw_skeleton, draw_keypoints
 from common_utils.common_types.segmentation import Segmentation
 
 from ..coco_annotation import COCO_AnnotationFileParser
