@@ -8,6 +8,7 @@ from logger import logger
 from common_utils.file_utils import delete_dir_if_exists, make_dir, file_exists
 from common_utils.path_utils import get_rootname_from_filename, get_extension_from_filename
 from common_utils.cv_drawing_utils import draw_bbox, draw_segmentation, draw_skeleton, draw_keypoints
+from common_utils.common_types.bbox import BBox
 from common_utils.common_types.segmentation import Segmentation
 
 from ..coco_annotation import COCO_AnnotationFileParser
@@ -92,6 +93,8 @@ class COCOAnnotationVisualizer:
         skeleton_index_offset: int=0,
         show_bbox: bool=True, show_kpts: bool=True, show_skeleton: bool=True, show_seg: bool=True,
         show_bbox_labels: bool=False, show_kpt_labels: bool=False, bbox_label_thickness: int=None, kpt_label_thickness: int=None,
+        show_bbox_labels_only: bool=False, show_kpt_labels_only: bool=False,
+        render_order: list=['bbox', 'seg', 'skeleton', 'kpt'],
         viz_limit: int=None
     ):
         self.img_dir = img_dir
@@ -123,9 +126,48 @@ class COCOAnnotationVisualizer:
         self.show_kpt_labels = show_kpt_labels
         self.bbox_label_thickness = bbox_label_thickness
         self.kpt_label_thickness = kpt_label_thickness
+        self.show_bbox_labels_only = show_bbox_labels_only
+        self.show_kpt_labels_only = show_kpt_labels_only
+
+        self.render_order = render_order
 
         self.viz_limit = viz_limit
         self.viz_count = 0
+
+    def _draw(self, img: np.ndarray, bbox: BBox, kpt_list: list, kpt_skeleton: list, kpt_label_list: list, seg: Segmentation, cat_name: str) -> np.ndarray:
+        for render_target in self.render_order:
+            if render_target.lower() in ['seg', 'segmentation']:
+                if self.show_seg:
+                    img = draw_segmentation(img=img, segmentation=seg, color=self.seg_color, transparent=self.transparent_seg)
+            elif render_target.lower() in ['skel', 'skeleton']:
+                if self.show_skeleton:
+                    img = draw_skeleton(
+                        img=img, keypoints=kpt_list, keypoint_skeleton=kpt_skeleton, index_offset=self.skeleton_index_offset,
+                        thickness=self.skeleton_thickness, color=self.skeleton_color
+                    )
+            elif render_target.lower() in ['kpt', 'kpts', 'keypoint', 'keypoints']:
+                if self.show_kpts:
+                    if self.kpt_label_thickness is not None:
+                        kpt_label_thickness = self.kpt_label_thickness
+                    else:
+                        kpt_label_thickness = self.kpt_radius - 1 if self.kpt_radius > 1 else 1
+                    img = draw_keypoints(
+                        img=img, keypoints=kpt_list, radius=self.kpt_radius, color=self.kpt_color, keypoint_labels=kpt_label_list,
+                        show_keypoints_labels=self.show_kpt_labels, label_thickness=kpt_label_thickness, label_only=self.show_kpt_labels_only
+                    )
+            elif render_target.lower() in ['bbox', 'bounding_box', 'bounding box']:
+                if self.show_bbox:
+                    bbox_text = cat_name if self.show_bbox_labels or self.show_bbox_labels_only else None
+                    bbox_label_thickness = self.bbox_label_thickness if self.bbox_label_thickness is not None else self.bbox_thickness
+                    img = draw_bbox(
+                        img=img, bbox=bbox, color=self.bbox_color, thickness=self.bbox_thickness,
+                        text=bbox_text, label_thickness=bbox_label_thickness, label_only=self.show_bbox_labels_only
+                    )
+            else:
+                logger.error(f"Invalid render_target: {render_target}")
+                logger.error(f"Options: seg, skeleton, kpt, bbox")
+                raise Exception
+        return img
 
     def save(
         self, img: np.ndarray,
@@ -148,29 +190,12 @@ class COCOAnnotationVisualizer:
 
         for bbox, kpt_list, kpt_skeleton, kpt_label_list, seg, cat_name in \
             zip(bbox_list, kpt_list_list, kpt_skeleton_list, kpt_label_list_list, seg_list, cat_name_list):
-            if self.show_seg:
-                result = draw_segmentation(img=result, segmentation=seg, color=self.seg_color, transparent=self.transparent_seg)
-            if self.show_skeleton:
-                result = draw_skeleton(
-                    img=result, keypoints=kpt_list, keypoint_skeleton=kpt_skeleton, index_offset=self.skeleton_index_offset,
-                    thickness=self.skeleton_thickness, color=self.skeleton_color
-                )
-            if self.show_kpts:
-                if self.kpt_label_thickness is not None:
-                    kpt_label_thickness = self.kpt_label_thickness
-                else:
-                    kpt_label_thickness = self.kpt_radius - 1 if self.kpt_radius > 1 else 1
-                result = draw_keypoints(
-                    img=result, keypoints=kpt_list, radius=self.kpt_radius, color=self.kpt_color, keypoint_labels=kpt_label_list,
-                    show_keypoints_labels=self.show_kpt_labels, label_thickness=kpt_label_thickness
-                )
-            if self.show_bbox:
-                bbox_text = cat_name if self.show_bbox_labels else None
-                bbox_label_thickness = self.bbox_label_thickness if self.bbox_label_thickness is not None else self.bbox_thickness
-                result = draw_bbox(
-                    img=result, bbox=bbox, color=self.bbox_color, thickness=self.bbox_thickness,
-                    text=bbox_text, label_thickness=bbox_label_thickness
-                )
+            result = self._draw(
+                img=result,
+                bbox=bbox, kpt_list=kpt_list,
+                kpt_skeleton=kpt_skeleton, kpt_label_list=kpt_label_list,
+                seg=seg, cat_name=cat_name
+            )
         cv2.imwrite(filename=save_path, img=result)
         logger.info(f"Wrote {save_path}")
         self.viz_count += 1
