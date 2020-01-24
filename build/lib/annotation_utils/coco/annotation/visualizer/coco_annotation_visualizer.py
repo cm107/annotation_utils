@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import operator
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimage
 import matplotlib.patches as patches
@@ -200,9 +201,13 @@ class COCOAnnotationVisualizer:
         logger.info(f"Wrote {save_path}")
         self.viz_count += 1
 
-    def generate_visualizations(self):
+    def generate_visualizations(self, do_sort: bool=False):
         delete_dir_if_exists(self.visualization_dump_dir)
         make_dir(self.visualization_dump_dir)
+
+        if do_sort:
+            self.parser.images.image_list.sort(key=operator.attrgetter('file_name'))
+
         for coco_image in self.parser.images.image_list:
             coco_image = COCO_Image.buffer(coco_image)
             img_path = f"{self.img_dir}/{coco_image.file_name}"
