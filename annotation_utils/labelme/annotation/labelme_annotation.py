@@ -6,7 +6,7 @@ from common_utils.path_utils import rel_to_abs_path, get_dirpath_from_filepath
 # TODO: These classes really need to be refactored.
 
 class Shape:
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, shape_type: str, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, shape_type: str, flags: str):
         if shape_type == 'point':
             self.hidden = True if label[0] == '&' else False
             self.label = label[1:] if self.hidden else label
@@ -14,8 +14,7 @@ class Shape:
             self.hidden = False
             self.label = label
 
-        self.line_color = line_color
-        self.fill_color = fill_color
+        self.group_id = group_id
         self.points = points
         self.shape_type = shape_type
         self.flags = flags
@@ -33,8 +32,7 @@ class Shape:
     def copy(self) -> Shape:
         return Shape(
             label=self.label,
-            line_color=self.line_color,
-            fill_color=self.fill_color,
+            group_id=self.group_id,
             points=self.points,
             shape_type=self.shape_type,
             flags=self.flags
@@ -46,19 +44,17 @@ class Shape:
     def to_dict(self) -> dict:
         shape_dict = {}
         shape_dict['label'] = self.label if not self.hidden else f"&{self.label}"
-        shape_dict['line_color'] = self.line_color
-        shape_dict['fill_color'] = self.fill_color
+        shape_dict['group_id'] = self.group_id
         shape_dict['points'] = self.points
         shape_dict['shape_type'] = self.shape_type
         shape_dict['flags'] = self.flags
         return shape_dict
 
 class PolygonShape(Shape):
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, flags: str):
         super().__init__(
             label=label,
-            line_color=line_color,
-            fill_color=fill_color,
+            group_id=group_id,
             points=points,
             shape_type='polygon',
             flags=flags
@@ -66,11 +62,10 @@ class PolygonShape(Shape):
         raise NotImplementedError
 
 class RectangleShape(Shape):
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, flags: str):
         super().__init__(
             label=label,
-            line_color=line_color,
-            fill_color=fill_color,
+            group_id=group_id,
             points=points,
             shape_type='rectangle',
             flags=flags
@@ -78,11 +73,10 @@ class RectangleShape(Shape):
         raise NotImplementedError
 
 class CircleShape(Shape):
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, flags: str):
         super().__init__(
             label=label,
-            line_color=line_color,
-            fill_color=fill_color,
+            group_id=group_id,
             points=points,
             shape_type='circle',
             flags=flags
@@ -90,11 +84,10 @@ class CircleShape(Shape):
         raise NotImplementedError
 
 class LineShape(Shape):
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, flags: str):
         super().__init__(
             label=label,
-            line_color=line_color,
-            fill_color=fill_color,
+            group_id=group_id,
             points=points,
             shape_type='line',
             flags=flags
@@ -102,11 +95,10 @@ class LineShape(Shape):
         raise NotImplementedError
 
 class PointShape(Shape):
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, flags: str):
         super().__init__(
             label=label,
-            line_color=line_color,
-            fill_color=fill_color,
+            group_id=group_id,
             points=points,
             shape_type='point',
             flags=flags
@@ -114,11 +106,10 @@ class PointShape(Shape):
         raise NotImplementedError
 
 class LinestripShape(Shape):
-    def __init__(self, label: str, line_color: str, fill_color: str, points: list, flags: str):
+    def __init__(self, label: str, group_id: int, points: list, flags: str):
         super().__init__(
             label=label,
-            line_color=line_color,
-            fill_color=fill_color,
+            group_id=group_id,
             points=points,
             shape_type='linestrip',
             flags=flags
@@ -251,18 +242,21 @@ class LabelMeAnnotationParser:
         self.shape_handler = ShapeHandler()
         for shape in self.shapes:
             label = shape['label']
-            line_color = shape['line_color']
-            fill_color = shape['fill_color']
+            line_color = shape['line_color'] if 'line_color' in shape else None # removed as of version 4.2.5
+            fill_color = shape['fill_color'] if 'fill_color' in shape else None # removed as of version 4.2.5
             points = shape['points']
+            group_id = shape['group_id'] if 'group_id' in shape else None # added as of version 4.2.5
             shape_type = shape['shape_type']
             flags = shape['flags'] if 'flags' in shape else None
+
+            if line_color is not None or fill_color is not None:
+                logger.warning(f"As of version 4.2.5, 'line_color' and 'fill_color' keys in the shape dictionary are decapritated.")
             if flags is None:
                 logger.warning(f"'flags' field not found in {self.annotation_path}")
                 logger.warning(f"Ignoring flags field. Modify the json if you want to use flags.")
-            shape_object = Shape(
+            shape_object = Shape( # TODO: Finish fixing
                 label=label,
-                line_color=line_color,
-                fill_color=fill_color,
+                group_id=group_id,
                 points=points,
                 shape_type=shape_type,
                 flags=flags
