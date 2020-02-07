@@ -210,8 +210,6 @@ class LabelMeAnnotationParser:
         self.version = None
         self.flags = None
         self.shapes = None
-        self.line_color = None
-        self.fill_color = None
         self.img_path = None
         self.img_height = None
         self.img_width = None
@@ -229,8 +227,10 @@ class LabelMeAnnotationParser:
         self.version = data['version']
         self.flags = data['flags']
         self.shapes = data['shapes']
-        self.line_color = data['lineColor']
-        self.fill_color = data['fillColor']
+        line_color = data['lineColor'] if 'lineColor' in data else None
+        fill_color = data['fillColor'] if 'fillColor' in data else None
+        if line_color is not None or fill_color is not None:
+            logger.warning(f"As of version 4.2.5, 'lineColor' and 'fillColor' keys in the global dictionary are decapritated.")
         img_path = data['imagePath']
         # get_dirpath_from_filepath(self.annotation_path)
         # self.img_path = rel_to_abs_path(f"{}/{img_path}")
@@ -250,7 +250,7 @@ class LabelMeAnnotationParser:
             flags = shape['flags'] if 'flags' in shape else None
 
             if line_color is not None or fill_color is not None:
-                logger.warning(f"As of version 4.2.5, 'line_color' and 'fill_color' keys in the shape dictionary are decapritated.")
+                logger.warning(f"As of version 4.2.5, 'lineColor' and 'fillColor' keys in the shape dictionary are decapritated.")
             if flags is None:
                 logger.warning(f"'flags' field not found in {self.annotation_path}")
                 logger.warning(f"Ignoring flags field. Modify the json if you want to use flags.")
@@ -276,8 +276,6 @@ class LabelMeAnnotation:
         self.version = None
         self.flags = None
         self.shapes = None
-        self.line_color = None
-        self.fill_color = None
         self.img_path = None
         self.img_height = None
         self.img_width = None
@@ -290,8 +288,6 @@ class LabelMeAnnotation:
         print_str += f"\nversion: {self.version}"
         print_str += f"\nflags: {self.flags}"
         print_str += f"\nshapes: {self.shapes}"
-        print_str += f"\nline_color: {self.line_color}"
-        print_str += f"\nfill_color: {self.fill_color}"
         print_str += f"\nimg_path: {self.img_path}"
         print_str += f"\nimg_height: {self.img_height}"
         print_str += f"\nimg_width: {self.img_width}"
@@ -313,8 +309,6 @@ class LabelMeAnnotation:
         labelme_annotation.version = self.version
         labelme_annotation.flags = self.flags
         labelme_annotation.shapes = self.shapes
-        labelme_annotation.line_color = self.line_color
-        labelme_annotation.fill_color = self.fill_color
         labelme_annotation.img_path = self.img_path
         labelme_annotation.img_height = self.img_height
         labelme_annotation.img_width = self.img_width
@@ -336,8 +330,6 @@ class LabelMeAnnotation:
         self.version = parser.version
         self.flags = parser.flags
         self.shapes = parser.shapes
-        self.line_color = parser.line_color
-        self.fill_color = parser.fill_color
         self.img_path = parser.img_path
         self.img_height = parser.img_height
         self.img_width = parser.img_width
@@ -347,8 +339,6 @@ class LabelMeAnnotation:
         self.version = None
         self.flags = None
         self.shapes = None
-        self.line_color = None
-        self.fill_color = None
         self.img_path = None
         self.img_height = None
         self.img_width = None
