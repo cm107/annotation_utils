@@ -11,6 +11,8 @@ annotation_utils/coco/annotation/__init__.py
 annotation_utils/coco/annotation/coco_annotation.py
 annotation_utils/coco/annotation/visualizer/__init__.py
 annotation_utils/coco/annotation/visualizer/coco_annotation_visualizer.py
+annotation_utils/coco/camera/__init__.py
+annotation_utils/coco/camera/camera.py
 annotation_utils/coco/combiner/__init__.py
 annotation_utils/coco/combiner/combiner.py
 annotation_utils/coco/splitter/__init__.py

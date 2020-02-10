@@ -3,6 +3,9 @@ from logger import logger
 from common_utils.common_types import Point, Keypoint, Rectangle
 from common_utils.common_types.bbox import BBox
 from common_utils.path_utils import get_extension_from_filename
+from common_utils.check_utils import check_type
+
+from ..camera import Camera
 
 class COCO_Info:
     def __init__(
@@ -79,6 +82,34 @@ class COCO_License_Handler:
 
     def __repr__(self):
         return self.__str__()
+
+    def __len__(self) -> int:
+        return len(self.license_list)
+
+    def __getitem__(self, idx: int) -> COCO_License:
+        if len(self.license_list) == 0:
+            logger.error(f"COCO_License_Handler is empty.")
+            raise IndexError
+        elif idx < 0 or idx >= len(self.license_list):
+            logger.error(f"Index out of range: {idx}")
+            raise IndexError
+        else:
+            return self.license_list[idx]
+
+    def __setitem__(self, idx: int, value: COCO_License):
+        check_type(value, valid_type_list=[COCO_License])
+        self.license_list[idx] = value
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self) -> COCO_License:
+        if self.n < len(self.license_list):
+            self.n += 1
+            return self.license_list[self.n]
+        else:
+            raise StopIteration
 
     def copy(self) -> COCO_License_Handler:
         result = COCO_License_Handler()
@@ -181,6 +212,34 @@ class COCO_Image_Handler:
     def __repr__(self):
         return self.__str__()
 
+    def __len__(self) -> int:
+        return len(self.image_list)
+
+    def __getitem__(self, idx: int) -> COCO_Image:
+        if len(self.image_list) == 0:
+            logger.error(f"COCO_Image_Handler is empty.")
+            raise IndexError
+        elif idx < 0 or idx >= len(self.image_list):
+            logger.error(f"Index out of range: {idx}")
+            raise IndexError
+        else:
+            return self.image_list[idx]
+
+    def __setitem__(self, idx: int, value: COCO_Image):
+        check_type(value, valid_type_list=[COCO_Image])
+        self.image_list[idx] = value
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self) -> COCO_Image:
+        if self.n < len(self.image_list):
+            self.n += 1
+            return self.image_list[self.n]
+        else:
+            raise StopIteration
+
     def copy(self) -> COCO_Image_Handler:
         result = COCO_Image_Handler()
         result.image_list = self.image_list
@@ -271,7 +330,8 @@ class COCO_Image_Handler:
 class COCO_Annotation:
     def __init__(
         self, segmentation: dict, num_keypoints: int, area: int, iscrowd: int,
-        keypoints: list, image_id: int, bbox: list, category_id: int, id: int
+        keypoints: list, image_id: int, bbox: list, category_id: int, id: int,
+        keypoints_3d: list=None, camera: Camera=None
     ):
         self.segmentation = segmentation
         self.encoded_format = True if type(segmentation) is dict and 'size' in segmentation and 'counts' in segmentation else False
@@ -283,6 +343,9 @@ class COCO_Annotation:
         self.bbox = bbox
         self.category_id = category_id
         self.id = id
+
+        self.keypoints_3d = keypoints_3d
+        self.camera = camera
 
         self.seg_point_lists = self.get_seg_point_lists()
         self.keypoint_list = self.get_keypoint_list()
@@ -319,7 +382,9 @@ class COCO_Annotation:
             image_id=self.image_id,
             bbox=self.bbox,
             category_id=self.category_id,
-            id=self.id
+            id=self.id,
+            keypoints_3d=self.keypoints_3d,
+            camera=self.camera
         )
 
     def _chunk2pointlist(self, chunk: list) -> list:
@@ -360,6 +425,18 @@ class COCO_Annotation:
             keypoint_list.append(keypoint)
         return keypoint_list
 
+    def get_keypoint_3d_list(self) -> list:
+        if self.keypoints_3d is None:
+            return []
+        if len(self.keypoints_3d) % 4 != 0:
+            logger.warning(f"self.keypoints_3d is not evenly divisible by 4. len(self.keypoints_3d)={len(self.keypoints_3d)}")
+            return []
+        keypoint_3d_list = []
+        for i in range(int(len(self.keypoints_3d)/4)):
+            coord = self.keypoints_3d[4*i:4*(i+1)]
+            keypoint_3d_list.append(coord)
+        return keypoint_3d_list
+
     def get_bounding_box(self) -> BBox:
         return BBox.from_list([self.bbox[0], self.bbox[1], self.bbox[0]+self.bbox[2], self.bbox[1]+self.bbox[3]])
 
@@ -379,6 +456,34 @@ class COCO_Annotation_Handler:
 
     def __repr__(self):
         return self.__str__()
+
+    def __len__(self) -> int:
+        return len(self.annotation_list)
+
+    def __getitem__(self, idx: int) -> COCO_Annotation:
+        if len(self.annotation_list) == 0:
+            logger.error(f"COCO_Annotation_Handler is empty.")
+            raise IndexError
+        elif idx < 0 or idx >= len(self.annotation_list):
+            logger.error(f"Index out of range: {idx}")
+            raise IndexError
+        else:
+            return self.annotation_list[idx]
+
+    def __setitem__(self, idx: int, value: COCO_Annotation):
+        check_type(value, valid_type_list=[COCO_Annotation])
+        self.annotation_list[idx] = value
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self) -> COCO_Annotation:
+        if self.n < len(self.annotation_list):
+            self.n += 1
+            return self.annotation_list[self.n]
+        else:
+            raise StopIteration
 
     def copy(self) -> COCO_Annotation_Handler:
         result = COCO_Annotation_Handler()
@@ -465,6 +570,34 @@ class COCO_Category_Handler:
 
     def __repr__(self):
         return self.__str__()
+
+    def __len__(self) -> int:
+        return len(self.category_list)
+
+    def __getitem__(self, idx: int) -> COCO_Category:
+        if len(self.category_list) == 0:
+            logger.error(f"COCO_Category_Handler is empty.")
+            raise IndexError
+        elif idx < 0 or idx >= len(self.category_list):
+            logger.error(f"Index out of range: {idx}")
+            raise IndexError
+        else:
+            return self.category_list[idx]
+
+    def __setitem__(self, idx: int, value: COCO_Category):
+        check_type(value, valid_type_list=[COCO_Category])
+        self.category_list[idx] = value
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self) -> COCO_Category:
+        if self.n < len(self.category_list):
+            self.n += 1
+            return self.category_list[self.n]
+        else:
+            raise StopIteration
 
     def copy(self) -> COCO_Category_Handler:
         result = COCO_Category_Handler()

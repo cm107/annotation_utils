@@ -3,6 +3,7 @@ import json
 from ..structs import COCO_Info, COCO_License_Handler, COCO_License, \
     COCO_Image_Handler, COCO_Image, COCO_Annotation_Handler, COCO_Annotation, \
     COCO_Category_Handler, COCO_Category
+from ..camera import Camera
 
 class COCO_AnnotationFileParser:
     def __init__(self, annotation_path: str):
@@ -80,6 +81,8 @@ class COCO_AnnotationFileParser:
             area = annotation_dict['area']
             iscrowd = annotation_dict['iscrowd']
             keypoints = annotation_dict['keypoints']
+            keypoints_3d = annotation_dict['keypoints_3d'] if 'keypoints_3d' in annotation_dict else None # Custom Field
+            camera_params = annotation_dict['camera_params'] if 'camera_params' in annotation_dict else None # Custom Field
             image_id = annotation_dict['image_id']
             bbox = annotation_dict['bbox']
             category_id = annotation_dict['category_id']
@@ -93,7 +96,9 @@ class COCO_AnnotationFileParser:
                 image_id=image_id,
                 bbox=bbox,
                 category_id=category_id,
-                id=id
+                id=id,
+                keypoints_3d=keypoints_3d,
+                camera=Camera.from_dict(intrinsic_param_dict=camera_params) if camera_params is not None else None
             )
             coco_annotation_handler.add(coco_annotation)
         return coco_annotation_handler
