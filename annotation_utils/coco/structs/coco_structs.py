@@ -105,9 +105,10 @@ class COCO_License_Handler:
         return self
 
     def __next__(self) -> COCO_License:
-        if self.n < len(self.license_list):
+        if self.n < len(self.license_list) - 1:
+            result = self.license_list[self.n]
             self.n += 1
-            return self.license_list[self.n]
+            return result
         else:
             raise StopIteration
 
@@ -234,9 +235,10 @@ class COCO_Image_Handler:
         return self
 
     def __next__(self) -> COCO_Image:
-        if self.n < len(self.image_list):
+        if self.n < len(self.image_list) - 1:
+            result = self.image_list[self.n]
             self.n += 1
-            return self.image_list[self.n]
+            return result
         else:
             raise StopIteration
 
@@ -479,9 +481,10 @@ class COCO_Annotation_Handler:
         return self
 
     def __next__(self) -> COCO_Annotation:
-        if self.n < len(self.annotation_list):
+        if self.n < len(self.annotation_list) - 1:
+            result = self.annotation_list[self.n]
             self.n += 1
-            return self.annotation_list[self.n]
+            return result
         else:
             raise StopIteration
 
@@ -593,9 +596,10 @@ class COCO_Category_Handler:
         return self
 
     def __next__(self) -> COCO_Category:
-        if self.n < len(self.category_list):
+        if self.n < len(self.category_list) - 1:
+            result = self.category_list[self.n]
             self.n += 1
-            return self.category_list[self.n]
+            return result
         else:
             raise StopIteration
 
