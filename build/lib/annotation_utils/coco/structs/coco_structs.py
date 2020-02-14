@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List
 from logger import logger
 from common_utils.common_types import Point, Keypoint, Rectangle
 from common_utils.common_types.bbox import BBox
@@ -262,28 +263,28 @@ class COCO_Image_Handler:
         logger.error(f"Possible ids: {image_id_list}")
         raise Exception
 
-    def get_images_from_file_name(self, file_name: str) -> list:
+    def get_images_from_file_name(self, file_name: str) -> List[COCO_Image]:
         image_list = []
         for coco_image in self.image_list:
             if file_name == coco_image.file_name:
                 image_list.append(coco_image)
         return image_list
 
-    def get_images_from_coco_url(self, coco_url: str) -> list:
+    def get_images_from_coco_url(self, coco_url: str) -> List[COCO_Image]:
         image_list = []
         for coco_image in self.image_list:
             if coco_url == coco_image.coco_url:
                 image_list.append(coco_image)
         return image_list
 
-    def get_images_from_flickr_url(self, flickr_url: str) -> list:
+    def get_images_from_flickr_url(self, flickr_url: str) -> List[COCO_Image]:
         image_list = []
         for coco_image in self.image_list:
             if flickr_url == coco_image.flickr_url:
                 image_list.append(coco_image)
         return image_list
 
-    def get_extensions(self) -> list:
+    def get_extensions(self) -> List[str]:
         extension_list = []
         for coco_image in self.image_list:
             extension = get_extension_from_filename(coco_image.file_name)
@@ -291,7 +292,7 @@ class COCO_Image_Handler:
                 extension_list.append(extension)
         return extension_list
 
-    def get_images_from_imgIds(self, imgIds: list):		
+    def get_images_from_imgIds(self, imgIds: list) -> List[COCO_Image]:		
 	        return [x for x in self.image_list if x.id in imgIds]
 
     def is_in_handler(self, coco_image: COCO_Image, ignore_ids: bool=True, check_file_name_only: bool=False) -> bool:
@@ -508,10 +509,10 @@ class COCO_Annotation_Handler:
         logger.error(f"Possible ids: {annotation_id_list}")
         raise Exception
 
-    def get_annotations_from_annIds(self, annIds: list) -> list:		
+    def get_annotations_from_annIds(self, annIds: list) -> List[COCO_Annotation]:		
         return [x for x in self.annotation_list if x.id in annIds]		
         
-    def get_annotations_from_imgIds(self, imgIds: list) -> list:		
+    def get_annotations_from_imgIds(self, imgIds: list) -> List[COCO_Annotation]:		
         return [x for x in self.annotation_list if x.image_id in imgIds]
 
 class COCO_Category:
@@ -611,7 +612,7 @@ class COCO_Category_Handler:
     def add(self, coco_category: COCO_Category):
         self.category_list.append(coco_category)
 
-    def get_categories_from_name(self, name: str) -> list:		
+    def get_categories_from_name(self, name: str) -> List[COCO_Category]:		
         return [x for x in self.category_list if x.name == name]
 
     def get_unique_category_from_name(self, name: str) -> COCO_Category:
