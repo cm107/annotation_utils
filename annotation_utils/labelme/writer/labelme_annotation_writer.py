@@ -11,8 +11,6 @@ class LabelMeAnnotationWriter:
         version = self.labelme_annotation.version
         flags = self.labelme_annotation.flags
         shapes = self.labelme_annotation.shapes
-        line_color = self.labelme_annotation.line_color
-        fill_color = self.labelme_annotation.fill_color
         img_path = self.labelme_annotation.img_path
         img_data = open(img_path, 'rb').read()
         img_data = base64.b64encode(img_data).decode('utf-8')
@@ -23,8 +21,6 @@ class LabelMeAnnotationWriter:
         json_dict['version'] = version
         json_dict['flags'] = flags
         json_dict['shapes'] = shapes
-        json_dict['lineColor'] = line_color
-        json_dict['fillColor'] = fill_color
         json_dict['imagePath'] = img_path
         json_dict['imageData'] = img_data
         json_dict['imageHeight'] = img_height
