@@ -37,6 +37,8 @@ annotation_utils/labelimg/annotation/labelimg_annotation.py
 annotation_utils/labelme/__init__.py
 annotation_utils/labelme/annotation/__init__.py
 annotation_utils/labelme/annotation/labelme_annotation.py
+annotation_utils/labelme/refactored/__init__.py
+annotation_utils/labelme/refactored/ann.py
 annotation_utils/labelme/writer/__init__.py
 annotation_utils/labelme/writer/labelme_annotation_writer.py
 annotation_utils/util/__init__.py
