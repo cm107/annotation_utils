@@ -1,4 +1,7 @@
+from __future__ import annotations
 import operator
+from logger import logger
+from common_utils.check_utils import check_type
 
 class ID_Map:
     def __init__(self, unique_key: str, old_id: int, new_id: int):
@@ -9,6 +12,35 @@ class ID_Map:
 class ID_Mapper:
     def __init__(self):
         self.id_maps = []
+
+    def __len__(self) -> int:
+        return len(self.id_maps)
+
+    def __getitem__(self, idx: int) -> ID_Mapper:
+        if len(self.id_maps) == 0:
+            logger.error(f"ID_Mapper is empty.")
+            raise IndexError
+        elif idx < 0 or idx >= len(self.id_maps):
+            logger.error(f"Index out of range: {idx}")
+            raise IndexError
+        else:
+            return self.id_maps[idx]
+
+    def __setitem__(self, idx: int, value: ID_Mapper):
+        check_type(value, valid_type_list=[ID_Mapper])
+        self.id_maps[idx] = value
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self) -> ID_Mapper:
+        if self.n < len(self.id_maps):
+            result = self.id_maps[self.n]
+            self.n += 1
+            return result
+        else:
+            raise StopIteration
 
     def sort(self):
         self.id_maps.sort(key=operator.attrgetter('old_id'), reverse=False)

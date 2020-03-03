@@ -122,6 +122,14 @@ class COCO_License:
             name=self.name
         )
 
+    def is_equal_to(self, other: COCO_License, exclude_id: bool=True) -> bool:
+        result = True
+        result = result and self.url == other.url
+        result = result and self.name == other.name
+        if not exclude_id:
+            result = result and self.id == other.id
+        return result
+
     def to_dict(self) -> dict:
         return {
             'url': self.url,
@@ -198,6 +206,23 @@ class COCO_Image:
             flickr_url=self.flickr_url,
             id=self.id
         )
+
+    def is_equal_to(
+        self, other: COCO_Image,
+        exclude_id: bool=True, exclude_date_captured: bool=False
+    ) -> bool:
+        result = True
+        result = result and self.file_name == other.file_name
+        result = result and self.coco_url == other.coco_url
+        result = result and self.height == other.height
+        result = result and self.width == other.width
+        result = result and self.flickr_url == other.flickr_url
+        if not exclude_date_captured:
+            result = result and self.date_captured == other.date_captured
+        if not exclude_id:
+            result = result and self.id == other.id
+            result = result and self.license_id == other.license_id
+        return result
 
     def to_dict(self) -> dict:
         return {
@@ -457,6 +482,19 @@ class COCO_Category:
             keypoints=self.keypoints,
             skeleton=self.skeleton
         )
+
+    def is_equal_to(
+        self, other: COCO_Category,
+        exclude_id: bool=True
+    ) -> bool:
+        result = True
+        result = result and self.supercategory == other.supercategory
+        result = result and self.name == other.name
+        result = result and self.keypoints == other.keypoints
+        result = result and self.skeleton == other.skeleton
+        if not exclude_id:
+            result = result and self.id == other.id
+        return result
 
     def to_dict(self) -> dict:
         return {

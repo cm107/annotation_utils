@@ -6,7 +6,8 @@ import numpy as np
 
 from logger import logger
 from common_utils.check_utils import check_required_keys, check_file_exists, \
-    check_dir_exists, check_value, check_type_from_list, check_type
+    check_dir_exists, check_value, check_type_from_list, check_type, \
+    check_value_from_list
 from common_utils.file_utils import file_exists
 from common_utils.cv_drawing_utils import cv_simple_image_viewer, \
     draw_bbox, draw_keypoints, draw_segmentation, draw_skeleton, \
@@ -24,6 +25,8 @@ from .handlers import COCO_License_Handler, COCO_Image_Handler, \
     COCO_License, COCO_Image, COCO_Annotation, COCO_Category
 from .misc import KeypointGroup
 from ....labelme.refactored import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
+from ....util.utils.coco import COCO_Mapper_Handler
+from ....dataset.config import DatasetPathConfig
 
 class COCO_Dataset:
     def __init__(
@@ -352,6 +355,124 @@ class COCO_Dataset:
                         raise Exception
 
         return dataset
+
+    def update_img_dir(self, new_img_dir: str, check_paths: bool=True):
+        if check_paths:
+            check_dir_exists(img_dir)
+
+        for coco_image in self.images:
+            coco_image.coco_url = f'{img_dir}/{coco_image.file_name}'
+            if check_paths:
+                check_file_exists(coco_image.coco_url)
+
+    @classmethod
+    def combine(cls, dataset_list: List[COCO_Dataset], img_dir_list: List[str]=None) -> COCO_Dataset:
+        if img_dir_list is not None:
+            if len(img_dir_list) != len(dataset_list):
+                logger.error(f'len(img_dir_list) == {len(img_dir_list)} != {len(dataset_list)} == len(dataset_list)')
+                raise Exception
+            for img_dir, dataset in zip(img_dir_list, dataset_list):
+                dataset = COCO_Dataset.buffer(dataset)
+                dataset.update_img_dir(new_img_dir=img_dir, check_paths=True)
+        
+        result_dataset = COCO_Dataset.new(
+            description='A combination of many COCO datasets using annotation_utils'
+        )
+        map_handler = COCO_Mapper_Handler()
+        for i, dataset in enumerate(dataset_list):
+            # Process Licenses
+            for coco_license in dataset.licenses:
+                already_exists = False
+                for existing_license in result_dataset.licenses:
+                    if coco_license.is_equal_to(existing_license, exclude_id=True):
+                        already_exists = True
+                        map_handler.license_mapper.add(
+                            unique_key=i, old_id=coco_license.id, new_id=existing_license.id
+                        )
+                        break
+                if not already_exists:
+                    new_license = coco_license.copy()
+                    new_license.id = len(result_dataset.licenses)
+                    map_handler.license_mapper.add(
+                        unique_key=i, old_id=coco_license.id, new_id=new_license.id
+                    )
+                    result_dataset.licenses.append(new_license)
+
+            # Process Images
+            for coco_image in dataset.images:
+                check_file_exists(coco_image.coco_url)
+                already_exists = False
+                for existing_image in result_dataset.images:
+                    if coco_image.is_equal_to(existing_image, exclude_id=True):
+                        already_exists = True
+                        map_handler.image_mapper.add(
+                            unique_key=i, old_id=coco_image.id, new_id=existing_image.id
+                        )
+                        break
+                if not already_exists:
+                    new_image = coco_image.copy()
+                    new_image.id = len(result_dataset.images)
+                    map_handler.image_mapper.add(
+                        unique_key=i, old_id=coco_image.id, new_id=new_image.id
+                    )
+                    found, new_image.license_id = map_handler.license_mapper.get_new_id(
+                        unique_key=i, old_id=coco_image.license_id
+                    )
+                    if not found:
+                        logger.error(f"Couldn't find license map using unique_key={i}, old_id={coco_image.license_id}")
+                        raise Exception
+                    result_dataset.images.append(new_image)
+
+            # Process Categories
+            for coco_category in dataset.categories:
+                already_exists = False
+                for existing_category in result_dataset.categories:
+                    if coco_category.is_equal_to(existing_category, exclude_id=True):
+                        already_exists = True
+                        map_handler.category_mapper.add(
+                            unique_key=i, old_id=coco_category.id, new_id=existing_category.id
+                        )
+                        break
+                if not already_exists:
+                    new_category = coco_category.copy()
+                    new_category.id = len(result_dataset.categories)
+                    map_handler.category_mapper.add(
+                        unique_key=i, old_id=coco_category.id, new_id=new_category.id
+                    )
+                    result_dataset.categories.append(new_category)
+
+            # Process Annotations
+            for coco_ann in dataset.annotations:
+                new_ann = coco_ann.copy()
+                new_ann.id = len(result_dataset.annotations)
+                found, new_ann.image_id = map_handler.image_mapper.get_new_id(
+                    unique_key=i, old_id=coco_ann.image_id
+                )
+                if not found:
+                    logger.error(f"Couldn't find image map using unique_key={i}, old_id={coco_ann.image_id}")
+                    raise Exception
+                found, new_ann.category_id = map_handler.category_mapper.get_new_id(
+                    unique_key=i, old_id=coco_ann.category_id
+                )
+                if not found:
+                    logger.error(f"Couldn't find category map using unique_key={i}, old_id={coco_ann.category_id}")
+                    raise Exception
+                result_dataset.annotations.append(new_ann)
+
+        return result_dataset
+
+    @classmethod
+    def combine_from_config(cls, config_path: str) -> COCO_Dataset:
+        dataset_path_config = DatasetPathConfig.from_load(target=config_path)
+        dataset_dir_list, img_dir_list, ann_path_list, ann_format_list = dataset_path_config.get_paths()
+        check_value_from_list(item_list=ann_format_list, valid_value_list=['coco'])
+        dataset_list = []
+        for img_dir, ann_path in zip(img_dir_list, ann_path_list):
+            dataset_list.append(COCO_Dataset.load_from_path(json_path=ann_path, img_dir=img_dir, check_paths=True))
+        return COCO_Dataset.combine(dataset_list)
+
+    def split(self):
+        raise NotImplementedError
 
     def display_preview(
         self, draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'], preview_start_idx: int=0,
