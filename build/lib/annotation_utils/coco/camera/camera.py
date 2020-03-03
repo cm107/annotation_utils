@@ -1,6 +1,7 @@
 from __future__ import annotations
 import numpy as np
 from logger import logger
+from common_utils.check_utils import check_required_keys, check_type_from_list, check_type
 
 class Transforms:
     @classmethod
@@ -19,17 +20,26 @@ class Camera:
     def __repr__(self) -> str:
         return self.__str__()
 
+    def to_dict(self) -> dict:
+        return {
+            'f': self.f,
+            'c': self.c,
+            'T': self.T
+        }
+
     @classmethod
-    def from_dict(self, intrinsic_param_dict: dict) -> Camera:
-        if 'f' not in intrinsic_param_dict or 'c' not in intrinsic_param_dict or 'T' not in intrinsic_param_dict:
-            logger.error(f"Invalid keys provided: intrinsic_param_dict.keys()={intrinsic_param_dict.keys()}")
-            logger.error(f"Expected the following keys: 'f', 'c', 'T'")
-            raise Exception
-        return Camera(
-            f=intrinsic_param_dict['f'],
-            c=intrinsic_param_dict['c'],
-            T=intrinsic_param_dict['T']
-        )
+    def from_dict(cls, intrinsic_param_dict: dict) -> Camera:
+        check_type(intrinsic_param_dict, valid_type_list=[dict])
+        if len(intrinsic_param_dict) > 0:
+            check_required_keys(intrinsic_param_dict, required_keys=['f', 'c', 'T'])
+            check_type_from_list(intrinsic_param_dict.values(), valid_type_list=[list])
+            return Camera(
+                f=intrinsic_param_dict['f'],
+                c=intrinsic_param_dict['c'],
+                T=intrinsic_param_dict['T']
+            )
+        else:
+            return None
 
     def project_3d_to_2d(self, kpts_3d: np.ndarray) -> np.ndarray:
         """

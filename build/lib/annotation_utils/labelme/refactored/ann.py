@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List
 import labelme
 import json
+from tqdm import tqdm
 
 from logger import logger
 from common_utils.common_types.point import Point2D_List
@@ -123,14 +124,14 @@ class LabelmeAnnotation:
         self,
         img_path: str, img_h: int, img_w: int,
         version: str=labelme.__version__, flags: dict={},
-        shapes: LabelmeShapeHandler=LabelmeShapeHandler(),
+        shapes: LabelmeShapeHandler=None,
         img_data: str=None
     ):
         self.img_path = img_path
         self.img_h, self.img_w = img_h, img_w
         self.version = version
         self.flags = flags
-        self.shapes = shapes
+        self.shapes = shapes if shapes is not None else LabelmeShapeHandler()
         self.img_data = img_data
 
     def to_dict(self) -> dict:
@@ -238,7 +239,7 @@ class LabelmeAnnotationHandler:
             make_dir_if_not_exists(dst_img_dir)
             delete_all_files_in_dir(dst_img_dir, ask_permission=not overwrite)
 
-        for ann in self:
+        for ann in tqdm(self, total=len(self), unit='ann', leave=True):
             save_path = f'{json_save_dir}/{get_rootname_from_path(ann.img_path)}.json'
             src_img_path = f'{src_img_dir}/{get_filename(ann.img_path)}'
             if dst_img_dir is not None:

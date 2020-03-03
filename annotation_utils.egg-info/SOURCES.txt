@@ -15,6 +15,12 @@ annotation_utils/coco/camera/__init__.py
 annotation_utils/coco/camera/camera.py
 annotation_utils/coco/combiner/__init__.py
 annotation_utils/coco/combiner/combiner.py
+annotation_utils/coco/refactored/__init__.py
+annotation_utils/coco/refactored/structs/__init__.py
+annotation_utils/coco/refactored/structs/dataset.py
+annotation_utils/coco/refactored/structs/handlers.py
+annotation_utils/coco/refactored/structs/misc.py
+annotation_utils/coco/refactored/structs/objects.py
 annotation_utils/coco/splitter/__init__.py
 annotation_utils/coco/splitter/splitter.py
 annotation_utils/coco/structs/__init__.py
