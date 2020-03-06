@@ -435,10 +435,10 @@ class COCO_Dataset:
 
     def update_img_dir(self, new_img_dir: str, check_paths: bool=True):
         if check_paths:
-            check_dir_exists(img_dir)
+            check_dir_exists(new_img_dir)
 
         for coco_image in self.images:
-            coco_image.coco_url = f'{img_dir}/{coco_image.file_name}'
+            coco_image.coco_url = f'{new_img_dir}/{coco_image.file_name}'
             if check_paths:
                 check_file_exists(coco_image.coco_url)
 
@@ -562,7 +562,9 @@ class COCO_Dataset:
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
-        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
     ) -> np.ndarray:
         coco_ann = self.annotations.get_annotation_from_id(ann_id)
         result = img.copy()
@@ -574,27 +576,31 @@ class COCO_Dataset:
         coco_cat = self.categories.get_category_from_id(coco_ann.category_id)
         for draw_target in draw_order:
             if draw_target.lower() == 'bbox':
-                result = draw_bbox(
-                    img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                    label_thickness=bbox_label_thickness, label_only=bbox_label_only
-                )
+                if show_bbox:
+                    result = draw_bbox(
+                        img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
+                        label_thickness=bbox_label_thickness, label_only=bbox_label_only
+                    )
             elif draw_target.lower() == 'seg':
-                result = draw_segmentation(
-                    img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
-                )
+                if show_seg:
+                    result = draw_segmentation(
+                        img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
+                    )
             elif draw_target.lower() == 'kpt':
-                result = draw_keypoints(
-                    img=result, keypoints=vis_keypoints_arr,
-                    radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
-                    show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
-                    label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
-                )
+                if show_kpt:
+                    result = draw_keypoints(
+                        img=result, keypoints=vis_keypoints_arr,
+                        radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
+                        show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
+                        label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+                    )
             elif draw_target.lower() == 'skeleton':
-                result = draw_skeleton(
-                    img=result, keypoints=vis_keypoints_arr,
-                    keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
-                    thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
-                )
+                if show_skeleton:
+                    result = draw_skeleton(
+                        img=result, keypoints=vis_keypoints_arr,
+                        keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
+                        thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
+                    )
             else:
                 logger.error(f'Invalid target: {draw_target}')
                 logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
@@ -612,7 +618,9 @@ class COCO_Dataset:
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
-        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
     ) -> np.ndarray:
         coco_image = self.images.get_image_from_id(image_id)
         img = cv2.imread(coco_image.coco_url)
@@ -628,7 +636,9 @@ class COCO_Dataset:
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
-                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                show_bbox=show_bbox, show_kpt=show_kpt,
+                show_skeleton=show_skeleton, show_seg=show_seg
             )
         return img
 
@@ -644,7 +654,9 @@ class COCO_Dataset:
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
-        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
     ):
         last_idx = len(self.images) if end_idx is None else end_idx
         for coco_image in self.images[start_idx:last_idx]:
@@ -659,7 +671,9 @@ class COCO_Dataset:
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
-                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                show_bbox=show_bbox, show_kpt=show_kpt,
+                show_skeleton=show_skeleton, show_seg=show_seg
             )
             quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width)
             if quit_flag:
@@ -678,7 +692,9 @@ class COCO_Dataset:
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
-        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
     ):
         # Prepare save directory
         make_dir_if_not_exists(save_dir)
@@ -708,7 +724,9 @@ class COCO_Dataset:
                     show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
-                    skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+                    skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                    show_bbox=show_bbox, show_kpt=show_kpt,
+                    show_skeleton=show_skeleton, show_seg=show_seg
                 )
             else:
                 img = cv2.imread(coco_image.coco_url)
@@ -772,7 +790,9 @@ class COCO_Dataset:
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
-        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
     ):
         # Check Output Path
         if file_exists(save_path) and not overwrite:
@@ -803,17 +823,16 @@ class COCO_Dataset:
                     show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
-                    skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+                    skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                    show_bbox=show_bbox, show_kpt=show_kpt,
+                    show_skeleton=show_skeleton, show_seg=show_seg
                 )
             else:
                 img = cv2.imread(coco_image.coco_url)
 
-            logger.cyan(f'Before img.dtype: {img.dtype}')
             if rescale_before_pad:
                 img = COCO_Dataset.scale_to_max(img=img, target_shape=[max_h, max_w])
             img = COCO_Dataset.pad_to_max(img=img, target_shape=[max_h, max_w])
-            logger.purple(f'target_shape: {[max_h, max_w]}, img.shape: {img.shape}')
-            logger.cyan(f'After img.dtype: {img.dtype}')
             recorder.write(img)
 
             if show_preview:

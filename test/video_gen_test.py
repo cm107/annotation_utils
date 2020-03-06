@@ -8,9 +8,10 @@ dataset = COCO_Dataset.combine_from_config('/home/clayton/workspace/prj/data_kee
 dataset.images.sort(attr_name='file_name')
 dataset.save_video(
     save_path='dataset.mp4',
-    show_annotations=False,
+    show_annotations=True,
     fps=5,
     show_preview=True,
     kpt_idx_offset=-1,
-    overwrite=True
+    overwrite=True,
+    show_bbox=False
 )
