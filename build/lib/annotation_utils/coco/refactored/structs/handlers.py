@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 import json
+import operator
 
 from logger import logger
 from common_utils.check_utils import check_type, check_type_from_list, check_file_exists
@@ -30,18 +31,46 @@ class COCO_License_Handler:
         return len(self.license_list)
 
     def __getitem__(self, idx: int) -> COCO_License:
-        if len(self.license_list) == 0:
-            logger.error(f"COCO_License_Handler is empty.")
-            raise IndexError
-        elif idx < 0 or idx >= len(self.license_list):
-            logger.error(f"Index out of range: {idx}")
-            raise IndexError
+        if type(idx) is int:
+            if len(self.license_list) == 0:
+                logger.error(f"COCO_License_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.license_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                return self.license_list[idx]
+        elif type(idx) is slice:
+            return self.license_list[idx.start:idx.stop:idx.step]
         else:
-            return self.license_list[idx]
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __setitem__(self, idx: int, value: COCO_License):
         check_type(value, valid_type_list=[COCO_License])
-        self.license_list[idx] = value
+        if type(idx) is int:
+            self.license_list[idx] = value
+        elif type(idx) is slice:
+            self.license_list[idx.start:idx.stop:idx.step] = value
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __delitem__(self, idx):
+        if type(idx) is int:
+            if len(self.license_list) == 0:
+                logger.error(f"COCO_License_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.license_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                del self.license_list[idx]
+        elif type(idx) is slice:
+            del self.license_list[idx.start:idx.stop:idx.step]
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __iter__(self):
         self.n = 0
@@ -61,6 +90,17 @@ class COCO_License_Handler:
     def append(self, item: COCO_License):
         check_type(item, valid_type_list=[COCO_License])
         self.license_list.append(item)
+
+    def sort(self, attr_name: str, reverse: bool=False):
+        if not hasattr(COCO_License, attr_name):
+            logger.error(f"COCO_License class has not attribute: '{attr_name}'")
+            if len(self) > 0:
+                attr_list = list(self.license_list[0].__dict__.keys())    
+                logger.error(f'Possible attribute names:')
+                for name in attr_list:
+                    logger.error(f'\t{name}')
+                raise Exception
+        self.license_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
 
     def get_license_from_id(self, id: int) -> COCO_License:
         license_id_list = []
@@ -116,18 +156,46 @@ class COCO_Image_Handler:
         return len(self.image_list)
 
     def __getitem__(self, idx: int) -> COCO_Image:
-        if len(self.image_list) == 0:
-            logger.error(f"COCO_Image_Handler is empty.")
-            raise IndexError
-        elif idx < 0 or idx >= len(self.image_list):
-            logger.error(f"Index out of range: {idx}")
-            raise IndexError
+        if type(idx) is int:
+            if len(self.image_list) == 0:
+                logger.error(f"COCO_Image_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.image_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                return self.image_list[idx]
+        elif type(idx) is slice:
+            return self.image_list[idx.start:idx.stop:idx.step]
         else:
-            return self.image_list[idx]
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __setitem__(self, idx: int, value: COCO_Image):
         check_type(value, valid_type_list=[COCO_Image])
-        self.image_list[idx] = value
+        if type(idx) is int:
+            self.image_list[idx] = value
+        elif type(idx) is slice:
+            self.image_list[idx.start:idx.stop:idx.step] = value
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __delitem__(self, idx: int):
+        if type(idx) is int:
+            if len(self.image_list) == 0:
+                logger.error(f"COCO_Image_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.image_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                del self.image_list[idx]
+        elif type(idx) is slice:
+            del self.image_list[idx.start:idx.stop:idx.step]
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __iter__(self):
         self.n = 0
@@ -149,6 +217,20 @@ class COCO_Image_Handler:
     def append(self, item: COCO_Image):
         check_type(item, valid_type_list=[COCO_Image])
         self.image_list.append(item)
+
+    def sort(self, attr_name: str, reverse: bool=False):
+        if len(self) > 0:
+            if not hasattr(self.image_list[0], attr_name):
+                logger.error(f"COCO_Image class has not attribute: '{attr_name}'")
+                attr_list = list(self.image_list[0].__dict__.keys())    
+                logger.error(f'Possible attribute names:')
+                for name in attr_list:
+                    logger.error(f'\t{name}')
+                raise Exception
+            self.image_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
+        else:
+            logger.error(f'COCO_Image_Handler is empty')
+            raise Exception
 
     def get_image_from_id(self, id: int) -> COCO_Image:
         image_id_list = []
@@ -224,18 +306,46 @@ class COCO_Annotation_Handler:
         return len(self.annotation_list)
 
     def __getitem__(self, idx: int) -> COCO_Annotation:
-        if len(self.annotation_list) == 0:
-            logger.error(f"COCO_Annotation_Handler is empty.")
-            raise IndexError
-        elif idx < 0 or idx >= len(self.annotation_list):
-            logger.error(f"Index out of range: {idx}")
-            raise IndexError
+        if type(idx) is int:
+            if len(self.annotation_list) == 0:
+                logger.error(f"COCO_Annotation_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.annotation_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                return self.annotation_list[idx]
+        elif type(idx) is slice:
+            return self.annotation_list[idx.start:idx.stop:idx.step]
         else:
-            return self.annotation_list[idx]
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __setitem__(self, idx: int, value: COCO_Annotation):
         check_type(value, valid_type_list=[COCO_Annotation])
-        self.annotation_list[idx] = value
+        if type(idx) is int:
+            self.annotation_list[idx] = value
+        elif type(idx) is slice:
+            self.annotation_list[idx.start:idx.stop:idx.step] = value
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __delitem__(self, idx: int):
+        if type(idx) is int:
+            if len(self.annotation_list) == 0:
+                logger.error(f"COCO_Annotation_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.annotation_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                del self.annotation_list[idx]
+        elif type(idx) is slice:
+            del self.annotation_list[idx.start:idx.stop:idx.step]
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __iter__(self):
         self.n = 0
@@ -257,6 +367,17 @@ class COCO_Annotation_Handler:
     def append(self, item: COCO_Annotation):
         check_type(item, valid_type_list=[COCO_Annotation])
         self.annotation_list.append(item)
+
+    def sort(self, attr_name: str, reverse: bool=False):
+        if not hasattr(COCO_Annotation, attr_name):
+            logger.error(f"COCO_Annotation class has not attribute: '{attr_name}'")
+            if len(self) > 0:
+                attr_list = list(self.annotation_list[0].__dict__.keys())    
+                logger.error(f'Possible attribute names:')
+                for name in attr_list:
+                    logger.error(f'\t{name}')
+                raise Exception
+        self.annotation_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
 
     def get_annotation_from_id(self, id: int) -> COCO_Annotation:
         annotation_id_list = []
@@ -320,18 +441,46 @@ class COCO_Category_Handler:
         return len(self.category_list)
 
     def __getitem__(self, idx: int) -> COCO_Category:
-        if len(self.category_list) == 0:
-            logger.error(f"COCO_Category_Handler is empty.")
-            raise IndexError
-        elif idx < 0 or idx >= len(self.category_list):
-            logger.error(f"Index out of range: {idx}")
-            raise IndexError
+        if type(idx) is int:
+            if len(self.category_list) == 0:
+                logger.error(f"COCO_Category_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.category_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                return self.category_list[idx]
+        elif type(idx) is slice:
+            return self.category_list[idx.start:idx.stop:idx.step]
         else:
-            return self.category_list[idx]
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __setitem__(self, idx: int, value: COCO_Category):
         check_type(value, valid_type_list=[COCO_Category])
-        self.category_list[idx] = value
+        if type(idx) is int:
+            self.category_list[idx] = value
+        elif type(idx) is slice:
+            self.category_list[idx.start:idx.stop:idx.step] = value
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __delitem__(self, idx: int):
+        if type(idx) is int:
+            if len(self.category_list) == 0:
+                logger.error(f"COCO_Category_Handler is empty.")
+                raise IndexError
+            elif idx < 0 or idx >= len(self.category_list):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                del self.category_list[idx]
+        elif type(idx) is slice:
+            del self.category_list[idx.start:idx.stop:idx.step]
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
 
     def __iter__(self):
         self.n = 0
@@ -353,6 +502,17 @@ class COCO_Category_Handler:
     def append(self, item: COCO_Category):
         check_type(item, valid_type_list=[COCO_Category])
         self.category_list.append(item)
+
+    def sort(self, attr_name: str, reverse: bool=False):
+        if not hasattr(COCO_Category, attr_name):
+            logger.error(f"COCO_Category class has not attribute: '{attr_name}'")
+            if len(self) > 0:
+                attr_list = list(self.category_list[0].__dict__.keys())    
+                logger.error(f'Possible attribute names:')
+                for name in attr_list:
+                    logger.error(f'\t{name}')
+                raise Exception
+        self.category_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
 
     def get_categories_from_name(self, name: str) -> List[COCO_Category]:		
         return [cat for cat in self if cat.name == name]

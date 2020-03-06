@@ -3,20 +3,27 @@ from typing import List
 import json
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from logger import logger
+from streamer.recorder import Recorder
 from common_utils.check_utils import check_required_keys, check_file_exists, \
     check_dir_exists, check_value, check_type_from_list, check_type, \
     check_value_from_list
-from common_utils.file_utils import file_exists
-from common_utils.cv_drawing_utils import cv_simple_image_viewer, \
+from common_utils.file_utils import file_exists, make_dir_if_not_exists, \
+    get_dir_contents_len, delete_all_files_in_dir, copy_file
+from common_utils.adv_file_utils import get_next_dump_path
+from common_utils.path_utils import get_filename, get_dirpath_from_filepath, \
+    get_extension_from_path, rel_to_abs_path, find_moved_abs_path, \
+    get_extension_from_filename
+from common_utils.cv_drawing_utils import \
+    cv_simple_image_viewer, SimpleVideoViewer, \
     draw_bbox, draw_keypoints, draw_segmentation, draw_skeleton, \
     draw_text_rows_at_point
 from common_utils.common_types.point import Point2D_List
 from common_utils.common_types.segmentation import Polygon, Segmentation
 from common_utils.common_types.bbox import BBox
 from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List
-from common_utils.path_utils import get_filename
 from common_utils.time_utils import get_ctime
 
 from .objects import COCO_Info
@@ -88,6 +95,76 @@ class COCO_Dataset:
             annotations=COCO_Annotation_Handler.from_dict_list(dataset_dict['annotations']),
             categories=COCO_Category_Handler.from_dict_list(dataset_dict['categories']),
         )
+
+    def auto_fix_img_paths(self, src_container_dir: str, ignore_old_matches: bool=True):
+        raise NotImplementedError
+        for coco_image in self.images:
+            if not file_exists(coco_image.coco_url) or ignore_old_matches:
+                fixed_path = find_moved_abs_path(
+                    old_path=coco_image.coco_url, container_dir=src_container_dir,
+                    get_first_match=False
+                )
+                if fixed_path is None:
+                    logger.error(f"Couldn't any relative path in {coco_image.coco_url} inside of {src_container_dir}")
+                    logger.error(f"Suggestion: Try adjusting src_container_dir to contain all required sources.")
+                    raise Exception
+                if file_exists(fixed_path):
+                    coco_image.coco_url = fixed_path
+
+    def combine_img_dirs(
+        self, dst_img_dir: str,
+        preserve_filenames: bool=False, update_img_paths: bool=True, overwrite: bool=False,
+        show_pbar: bool=True
+    ):
+        used_img_dir_list = []
+        for coco_image in self.images:
+            used_img_dir = get_dirpath_from_filepath(coco_image.coco_url)
+            if used_img_dir not in used_img_dir_list:
+                check_dir_exists(used_img_dir)
+                used_img_dir_list.append(used_img_dir)
+
+        if len(used_img_dir_list) == 0:
+            logger.error(f"Couldn't parse used_img_dir_list.")
+            logger.error(f"Are the coco_url paths in your dataset's image dictionary correct?")
+            raise Exception
+
+        make_dir_if_not_exists(dst_img_dir)
+        if get_dir_contents_len(dst_img_dir) > 0:
+            if overwrite:
+                delete_all_files_in_dir(dst_img_dir, ask_permission=False)
+            else:
+                logger.error(f'dst_img_dir={dst_img_dir} is not empty.')
+                logger.error('Please use overwrite=True if you would like to delete the contents before proceeding.')
+                raise Exception
+
+        pbar = tqdm(total=len(self.images), unit='image(s)') if show_pbar else None
+        for coco_image in self.images:
+            if not preserve_filenames:
+                img_extension = get_extension_from_path(coco_image.coco_url)
+                dst_img_path = get_next_dump_path(
+                    dump_dir=dst_img_dir,
+                    file_extension=img_extension
+                )
+                dst_img_path = rel_to_abs_path(dst_img_path)
+            else:
+                img_filename = get_filename(coco_image.coco_url)
+                dst_img_path = f'{dst_img_dir}/{img_filename}'
+                if file_exists(dst_img_path):
+                    logger.error(f'Failed to copy {coco_image.coco_url} to {dst_img_dir}')
+                    logger.error(f'{img_filename} already exists in destination directory.')
+                    logger.error(f'Hint: In order to use preserve_filenames=True, all filenames in the dataset must be unique.')
+                    logger.error(
+                        f'Suggestion: Either update the filenames to be unique or use preserve_filenames=False' + \
+                        f' in order to automatically assign the destination filename.'
+                    )
+                    raise Exception
+            copy_file(src_path=coco_image.coco_url, dest_path=dst_img_path, silent=True)
+            if update_img_paths:
+                coco_image.coco_url = dst_img_path
+            if pbar is not None:
+                pbar.update(1)
+        if pbar is not None:
+            pbar.close()
 
     def save_to_path(self, save_path: str, overwrite: bool=False):
         if file_exists(save_path) and not overwrite:
@@ -474,8 +551,91 @@ class COCO_Dataset:
     def split(self):
         raise NotImplementedError
 
+    def draw_annotation(
+        self, img: np.ndarray, ann_id: int,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
+        bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
+        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_only: bool=False,
+        seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
+        kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
+        show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_only: bool=False, ignore_kpt_idx: list=[],
+        kpt_idx_offset: int=0,
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+    ) -> np.ndarray:
+        coco_ann = self.annotations.get_annotation_from_id(ann_id)
+        result = img.copy()
+
+        vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
+        kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
+        base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
+        ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        coco_cat = self.categories.get_category_from_id(coco_ann.category_id)
+        for draw_target in draw_order:
+            if draw_target.lower() == 'bbox':
+                result = draw_bbox(
+                    img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
+                    label_thickness=bbox_label_thickness, label_only=bbox_label_only
+                )
+            elif draw_target.lower() == 'seg':
+                result = draw_segmentation(
+                    img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
+                )
+            elif draw_target.lower() == 'kpt':
+                result = draw_keypoints(
+                    img=result, keypoints=vis_keypoints_arr,
+                    radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
+                    show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
+                    label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+                )
+            elif draw_target.lower() == 'skeleton':
+                result = draw_skeleton(
+                    img=result, keypoints=vis_keypoints_arr,
+                    keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
+                    thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
+                )
+            else:
+                logger.error(f'Invalid target: {draw_target}')
+                logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
+                raise Exception
+        return result
+
+    def get_preview(
+        self, image_id: int,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
+        bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
+        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_only: bool=False,
+        seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
+        kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
+        show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_only: bool=False, ignore_kpt_idx: list=[],
+        kpt_idx_offset: int=0,
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+    ) -> np.ndarray:
+        coco_image = self.images.get_image_from_id(image_id)
+        img = cv2.imread(coco_image.coco_url)
+        for coco_ann in self.annotations.get_annotations_from_imgIds([coco_image.id]):
+            img = self.draw_annotation(
+                img=img, ann_id=coco_ann.id,
+                draw_order=draw_order,
+                bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
+                bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_only=bbox_label_only,
+                seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
+                kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
+                show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
+                kpt_idx_offset=kpt_idx_offset,
+                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+            )
+        return img
+
     def display_preview(
-        self, draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'], preview_start_idx: int=0,
+        self,
+        start_idx: int=0, end_idx: int=None, preview_width: int=1000,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
         bbox_show_label: bool=True, bbox_label_thickness: int=None,
         bbox_label_only: bool=False,
@@ -486,43 +646,178 @@ class COCO_Dataset:
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
     ):
-        for i, coco_image in enumerate(self.images):
-            if i < preview_start_idx:
-                continue
-            img = cv2.imread(coco_image.coco_url)
-            for coco_ann in self.annotations.get_annotations_from_imgIds([coco_image.id]):
-                vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
-                kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
-                base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
-                ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
-                coco_cat = self.categories.get_category_from_id(coco_ann.category_id)
-                for draw_target in draw_order:
-                    if draw_target.lower() == 'bbox':
-                        img = draw_bbox(
-                            img=img, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                            label_thickness=bbox_label_thickness, label_only=bbox_label_only
-                        )
-                    elif draw_target.lower() == 'seg':
-                        img = draw_segmentation(
-                            img=img, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
-                        )
-                    elif draw_target.lower() == 'kpt':
-                        img = draw_keypoints(
-                            img=img, keypoints=vis_keypoints_arr,
-                            radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
-                            show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
-                            label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
-                        )
-                    elif draw_target.lower() == 'skeleton':
-                        img = draw_skeleton(
-                            img=img, keypoints=vis_keypoints_arr,
-                            keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
-                            thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
-                        )
-                    else:
-                        logger.error(f'Invalid target: {draw_target}')
-                        logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
-                        raise Exception
-            quit_flag = cv_simple_image_viewer(img=img, preview_width=1000)
+        last_idx = len(self.images) if end_idx is None else end_idx
+        for coco_image in self.images[start_idx:last_idx]:
+            img = self.get_preview(
+                image_id=coco_image.id,
+                draw_order=draw_order,
+                bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
+                bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_only=bbox_label_only,
+                seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
+                kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
+                show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
+                kpt_idx_offset=kpt_idx_offset,
+                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+            )
+            quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width)
             if quit_flag:
                 break
+
+    def save_visualization(
+        self, save_dir: str='vis_preview', show_preview: bool=False, preserve_filenames: bool=True,
+        show_annotations: bool=True, overwrite: bool=False,
+        start_idx: int=0, end_idx: int=None, preview_width: int=1000,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
+        bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
+        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_only: bool=False,
+        seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
+        kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
+        show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_only: bool=False, ignore_kpt_idx: list=[],
+        kpt_idx_offset: int=0,
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+    ):
+        # Prepare save directory
+        make_dir_if_not_exists(save_dir)
+        if get_dir_contents_len(save_dir) > 0:
+            if not overwrite:
+                logger.error(f'save_dir={save_dir} is not empty.')
+                logger.error(f"Hint: If you want to erase the directory's contents, use overwrite=True")
+                raise Exception
+            delete_all_files_in_dir(save_dir, ask_permission=False)
+
+        if show_preview:
+            # Prepare Viewer
+            viewer = SimpleVideoViewer(preview_width=1000, window_name='Annotation Visualization')
+
+        last_idx = len(self.images) if end_idx is None else end_idx
+        total_iter = len(self.images[start_idx:last_idx])
+        for coco_image in tqdm(self.images[start_idx:last_idx], total=total_iter, leave=False):
+            if show_annotations:
+                img = self.get_preview(
+                    image_id=coco_image.id,
+                    draw_order=draw_order,
+                    bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
+                    bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                    bbox_label_only=bbox_label_only,
+                    seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
+                    kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
+                    show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                    kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
+                    kpt_idx_offset=kpt_idx_offset,
+                    skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+                )
+            else:
+                img = cv2.imread(coco_image.coco_url)
+
+            if preserve_filenames:
+                save_path = f'{save_dir}/{coco_image.file_name}'
+                if file_exists(save_path):
+                    logger.error(f"Your dataset contains multiple instances of the same filename.")
+                    logger.error(f"Either make all filenames unique or use preserve_filenames=False")
+                    raise Exception
+                cv2.imwrite(save_path, img)
+            else:
+                file_extension = get_extension_from_filename
+                save_path = get_next_dump_path(dump_dir=save_dir, file_extension=file_extension)
+                cv2.imwrite(save_path, img)
+
+            if show_preview:
+                quit_flag = viewer.show(img)
+                if quit_flag:
+                    break
+
+    @staticmethod
+    def scale_to_max(img: np.ndarray, target_shape: List[int]) -> np.ndarray:
+        result = img.copy()
+        target_h, target_w = target_shape[:2]
+        img_h, img_w = img.shape[:2]
+        h_ratio, w_ratio = target_h / img_h, target_w / img_w
+        if abs(h_ratio - 1) <= abs(w_ratio - 1): # Fit height to max
+            fit_h, fit_w = int(target_h), int(img_w * h_ratio)
+        else: # Fit width to max
+            fit_h, fit_w = int(img_h * w_ratio), int(target_w)
+        result = cv2.resize(src=result, dsize=(fit_w, fit_h))
+        return result
+
+    @staticmethod
+    def pad_to_max(img: np.ndarray, target_shape: List[int]) -> np.ndarray:
+        """
+        TODO: Move to common_utils
+        """
+        target_h, target_w = target_shape[:2]
+        img_h, img_w = img.shape[:2]
+        if img_h > target_h or img_w > target_w:
+            logger.error(f"img.shape[:2]={img.shape[:2]} doesn't fit inside of target_shape[:2]={target_shape[:2]}")
+            raise Exception
+        dy, dx = int((target_h - img_h)/2), int((target_w - img_w)/2)
+        result = np.zeros([target_h, target_w, 3]).astype('uint8')
+        result[dy:dy+img_h, dx:dx+img_w, :] = img
+        return result
+
+    def save_video(
+        self, save_path: str='viz.mp4', show_preview: bool=False,
+        fps: int=20, rescale_before_pad: bool=True,
+        show_annotations: bool=True, overwrite: bool=False,
+        start_idx: int=0, end_idx: int=None, preview_width: int=1000,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
+        bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
+        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_only: bool=False,
+        seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
+        kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
+        show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_only: bool=False, ignore_kpt_idx: list=[],
+        kpt_idx_offset: int=0,
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0] # Skeleton
+    ):
+        # Check Output Path
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at {save_path}')
+            raise Exception
+
+        # Prepare Video Writer
+        dim_list = np.array([[coco_image.height, coco_image.width] for coco_image in self.images])
+        max_h, max_w = dim_list.max(axis=0).tolist()
+        recorder = Recorder(output_path=save_path, output_dims=(max_w, max_h), fps=fps)
+
+        if show_preview:
+            # Prepare Viewer
+            viewer = SimpleVideoViewer(preview_width=1000, window_name='Annotation Visualization')
+
+        last_idx = len(self.images) if end_idx is None else end_idx
+        total_iter = len(self.images[start_idx:last_idx])
+        for coco_image in tqdm(self.images[start_idx:last_idx], total=total_iter, leave=False):
+            if show_annotations:
+                img = self.get_preview(
+                    image_id=coco_image.id,
+                    draw_order=draw_order,
+                    bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
+                    bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                    bbox_label_only=bbox_label_only,
+                    seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
+                    kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
+                    show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                    kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
+                    kpt_idx_offset=kpt_idx_offset,
+                    skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color # Skeleton
+                )
+            else:
+                img = cv2.imread(coco_image.coco_url)
+
+            logger.cyan(f'Before img.dtype: {img.dtype}')
+            if rescale_before_pad:
+                img = COCO_Dataset.scale_to_max(img=img, target_shape=[max_h, max_w])
+            img = COCO_Dataset.pad_to_max(img=img, target_shape=[max_h, max_w])
+            logger.purple(f'target_shape: {[max_h, max_w]}, img.shape: {img.shape}')
+            logger.cyan(f'After img.dtype: {img.dtype}')
+            recorder.write(img)
+
+            if show_preview:
+                quit_flag = viewer.show(img)
+                if quit_flag:
+                    break
+        recorder.close()
