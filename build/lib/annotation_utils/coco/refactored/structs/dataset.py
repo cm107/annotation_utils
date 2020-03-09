@@ -25,6 +25,7 @@ from common_utils.common_types.segmentation import Polygon, Segmentation
 from common_utils.common_types.bbox import BBox
 from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List
 from common_utils.time_utils import get_ctime
+from common_utils.image_utils import scale_to_max, pad_to_max
 
 from .objects import COCO_Info
 from .handlers import COCO_License_Handler, COCO_Image_Handler, \
@@ -36,6 +37,69 @@ from ....util.utils.coco import COCO_Mapper_Handler
 from ....dataset.config import DatasetPathConfig
 
 class COCO_Dataset:
+    """
+    This is a class that can be thought of as a COCO dataset manipulation tool.
+
+    info: Represents the 'info' section of the COCO annotation file.
+            Basic information about the dataset is stored here.
+    licenses: Represents the 'licenses' handler of the COCO annotation file.
+                If any of the images are licensed, the license information is stored here.
+                If none of the images are licensed, you must provide a one license (e.g. MIT License) for indexing purposes.
+    images: Represents the 'images' handler of the COCO annotation file.
+            All necessary image-related information is stored here.
+    annotations: Represents the 'annotations' handler of the COCO annotation file.
+                    All annotation data is stored here.
+    categories: Represents the 'categories' handler of the COCO annotation file.
+                All labeling conventions are specified here.
+
+    To get started with using this class, you could create an empty COCO_Dataset:
+
+        ```python
+        # Call Constructor
+        dataset = COCO_Dataset.new(description='This is a new test coco dataset')
+
+        # Add a license
+        dataset.licenses.append(COCO_License(...))
+        # Add a category
+        dataset.categories.append(COCO_Category(...))
+        # Add Images
+        dataset.images.append(COCO_Image(...))
+        # Add Annotations
+        dataset.annotations.append(COCO_Annotation(...))
+        ...
+        
+        ```
+    
+    Or you could load an existing COCO dataset from a json file path:
+        ```python
+        dataset = COCO_Dataset.load_from_path('/path/to/coco/json/file.json')
+        ```
+
+    Once you have a complete COCO dataset, you can easily manipulate the dataset as needed:
+        ```python
+        # Example: Double The Size Of All Bounding Boxes
+        for coco_image in dataset.images:
+            for coco_ann in dataset.annotations:
+                xmin, ymin, xmax, ymax = coco_ann.bbox.to_list()
+                bbox_h, bbox_w = coco_ann.bbox.shape()
+                xmin = xmin - 0.5 * bbox_w
+                ymin = ymin - 0.5 * bbox_h
+                xmax = xmax + 0.5 * bbox_w
+                ymax = ymax + 0.5 * bbox_h
+                xmin = 0 if xmin < 0 else coco_image.width - 1 if xmin >= coco_image.width else xmin
+                ymin = 0 if ymin < 0 else coco_image.height - 1 if ymin >= coco_image.height else ymin
+                xmax = 0 if xmax < 0 else coco_image.width - 1 if xmax >= coco_image.width else xmax
+                ymax = 0 if ymax < 0 else coco_image.height - 1 if ymax >= coco_image.height else ymax
+                coco_ann.bbox = BBox(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
+        ```
+    
+    Finally, you can save your modified COCO dataset to a file as follows:
+        ```python
+        dataset.save_to_path('/save/path.json')
+        ```
+
+    Refer to the methods in this class for information about other functionality.
+    """
     def __init__(
         self, info: COCO_Info, licenses: COCO_License_Handler, images: COCO_Image_Handler,
         annotations: COCO_Annotation_Handler, categories: COCO_Category_Handler
@@ -48,9 +112,19 @@ class COCO_Dataset:
 
     @classmethod
     def buffer(cls, coco_dataset: COCO_Dataset) -> COCO_Dataset:
+        """
+        A buffer that will return the same value, but mark the object as a COCO_Dataset object.
+        This can be useful if your IDE doesn't recognize the type of your coco dataset object.
+        
+        coco_dataset: The object that you would like to send through the buffer.
+        """
         return coco_dataset
 
     def copy(self) -> COCO_Dataset:
+        """
+        Copies the entirety of the COCO Dataset to a new object, which is located at a different
+        location in memory.
+        """
         return COCO_Dataset(
             info=self.info.copy(),
             licenses=self.licenses.copy(),
@@ -61,6 +135,10 @@ class COCO_Dataset:
 
     @classmethod
     def new(cls, description: str=None) -> COCO_Dataset:
+        """
+        Create an empty COCO Dataset.
+        description (optional): A description of the new dataset that you are creating.
+        """
         coco_info = COCO_Info(description=description) if description is not None else COCO_Info()
         return COCO_Dataset(
             info=coco_info,
@@ -71,6 +149,9 @@ class COCO_Dataset:
         )
 
     def to_dict(self) -> dict:
+        """
+        Converts the COCO_Dataset object to a dictionary format, which is the standard format of COCO datasets.
+        """
         return {
             'info': self.info.to_dict(),
             'licenses': self.licenses.to_dict_list(),
@@ -81,6 +162,9 @@ class COCO_Dataset:
 
     @classmethod
     def from_dict(cls, dataset_dict: dict) -> COCO_Dataset:
+        """
+        Converts a coco dataset dictionary (the standard COCO format) to a COCO_Dataset class object.
+        """
         check_required_keys(
             dataset_dict,
             required_keys=[
@@ -97,6 +181,9 @@ class COCO_Dataset:
         )
 
     def auto_fix_img_paths(self, src_container_dir: str, ignore_old_matches: bool=True):
+        """
+        Not yet implemented
+        """
         raise NotImplementedError
         for coco_image in self.images:
             if not file_exists(coco_image.coco_url) or ignore_old_matches:
@@ -116,6 +203,16 @@ class COCO_Dataset:
         preserve_filenames: bool=False, update_img_paths: bool=True, overwrite: bool=False,
         show_pbar: bool=True
     ):
+        """
+        Combines all image directories specified in the coco_url of each coco image in self.images
+        to a single image directory.
+
+        dst_img_dir: The directory where you would like to save the combined image set.
+        preserve_filenames: If False, unique filenames will be generated so as to not create a filename conflict.
+        update_img_paths: If True, all coco_url paths specified in self.images will be updated to reflect the new
+                          combined image directory.
+        overwrite: If True, all files in dst_img_dir will be deleted before copying images into the folder.
+        """
         used_img_dir_list = []
         for coco_image in self.images:
             used_img_dir = get_dirpath_from_filepath(coco_image.coco_url)
@@ -167,6 +264,12 @@ class COCO_Dataset:
             pbar.close()
 
     def save_to_path(self, save_path: str, overwrite: bool=False):
+        """
+        Save this COCO_Dataset object to a json file in the standard COCO format.
+        
+        save_path: Path of where you would like to save the dataset.
+        overwrite: If True, any existing file that exists at save_path will be overwritten.
+        """
         if file_exists(save_path) and not overwrite:
             logger.error(f'File already exists at save_path: {save_path}')
             raise Exception
@@ -175,6 +278,16 @@ class COCO_Dataset:
 
     @classmethod
     def load_from_path(cls, json_path: str, img_dir: str=None, check_paths: bool=True) -> COCO_Dataset:
+        """
+        Loads a COCO_Dataset object from a COCO json file.
+
+        json_path: Path to the COCO json file that you would like to load.
+        img_dir: If not None, you can specify the image directory location of all images in this dataset.
+                 Note: This can only be done if all image files are saved to the same directory.
+                 Note: In order to create a dataset that has a unified image directory, use self.combine_img_dirs
+        check_paths: If True, all image paths will be checked as the dataset is loaded.
+                     An error will be thrown if the corresponding image files do not exist.
+        """
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         dataset = COCO_Dataset.from_dict(json_dict)
@@ -188,6 +301,14 @@ class COCO_Dataset:
         return dataset
 
     def to_labelme(self, priority: str='seg') -> LabelmeAnnotationHandler:
+        """
+        Convert a COCO_Dataset object to a LabelmeAnnotationHandler.
+        The goal of this method is to convert a COCO formatted dataset to a Labelme formatted dataset.
+
+        priority:
+            'seg': Use segmentations to bound keypoints
+            'bbox': Use bounding boxes to bound keypoints
+        """
         check_value(priority, valid_value_list=['seg', 'bbox'])
         handler = LabelmeAnnotationHandler()
         for coco_image in self.images:
@@ -243,6 +364,20 @@ class COCO_Dataset:
         license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
         license_name: str='MIT License'
     ) -> COCO_Dataset:
+        """
+        Used to convert a LabelmeAnnotationHandler object to a COCO_Dataset object.
+        This is meant to be used for converting a labelme dataset to a COCO dataset.
+
+        labelme_handler: LabelmeAnnotationHandler object
+        categories: COCO_Category_Handler object
+        img_dir: Directory where all of the labelme dataset images are saved.
+        remove_redundant: Remove bounding boxes that are contained withing segmentations and vice versa.
+        ensure_no_unbounded_kpts: Ensures that all keypoints are bounded by either a bounding_box or segmentation.
+        ensure_valid_shape_type: Ensures that all shape_type's in the LabelmeAnnotationHandler are valid.
+        ignore_unspecified_categories: If true, all labels that are not specified in categories is ignored.
+        license_url: The url of the license that you would like to associate with this converted dataset.
+        license_name: The name of the license that is associated with this dataset.
+        """
         dataset = COCO_Dataset.new(description='COCO Dataset converted from Labelme using annotation_utils')
         
         # Add a license to COCO Dataset
@@ -434,6 +569,14 @@ class COCO_Dataset:
         return dataset
 
     def update_img_dir(self, new_img_dir: str, check_paths: bool=True):
+        """
+        This method is used to update the image directory of all images in the dataset.
+        Note that this assumes that all images are contained in the same directory.
+
+        new_img_dir: The new image directory that all of your images are contained in.
+        check_paths: When True, all image file paths are checked.
+                     An error is thrown if an image cannot be found.
+        """
         if check_paths:
             check_dir_exists(new_img_dir)
 
@@ -444,6 +587,12 @@ class COCO_Dataset:
 
     @classmethod
     def combine(cls, dataset_list: List[COCO_Dataset], img_dir_list: List[str]=None) -> COCO_Dataset:
+        """
+        Combines a list of COCO_Dataset's into a single COCO_Dataset.
+
+        dataset_list: A list of all of the COCO_Dataset objects that you would like to combine.
+        img_dir_list: A list of all of the image directory paths that correspond to each COCO_Dataset in dataset_list.
+        """
         if img_dir_list is not None:
             if len(img_dir_list) != len(dataset_list):
                 logger.error(f'len(img_dir_list) == {len(img_dir_list)} != {len(dataset_list)} == len(dataset_list)')
@@ -540,6 +689,15 @@ class COCO_Dataset:
 
     @classmethod
     def combine_from_config(cls, config_path: str) -> COCO_Dataset:
+        """
+        This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
+        Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
+        ase well as their corresponding image directories.
+        For more information about how to make this dataset configuration file, please refer to the DatasetPathConfig class.
+
+        config_path: The path to your dataset configuration file.
+        """
+
         dataset_path_config = DatasetPathConfig.from_load(target=config_path)
         dataset_dir_list, img_dir_list, ann_path_list, ann_format_list = dataset_path_config.get_paths()
         check_value_from_list(item_list=ann_format_list, valid_value_list=['coco'])
@@ -553,6 +711,28 @@ class COCO_Dataset:
         split_dirname_list: List[str]=['train', 'test', 'val'], ratio: list=[2, 1, 0], coco_filename_list: List[str]=None,
         shuffle: bool=True, preserve_filenames: bool=False, overwrite: bool=False
     ) -> List[COCO_Dataset]:
+        """
+        Use this method to split a single coco dataset into multiple datasets.
+        This can be useful for when you need to split a single coco dataset into train, test, and validation datasets.
+
+        dest_dir: Path to the folder where you would like to save the split datasets.
+        split_dirname_list: Specify the folder names of each split dataset part that you would like to generate.
+                            These folders are created in the folder specified by dest_dir.
+                            For example, if you want to split your dataset into a train dataset and validation dataset,
+                            use split_dirname_list=['train', 'val']
+        ratio: Specify the ratio of images between each split dataset part.
+               For example, if you would like to have twice as many train images as validation images, use ratio=[2, 1].
+        coco_filename_list: Specify the filenames of the coco annotation file of each split dataset part.
+                            Example: ['train.json', 'val.json']
+        shuffle: If True, the images handler will be shuffled before splitting the dataset into parts.
+        preserve_filenames: If True, the image filenames will be preserved during the split.
+                            However, if a filename conflict is encountered as a result, an error will be thrown.
+                            If False, the image filenames of each dataset part will be automatically generated
+                            so as to avoid filename conflicts.
+        overwrite: If True, the contents of dest_dir will be deleted before creating a new split dataset folder.
+                   If False, an error will be thrown if dest_dir contains any files or directories.
+        """
+
         # Checks
         check_type_from_list([split_dirname_list, ratio, coco_filename_list], valid_type_list=[list])
         if len(split_dirname_list) != len(ratio):
@@ -691,6 +871,43 @@ class COCO_Dataset:
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True
     ) -> np.ndarray:
+        """
+        Draws the annotation corresponding to ann_id on a given image.
+
+        img: The image array that you would like to draw the annotation on.
+        ann_id: The id that corresponds to the annotation that you would like to draw.
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
         coco_ann = self.annotations.get_annotation_from_id(ann_id)
         result = img.copy()
 
@@ -752,6 +969,43 @@ class COCO_Dataset:
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True
     ) -> np.ndarray:
+        """
+        Returns a preview of the image in the dataset that corresponds to image_id.
+        Annotations are included in the preview.
+
+        image_id: The id of the image that you would like to preview.
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
         coco_image = self.images.get_image_from_id(image_id)
         img = cv2.imread(coco_image.coco_url)
         for coco_ann in self.annotations.get_annotations_from_imgIds([coco_image.id]):
@@ -788,6 +1042,48 @@ class COCO_Dataset:
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True
     ):
+        """
+        Displays a preview of the dataset in a popup window.
+        Annotations are included in the preview.
+
+        start_idx: The index that you would like to start previewing the dataset at.
+                   Default: 0
+        end_idx: The index that you would like to stop previewing the dataset at.
+                 Defualt: None
+        preview_width: The width of the window that you would like to display the
+                       preview in. Default: 1000
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
         last_idx = len(self.images) if end_idx is None else end_idx
         for coco_image in self.images[start_idx:last_idx]:
             img = self.get_preview(
@@ -826,6 +1122,58 @@ class COCO_Dataset:
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True
     ):
+        """
+        Generates and saves visualizations of the annotations of this dataset to a dump folder.
+
+        save_dir: The directory where you would like to save all of your dataset visualizations.
+        show_preview: If True, the visualizations will be displayed in a popup window as they
+                      are being generated.
+        preserve_filenames: If true, the visualization images generated will use the same filename
+                            as the file_name field in each COCO_Image.
+                            Otherwise a unique filename will be automatically generated.
+        show_annotations: If True, the annotations will be drawn on the visualizations.
+                          Otherwise, no annotations will be drawn.
+        overwrite: If True, the files contained in the save_dir will be deleted being generating
+                   the visualizations.
+        start_idx: The index that you would like to start previewing the dataset at.
+                   Default: 0
+        end_idx: The index that you would like to stop previewing the dataset at.
+                 Defualt: None
+        preview_width: The width of the window that you would like to display the
+                       preview in. Default: 1000
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
+
         # Prepare save directory
         make_dir_if_not_exists(save_dir)
         if get_dir_contents_len(save_dir) > 0:
@@ -878,34 +1226,6 @@ class COCO_Dataset:
                 if quit_flag:
                     break
 
-    @staticmethod
-    def scale_to_max(img: np.ndarray, target_shape: List[int]) -> np.ndarray:
-        result = img.copy()
-        target_h, target_w = target_shape[:2]
-        img_h, img_w = img.shape[:2]
-        h_ratio, w_ratio = target_h / img_h, target_w / img_w
-        if abs(h_ratio - 1) <= abs(w_ratio - 1): # Fit height to max
-            fit_h, fit_w = int(target_h), int(img_w * h_ratio)
-        else: # Fit width to max
-            fit_h, fit_w = int(img_h * w_ratio), int(target_w)
-        result = cv2.resize(src=result, dsize=(fit_w, fit_h))
-        return result
-
-    @staticmethod
-    def pad_to_max(img: np.ndarray, target_shape: List[int]) -> np.ndarray:
-        """
-        TODO: Move to common_utils
-        """
-        target_h, target_w = target_shape[:2]
-        img_h, img_w = img.shape[:2]
-        if img_h > target_h or img_w > target_w:
-            logger.error(f"img.shape[:2]={img.shape[:2]} doesn't fit inside of target_shape[:2]={target_shape[:2]}")
-            raise Exception
-        dy, dx = int((target_h - img_h)/2), int((target_w - img_w)/2)
-        result = np.zeros([target_h, target_w, 3]).astype('uint8')
-        result[dy:dy+img_h, dx:dx+img_w, :] = img
-        return result
-
     def save_video(
         self, save_path: str='viz.mp4', show_preview: bool=False,
         fps: int=20, rescale_before_pad: bool=True,
@@ -924,6 +1244,59 @@ class COCO_Dataset:
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True
     ):
+        """
+        save_path: Path to where you would like to save the visualization video of this dataset.
+        show_preview: If True, the visualizations will be displayed in a popup window as they
+                      are being generated.
+        fps: The frames per second of the output video saved to save_path.
+        rescale_before_pad: Since all output frames need to be of the same dimensions, output images
+                            need to be rescaled and padded in order to fit the frame.
+                            If rescale_before_pad=True, output images will be rescaled to fit with
+                            either the vertical or horizontal borders of the frame before applying
+                            padding.
+                            If rescale_before_pad=False, the output images will only be padded.
+        show_annotations: If True, the annotations will be drawn on the visualizations.
+                          Otherwise, no annotations will be drawn.
+        overwrite: If True, the files contained in the save_dir will be deleted being generating
+                   the visualizations.
+        start_idx: The index that you would like to start previewing the dataset at.
+                   Default: 0
+        end_idx: The index that you would like to stop previewing the dataset at.
+                 Defualt: None
+        preview_width: The width of the window that you would like to display the
+                       preview in. Default: 1000
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
         # Check Output Path
         if file_exists(save_path) and not overwrite:
             logger.error(f'File already exists at {save_path}')
@@ -961,8 +1334,8 @@ class COCO_Dataset:
                 img = cv2.imread(coco_image.coco_url)
 
             if rescale_before_pad:
-                img = COCO_Dataset.scale_to_max(img=img, target_shape=[max_h, max_w])
-            img = COCO_Dataset.pad_to_max(img=img, target_shape=[max_h, max_w])
+                img = scale_to_max(img=img, target_shape=[max_h, max_w])
+            img = pad_to_max(img=img, target_shape=[max_h, max_w])
             recorder.write(img)
 
             if show_preview:
