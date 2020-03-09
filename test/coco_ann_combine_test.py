@@ -12,7 +12,7 @@ from annotation_utils.coco.refactored.structs import COCO_Dataset
 # )
 # combined_dataset = COCO_Dataset.combine([dataset0, dataset1])
 combined_dataset = COCO_Dataset.combine_from_config('/home/clayton/workspace/prj/data_keep/data/toyota/dataset/config/json/box_hsr_kpt_real.json')
-combined_dataset.combine_img_dirs(
+combined_dataset.move_images(
     dst_img_dir='combined_img',
     preserve_filenames=False,
     update_img_paths=True,

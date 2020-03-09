@@ -198,7 +198,7 @@ class COCO_Dataset:
                 if file_exists(fixed_path):
                     coco_image.coco_url = fixed_path
 
-    def combine_img_dirs(
+    def move_images(
         self, dst_img_dir: str,
         preserve_filenames: bool=False, update_img_paths: bool=True, overwrite: bool=False,
         show_pbar: bool=True
@@ -284,7 +284,7 @@ class COCO_Dataset:
         json_path: Path to the COCO json file that you would like to load.
         img_dir: If not None, you can specify the image directory location of all images in this dataset.
                  Note: This can only be done if all image files are saved to the same directory.
-                 Note: In order to create a dataset that has a unified image directory, use self.combine_img_dirs
+                 Note: In order to create a dataset that has a unified image directory, use self.move_images
         check_paths: If True, all image paths will be checked as the dataset is loaded.
                      An error will be thrown if the corresponding image files do not exist.
         """
@@ -855,6 +855,49 @@ class COCO_Dataset:
             dataset.save_to_path(save_path=split_cocopath, overwrite=False)
             dataset_list.append(dataset)
         return dataset_list
+
+    def prune_keypoints(self, min_num_kpts: int, verbose: bool=False):
+        """Used to prune out all of the annotations and images that contain below a certain level of keypoints, which is specified by min_num_kpts.
+        
+        Arguments:
+            min_num_kpts {int} -- [Specify the mininum number of keypoints that can be allowed without the annotation being pruned.]
+        
+        Keyword Arguments:
+            verbose {bool} -- [If True, prints some detailed information to the terminal.] (default: {False})
+
+        Note:
+            Using prune_keypoints by itself will not make any changes to image files or annotation files.
+            It is merely pruning keypoints within the COCO_Dataset instance.
+            In order to delete unnecessary image files and update the annotation file, using the following lines of code:
+                dataset.prune_keypoints(min_num_kpts=[INT], verbose=True)
+                dataset.move_images(dst_img_dir='/path/to/new/img_dir', preserve_filenames=True, update_img_paths=True, overwrite=True, show_pbar=True)
+                dataset.save_to_path(save_path='/path/to/new/ann.json', overwrite=True)
+            With this the new dataset is saved to a different location.
+            In order to avoid accidently deleting files from the python script, please delete the old dataset files manually.
+        """
+        ann_idx_list = list(range(len(self.annotations)))
+        ann_idx_list.reverse()
+        for i in ann_idx_list:
+            coco_ann = self.annotations[i]
+            visibility_list = [kpt.visibility for kpt in coco_ann.keypoints]
+            num_visible = 0
+            for v in visibility_list:
+                if v > 0.0:
+                    num_visible += 1
+            if num_visible < min_num_kpts:
+                del self.annotations[i]
+                if verbose:
+                    logger.info(f'Deleted ann id: {coco_ann.id}')
+        img_idx_list = list(range(len(self.images)))
+        img_idx_list.reverse()
+        for i in img_idx_list:
+            coco_image = self.images[i]
+            coco_anns = self.annotations.get_annotations_from_imgIds([coco_image.id])
+            if len(coco_anns) == 0:
+                coco_image = self.images[i]
+                del self.images[i]
+                if verbose:
+                    logger.info(f'Deleted image id: {coco_image.id}')
 
     def draw_annotation(
         self, img: np.ndarray, ann_id: int,
