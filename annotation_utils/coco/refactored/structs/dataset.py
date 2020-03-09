@@ -548,8 +548,133 @@ class COCO_Dataset:
             dataset_list.append(COCO_Dataset.load_from_path(json_path=ann_path, img_dir=img_dir, check_paths=True))
         return COCO_Dataset.combine(dataset_list)
 
-    def split(self):
-        raise NotImplementedError
+    def split(
+        self, dest_dir: str,
+        split_dirname_list: List[str]=['train', 'test', 'val'], ratio: list=[2, 1, 0], coco_filename_list: List[str]=None,
+        shuffle: bool=True, preserve_filenames: bool=False, overwrite: bool=False
+    ) -> List[COCO_Dataset]:
+        # Checks
+        check_type_from_list([split_dirname_list, ratio, coco_filename_list], valid_type_list=[list])
+        if len(split_dirname_list) != len(ratio):
+            logger.error(f'len(split_dirname_list) == {len(split_dirname_list)} != {len(ratio)} == len(ratio)')
+            raise Exception
+        check_type_from_list(split_dirname_list, valid_type_list=[str])
+        check_type_from_list(ratio, valid_type_list=[int])
+        if coco_filename_list is None:
+            coco_filename_list = ['output.json'] * len(split_dirname_list)
+        else:
+            check_type_from_list(coco_filename_list, valid_type_list=[str])
+            if len(coco_filename_list) != len(split_dirname_list):
+                logger.error(f'len(coco_filename_list) == {len(coco_filename_list)} != {len(split_dirname_list)} == len(split_dirname_list)')
+                raise Exception
+
+        # Prepare Output Directory
+        split_dirpath_list = [f'{dest_dir}/{split_dirname}' for split_dirname in split_dirname_list]
+        split_imgdir_list = [f'{split_dirpath}/img' for split_dirpath in split_dirpath_list]
+        split_cocodir_list = [f'{split_dirpath}/coco' for split_dirpath in split_dirpath_list]
+        split_cocopath_list = [f'{split_cocodir}/{coco_filename}' for split_cocodir, coco_filename in zip(split_cocodir_list, coco_filename_list)]
+        make_dir_if_not_exists(dest_dir)
+        for split_dirpath, split_imgdir, split_cocodir in zip(split_dirpath_list, split_imgdir_list, split_cocodir_list):
+            make_dir_if_not_exists(split_dirpath)
+            if get_dir_contents_len(split_dirpath) > 0:
+                if overwrite:
+                    delete_all_files_in_dir(split_dirpath, ask_permission=False)
+                else:
+                    logger.error(f'Files/Directories were found in: {split_dirpath}')
+                    logger.error('Use overwrite=True to overwrite all contents.')
+                    raise Exception
+            make_dir_if_not_exists(split_imgdir)
+            make_dir_if_not_exists(split_cocodir)
+            
+
+        # Split COCO Images Into Samples
+        locations = np.cumsum([val*int(len(self.images)/sum(ratio)) for val in ratio]) - 1
+        start_location = None
+        end_location = 0
+        count = 0
+        coco_image_samples = []
+        if shuffle:
+            self.images.shuffle()
+        while count < len(locations):
+            start_location = end_location
+            end_location = locations[count]
+            count += 1
+            coco_image_samples.append(self.images[start_location:end_location].copy())
+
+        # Construct New Datasets
+        dataset_list = []
+        for coco_image_list, split_dirname, split_imgdir, split_cocopath in \
+            tqdm(zip(coco_image_samples, split_dirname_list, split_imgdir_list, split_cocopath_list), total=len(split_dirname_list), unit='part(s)', leave=True):
+            dataset = COCO_Dataset.new(description=f'Split {split_dirname} Dataset')
+            used_license_id_list = []
+            used_category_id_list = []
+            for coco_image0 in tqdm(coco_image_list, total=len(coco_image_list), unit='image(s)', leave=False):
+                coco_image = coco_image0.copy()
+                # Map Image Index
+                coco_image = COCO_Image.buffer(coco_image)
+                anns = self.annotations.get_annotations_from_imgIds([coco_image.id]).copy()
+                new_image_id = len(dataset.images)
+                
+                # Copy Image
+                old_img_path = coco_image.coco_url
+                if not preserve_filenames:
+                    img_extension = get_extension_from_filename(coco_image.file_name)
+                    new_img_path = get_next_dump_path(dump_dir=split_imgdir, file_extension=img_extension)
+                else:
+                    new_img_path = f'{split_imgdir}/{coco_image.file_name}'
+                if file_exists(new_img_path):
+                    logger.error(f'Copy failed. Image already exists in destination directory: {new_img_path}')
+                    logger.error(f'This is likely because the filenames in your dataset are not unique.')
+                    logger.error(f'Use preserve_filenames=False to use automatically generated filenames.')
+                    raise Exception
+                copy_file(src_path=old_img_path, dest_path=new_img_path, silent=True)
+
+                # Update COCO Image
+                coco_image.id = new_image_id
+                coco_image.coco_url = new_img_path
+                coco_image.file_name = get_filename(new_img_path)
+                dataset.images.append(coco_image)
+                if coco_image.license_id not in used_license_id_list:
+                    used_license_id_list.append(coco_image.license_id)
+
+                for coco_ann0 in anns:
+                    coco_ann = coco_ann0.copy()
+                    # Map Annotation Index
+                    new_ann_id = len(dataset.annotations)
+
+                    # Update COCO Annotation
+                    coco_ann.id = new_ann_id
+                    coco_ann.image_id = new_image_id
+                    dataset.annotations.append(coco_ann)
+                    if coco_ann.category_id not in used_category_id_list:
+                        used_category_id_list.append(coco_ann.category_id)
+
+            # Add Used Licenses To Dataset and Update Ids
+            for coco_license0 in self.licenses:
+                coco_license = coco_license0.copy()
+                if coco_license.id in used_license_id_list:
+                    new_license_id = len(dataset.licenses)
+                    for coco_image in dataset.images:
+                        if coco_image.license_id == coco_license.id:
+                            coco_image.license_id = new_license_id
+                    coco_license.id = new_license_id
+                    dataset.licenses.append(coco_license)
+            
+            # Add Used Categories To Dataset and Update Ids
+            for coco_cat0 in self.categories:
+                coco_cat = coco_cat0.copy()
+                if coco_cat.id in used_category_id_list:
+                    new_cat_id = len(dataset.categories)
+                    for coco_ann in dataset.annotations:
+                        if coco_ann.category_id == coco_cat.id:
+                            coco_ann.category_id = new_cat_id
+                    coco_cat.id = new_cat_id
+                    dataset.categories.append(coco_cat)
+            
+            # Append Dataset To Split Dataset List
+            dataset.save_to_path(save_path=split_cocopath, overwrite=False)
+            dataset_list.append(dataset)
+        return dataset_list
 
     def draw_annotation(
         self, img: np.ndarray, ann_id: int,
@@ -569,10 +694,15 @@ class COCO_Dataset:
         coco_ann = self.annotations.get_annotation_from_id(ann_id)
         result = img.copy()
 
-        vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
-        kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
-        base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
-        ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        if len(coco_ann.keypoints) > 0:
+            vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
+            kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
+            base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
+            ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        else:
+            vis_keypoints_arr = np.array([])
+            kpt_visibility = np.array([])
+            ignore_kpt_idx_list = []
         coco_cat = self.categories.get_category_from_id(coco_ann.category_id)
         for draw_target in draw_order:
             if draw_target.lower() == 'bbox':

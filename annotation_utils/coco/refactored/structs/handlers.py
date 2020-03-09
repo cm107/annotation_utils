@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 import json
 import operator
+import random
 
 from logger import logger
 from common_utils.check_utils import check_type, check_type_from_list, check_file_exists
@@ -101,6 +102,9 @@ class COCO_License_Handler:
                     logger.error(f'\t{name}')
                 raise Exception
         self.license_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
+
+    def shuffle(self):
+        random.shuffle(self.license_list)
 
     def get_license_from_id(self, id: int) -> COCO_License:
         license_id_list = []
@@ -231,6 +235,9 @@ class COCO_Image_Handler:
         else:
             logger.error(f'COCO_Image_Handler is empty')
             raise Exception
+
+    def shuffle(self):
+        random.shuffle(self.image_list)
 
     def get_image_from_id(self, id: int) -> COCO_Image:
         image_id_list = []
@@ -379,6 +386,9 @@ class COCO_Annotation_Handler:
                 raise Exception
         self.annotation_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
 
+    def shuffle(self):
+        random.shuffle(self.annotation_list)
+
     def get_annotation_from_id(self, id: int) -> COCO_Annotation:
         annotation_id_list = []
         for coco_annotation in self:
@@ -513,6 +523,9 @@ class COCO_Category_Handler:
                     logger.error(f'\t{name}')
                 raise Exception
         self.category_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
+
+    def shuffle(self):
+        random.shuffle(self.category_list)
 
     def get_categories_from_name(self, name: str) -> List[COCO_Category]:		
         return [cat for cat in self if cat.name == name]
