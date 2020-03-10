@@ -16,17 +16,19 @@ from common_utils.common_types.bbox import BBox
 from common_utils.common_types.segmentation import Segmentation
 
 from ...camera import Camera
+from .base import BaseStructObject
 
-class COCO_Info:
+class COCO_Info(BaseStructObject['COCO_Info']):
     def __init__(
         self,
-        description: str="COCO Dataset generated from annotation_utils",
+        description: str,
         url: str="https://github.com/cm107/annotation_utils",
         version: str="1.0",
         year: str=get_present_year(),
         contributor: str=get_username(),
         date_created: str=get_present_time_Ymd()
     ):
+        super().__init__()
         self.description = description
         self.url = url
         self.version = version
@@ -44,33 +46,6 @@ class COCO_Info:
         print_str += f"date_created:\n\t{self.date_created}\n"
         return print_str
 
-    def __repr__(self):
-        return self.__str__()
-
-    @classmethod
-    def buffer(cls, coco_info: COCO_Info) -> COCO_Info:
-        return coco_info
-
-    def copy(self) -> COCO_Info:
-        return COCO_Info(
-            description=self.description,
-            url=self.url,
-            version=self.version,
-            year=self.year,
-            contributor=self.contributor,
-            date_created=self.date_created
-        )
-
-    def to_dict(self) -> dict:
-        return {
-            'description': self.description,
-            'url': self.url,
-            'version': self.version,
-            'year': self.year,
-            'contributor': self.contributor,
-            'date_created': self.date_created
-        }
-
     @classmethod
     def from_dict(cls, info_dict: dict) -> COCO_Info:
         check_required_keys(
@@ -86,20 +61,13 @@ class COCO_Info:
             date_created=info_dict['date_created']
         )
 
-    def save_to_path(self, save_path: str, overwrite: bool=False):
-        if file_exists(save_path) and not overwrite:
-            logger.error(f'File already exists at save_path: {save_path}')
-            raise Exception
-        json_dict = self.to_dict()
-        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
-
     @classmethod
     def load_from_path(cls, json_path: str) -> COCO_Info:
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Info.from_dict(json_dict)
 
-class COCO_License:
+class COCO_License(BaseStructObject['COCO_License']):
     def __init__(self, url: str, id: int, name: str):
         self.url = url
         self.id = id
@@ -108,20 +76,6 @@ class COCO_License:
     def __str__(self):
         return f"url: {self.url}, id: {self.id}, name: {self.name}"
 
-    def __repr__(self):
-        return self.__str__()
-
-    @classmethod
-    def buffer(cls, coco_license: COCO_License) -> COCO_License:
-        return coco_license
-
-    def copy(self) -> COCO_License:
-        return COCO_License(
-            url=self.url,
-            id=self.id,
-            name=self.name
-        )
-
     def is_equal_to(self, other: COCO_License, exclude_id: bool=True) -> bool:
         result = True
         result = result and self.url == other.url
@@ -129,13 +83,6 @@ class COCO_License:
         if not exclude_id:
             result = result and self.id == other.id
         return result
-
-    def to_dict(self) -> dict:
-        return {
-            'url': self.url,
-            'id': self.id,
-            'name': self.name
-        }
 
     @classmethod
     def from_dict(cls, license_dict: dict) -> COCO_License:
@@ -149,20 +96,13 @@ class COCO_License:
             name=license_dict['name']
         )
 
-    def save_to_path(self, save_path: str, overwrite: bool=False):
-        if file_exists(save_path) and not overwrite:
-            logger.error(f'File already exists at save_path: {save_path}')
-            raise Exception
-        json_dict = self.to_dict()
-        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
-
     @classmethod
     def load_from_path(cls, json_path: str) -> COCO_License:
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_License.from_dict(json_dict)
 
-class COCO_Image:
+class COCO_Image(BaseStructObject['COCO_License']):
     def __init__(
         self, license_id: int, file_name: str, coco_url: str,
         height: int, width: int, date_captured: str, flickr_url: str, id: int
@@ -188,25 +128,6 @@ class COCO_Image:
         print_str += f"id:\n\t{self.id}\n"
         return print_str
 
-    def __repr__(self):
-        return self.__str__()
-
-    @classmethod
-    def buffer(cls, coco_image: COCO_Image) -> COCO_Image:
-        return coco_image
-
-    def copy(self) -> COCO_Image:
-        return COCO_Image(
-            license_id=self.license_id,
-            file_name=self.file_name,
-            coco_url=self.coco_url,
-            height=self.height,
-            width=self.width,
-            date_captured=self.date_captured,
-            flickr_url=self.flickr_url,
-            id=self.id
-        )
-
     def is_equal_to(
         self, other: COCO_Image,
         exclude_id: bool=True, exclude_date_captured: bool=False
@@ -224,18 +145,6 @@ class COCO_Image:
             result = result and self.license_id == other.license_id
         return result
 
-    def to_dict(self) -> dict:
-        return {
-            'license': self.license_id,
-            'file_name': self.file_name,
-            'coco_url': self.coco_url,
-            'height': self.height,
-            'width': self.width,
-            'date_captured': self.date_captured,
-            'flickr_url': self.flickr_url,
-            'id': self.id
-        }
-
     @classmethod
     def from_dict(cls, image_dict: dict) -> COCO_Image:
         check_required_keys(
@@ -243,7 +152,7 @@ class COCO_Image:
             required_keys=[
                 'license', 'file_name', 'coco_url',
                 'height', 'width', 'date_captured',
-                'flickr_url', 'id'
+                'id'
             ]
         )
         return COCO_Image(
@@ -253,7 +162,7 @@ class COCO_Image:
             height=image_dict['height'],
             width=image_dict['width'],
             date_captured=image_dict['date_captured'],
-            flickr_url=image_dict['flickr_url'],
+            flickr_url=image_dict['flickr_url'] if 'flickr_url' in image_dict else None,
             id=image_dict['id'],
         )
 
@@ -273,20 +182,13 @@ class COCO_Image:
             id=image_id
         )
 
-    def save_to_path(self, save_path: str, overwrite: bool=False):
-        if file_exists(save_path) and not overwrite:
-            logger.error(f'File already exists at save_path: {save_path}')
-            raise Exception
-        json_dict = self.to_dict()
-        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
-
     @classmethod
     def load_from_path(cls, json_path: str) -> COCO_Image:
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Image.from_dict(json_dict)
 
-class COCO_Annotation:
+class COCO_Annotation(BaseStructObject['COCO_License']):
     def __init__(
         self,
         segmentation: Segmentation, num_keypoints: int, area: float, iscrowd: int,
@@ -332,28 +234,6 @@ class COCO_Annotation:
         print_str += '\n'
         print_str += '\t'*indent + f'camera: {self.camera}'
         return print_str
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    @classmethod
-    def buffer(cls, coco_annotation: COCO_Annotation) -> COCO_Annotation:
-        return coco_annotation
-
-    def copy(self) -> COCO_Annotation:
-        return COCO_Annotation(
-            segmentation=self.segmentation,
-            num_keypoints=self.num_keypoints,
-            area=self.area,
-            iscrowd=self.iscrowd,
-            keypoints=self.keypoints,
-            image_id=self.image_id,
-            bbox=self.bbox,
-            category_id=self.category_id,
-            id=self.id,
-            keypoints_3d=self.keypoints_3d,
-            camera=self.camera
-        )
 
     @classmethod
     def simple_constructor(
@@ -435,20 +315,13 @@ class COCO_Annotation:
             camera=Camera.from_dict(ann_dict['camera_params']) if 'camera_params' in ann_dict else None
         )
 
-    def save_to_path(self, save_path: str, overwrite: bool=False):
-        if file_exists(save_path) and not overwrite:
-            logger.error(f'File already exists at save_path: {save_path}')
-            raise Exception
-        json_dict = self.to_dict()
-        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
-
     @classmethod
     def load_from_path(cls, json_path: str) -> COCO_Annotation:
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Annotation.from_dict(json_dict)
 
-class COCO_Category:
+class COCO_Category(BaseStructObject['COCO_License']):
     def __init__(
         self, supercategory: str, id: int, name: str, keypoints: List[str], skeleton: List[list]
     ):
@@ -467,22 +340,6 @@ class COCO_Category:
         print_str += f"skeleton:\n\t{self.skeleton}\n"
         return print_str
 
-    def __repr__(self):
-        return self.__str__()
-
-    @classmethod
-    def buffer(cls, coco_category: COCO_Category) -> COCO_Category:
-        return coco_category
-
-    def copy(self) -> COCO_Category:
-        return COCO_Category(
-            supercategory=self.supercategory,
-            id=self.id,
-            name=self.name,
-            keypoints=self.keypoints,
-            skeleton=self.skeleton
-        )
-
     def is_equal_to(
         self, other: COCO_Category,
         exclude_id: bool=True
@@ -495,15 +352,6 @@ class COCO_Category:
         if not exclude_id:
             result = result and self.id == other.id
         return result
-
-    def to_dict(self) -> dict:
-        return {
-            'supercategory': self.supercategory,
-            'id': self.id,
-            'name': self.name,
-            'keypoints': self.keypoints,
-            'skeleton': self.skeleton
-        }
 
     @classmethod
     def from_dict(cls, category_dict: dict) -> COCO_Category:
@@ -556,13 +404,6 @@ class COCO_Category:
             str_bone = [bone_start, bone_end]
             str_skeleton.append(str_bone)
         return str_skeleton
-
-    def save_to_path(self, save_path: str, overwrite: bool=False):
-        if file_exists(save_path) and not overwrite:
-            logger.error(f'File already exists at save_path: {save_path}')
-            raise Exception
-        json_dict = self.to_dict()
-        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
     def load_from_path(cls, json_path: str) -> COCO_Category:

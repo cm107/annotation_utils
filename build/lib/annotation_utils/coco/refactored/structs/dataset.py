@@ -318,7 +318,7 @@ class COCO_Dataset:
                 shapes=LabelmeShapeHandler()
             )
             for coco_ann in self.annotations.get_annotations_from_imgIds([coco_image.id]):
-                coco_cat = self.categories.get_category_from_id(coco_ann.category_id)
+                coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
                 bbox_contains_seg = coco_ann.segmentation.within(coco_ann.bbox)
                 if bbox_contains_seg and priority == 'seg':
                     for polygon in coco_ann.segmentation:
@@ -355,7 +355,7 @@ class COCO_Dataset:
 
     @classmethod
     def from_labelme(
-        self, labelme_handler: LabelmeAnnotationHandler,
+        cls, labelme_handler: LabelmeAnnotationHandler,
         categories: COCO_Category_Handler,
         img_dir: str=None, remove_redundant: bool=True,
         ensure_no_unbounded_kpts: bool=True,
@@ -586,25 +586,36 @@ class COCO_Dataset:
                 check_file_exists(coco_image.coco_url)
 
     @classmethod
-    def combine(cls, dataset_list: List[COCO_Dataset], img_dir_list: List[str]=None) -> COCO_Dataset:
+    def combine(cls, dataset_list: List[COCO_Dataset], img_dir_list: List[str]=None, show_pbar: bool=False) -> COCO_Dataset:
         """
         Combines a list of COCO_Dataset's into a single COCO_Dataset.
 
         dataset_list: A list of all of the COCO_Dataset objects that you would like to combine.
         img_dir_list: A list of all of the image directory paths that correspond to each COCO_Dataset in dataset_list.
+        show_pbar: If True, a progress bar will be shown while the datasets are combined.
         """
         if img_dir_list is not None:
             if len(img_dir_list) != len(dataset_list):
                 logger.error(f'len(img_dir_list) == {len(img_dir_list)} != {len(dataset_list)} == len(dataset_list)')
                 raise Exception
+            update_img_pbar = tqdm(total=len(img_dir_list), unit='dataset(s)') if show_pbar else None
+            if update_img_pbar is not None:
+                pbar.set_description(f'Updating Image Paths...')
             for img_dir, dataset in zip(img_dir_list, dataset_list):
                 dataset = COCO_Dataset.buffer(dataset)
                 dataset.update_img_dir(new_img_dir=img_dir, check_paths=True)
+                if update_img_pbar is not None:
+                    update_img_pbar.update(1)
+            if update_img_pbar is not None:
+                update_img_pbar.close()
         
         result_dataset = COCO_Dataset.new(
             description='A combination of many COCO datasets using annotation_utils'
         )
         map_handler = COCO_Mapper_Handler()
+        merge_pbar = tqdm(total=len(dataset_list), unit='dataset(s)') if show_pbar else None
+        if merge_pbar is not None:
+            merge_pbar.set_description(f'Merging Datasets...')
         for i, dataset in enumerate(dataset_list):
             # Process Licenses
             for coco_license in dataset.licenses:
@@ -684,11 +695,15 @@ class COCO_Dataset:
                     logger.error(f"Couldn't find category map using unique_key={i}, old_id={coco_ann.category_id}")
                     raise Exception
                 result_dataset.annotations.append(new_ann)
+            if merge_pbar is not None:
+                merge_pbar.update(1)
+        if merge_pbar is not None:
+            merge_pbar.close()
 
         return result_dataset
 
     @classmethod
-    def combine_from_config(cls, config_path: str) -> COCO_Dataset:
+    def combine_from_config(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
         """
         This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
         Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
@@ -696,15 +711,28 @@ class COCO_Dataset:
         For more information about how to make this dataset configuration file, please refer to the DatasetPathConfig class.
 
         config_path: The path to your dataset configuration file.
+        img_sort_attr_name: The attribute name that you would like to sort the dataset images by before the datasets are combined.
+                            (Example: img_sort_attr_name='file_name')
+        show_pbar: If True, a progress bar will be shown while the images and annotations are loaded into the dataset.
         """
 
         dataset_path_config = DatasetPathConfig.from_load(target=config_path)
         dataset_dir_list, img_dir_list, ann_path_list, ann_format_list = dataset_path_config.get_paths()
         check_value_from_list(item_list=ann_format_list, valid_value_list=['coco'])
         dataset_list = []
+        pbar = tqdm(total=len(img_dir_list), unit='dataset(s)') if show_pbar else None
+        if pbar is not None:
+            pbar.set_description(f'Loading Dataset List...')
         for img_dir, ann_path in zip(img_dir_list, ann_path_list):
-            dataset_list.append(COCO_Dataset.load_from_path(json_path=ann_path, img_dir=img_dir, check_paths=True))
-        return COCO_Dataset.combine(dataset_list)
+            dataset = COCO_Dataset.load_from_path(json_path=ann_path, img_dir=img_dir, check_paths=True)
+            if img_sort_attr_name is not None:
+                dataset.images.sort(attr_name=img_sort_attr_name)
+            dataset_list.append(dataset)
+            if pbar is not None:
+                pbar.update(1)
+        if pbar is not None:
+            pbar.close()
+        return COCO_Dataset.combine(dataset_list, show_pbar=show_pbar)
 
     def split(
         self, dest_dir: str,
@@ -951,7 +979,7 @@ class COCO_Dataset:
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
         """
-        coco_ann = self.annotations.get_annotation_from_id(ann_id)
+        coco_ann = self.annotations.get_obj_from_id(ann_id)
         result = img.copy()
 
         if len(coco_ann.keypoints) > 0:
@@ -963,7 +991,7 @@ class COCO_Dataset:
             vis_keypoints_arr = np.array([])
             kpt_visibility = np.array([])
             ignore_kpt_idx_list = []
-        coco_cat = self.categories.get_category_from_id(coco_ann.category_id)
+        coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
         for draw_target in draw_order:
             if draw_target.lower() == 'bbox':
                 if show_bbox:
@@ -1049,7 +1077,7 @@ class COCO_Dataset:
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
         """
-        coco_image = self.images.get_image_from_id(image_id)
+        coco_image = self.images.get_obj_from_id(image_id)
         img = cv2.imread(coco_image.coco_url)
         for coco_ann in self.annotations.get_annotations_from_imgIds([coco_image.id]):
             img = self.draw_annotation(

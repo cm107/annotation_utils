@@ -17,6 +17,7 @@ annotation_utils/coco/combiner/__init__.py
 annotation_utils/coco/combiner/combiner.py
 annotation_utils/coco/refactored/__init__.py
 annotation_utils/coco/refactored/structs/__init__.py
+annotation_utils/coco/refactored/structs/base.py
 annotation_utils/coco/refactored/structs/dataset.py
 annotation_utils/coco/refactored/structs/handlers.py
 annotation_utils/coco/refactored/structs/misc.py
