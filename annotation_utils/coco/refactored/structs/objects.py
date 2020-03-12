@@ -145,6 +145,18 @@ class COCO_Image(BaseStructObject['COCO_License']):
             result = result and self.license_id == other.license_id
         return result
 
+    def to_dict(self) -> dict:
+        return {
+            'license': self.license_id,
+            'file_name': self.file_name,
+            'coco_url': self.coco_url,
+            'height': self.height,
+            'width': self.width,
+            'date_captured': self.date_captured,
+            'flickr_url': self.flickr_url,
+            'id': self.id
+        }
+
     @classmethod
     def from_dict(cls, image_dict: dict) -> COCO_Image:
         check_required_keys(
