@@ -939,8 +939,12 @@ class COCO_Dataset:
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True
+        show_skeleton: bool=True, show_seg: bool=True,
+        show_details: bool=False
     ) -> np.ndarray:
         """
         Draws the annotation corresponding to ann_id on a given image.
@@ -1037,8 +1041,12 @@ class COCO_Dataset:
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True
+        show_skeleton: bool=True, show_seg: bool=True,
+        show_details: bool=False
     ) -> np.ndarray:
         """
         Returns a preview of the image in the dataset that corresponds to image_id.
@@ -1072,10 +1080,17 @@ class COCO_Dataset:
                         Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
         skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
         skeleton_color: The color of the skeleton segments that are to be drawn.
+        details_corner_pos_ratio: Ratio that determines where the details are positioned with respect
+                                  to the upper lefthand cornder.
+        details_height_ratio: The height ratio of the details box.
+        details_leeway: The leeway between lines in the details box.
+        details_color: The color of the text in the details box.
+        details_thickness: The thickness of the text in the details box.
         show_bbox: If False, the bbox will not be drawn at all.
         show_kpt: If False, the keypoints will not be drawn at all.
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
+        show_details: If True, the filename of the current frame and other information will be written to the screen.
         """
         coco_image = self.images.get_obj_from_id(image_id)
         img = cv2.imread(coco_image.coco_url)
@@ -1092,8 +1107,31 @@ class COCO_Dataset:
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
                 skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                details_corner_pos_ratio=details_corner_pos_ratio,
+                details_height_ratio=details_height_ratio,
+                details_leeway=details_leeway, details_color=details_color,
+                details_thickness=details_thickness,
                 show_bbox=show_bbox, show_kpt=show_kpt,
-                show_skeleton=show_skeleton, show_seg=show_seg
+                show_skeleton=show_skeleton, show_seg=show_seg,
+                show_details=show_details
+            )
+        if show_details:
+            img_h, img_w = img.shape[:2]
+            coco_anns = self.annotations.get_annotations_from_imgIds([coco_image.id])
+            coco_ann_id_list = [coco_ann.id for coco_ann in coco_anns]
+            coco_ann_id_list.sort()
+            img = draw_text_rows_at_point(
+                img=img,
+                row_text_list=[
+                    f'{coco_image.file_name}',
+                    f'image_id: {coco_image.id}',
+                    f'ann_ids: {coco_ann_id_list}'
+                ],
+                x=int(details_corner_pos_ratio*img_w), y=int(details_corner_pos_ratio*img_h),
+                combined_row_height=int(details_height_ratio*img_h),
+                leeway=details_leeway,
+                color=details_color,
+                thickness=details_thickness
             )
         return img
 
@@ -1110,8 +1148,12 @@ class COCO_Dataset:
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True
+        show_skeleton: bool=True, show_seg: bool=True,
+        show_details: bool=False
     ):
         """
         Displays a preview of the dataset in a popup window.
@@ -1150,10 +1192,17 @@ class COCO_Dataset:
                         Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
         skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
         skeleton_color: The color of the skeleton segments that are to be drawn.
+        details_corner_pos_ratio: Ratio that determines where the details are positioned with respect
+                                  to the upper lefthand cornder.
+        details_height_ratio: The height ratio of the details box.
+        details_leeway: The leeway between lines in the details box.
+        details_color: The color of the text in the details box.
+        details_thickness: The thickness of the text in the details box.
         show_bbox: If False, the bbox will not be drawn at all.
         show_kpt: If False, the keypoints will not be drawn at all.
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
+        show_details: If True, the filename of the current frame and other information will be written to the screen.
         """
         last_idx = len(self.images) if end_idx is None else end_idx
         for coco_image in self.images[start_idx:last_idx]:
@@ -1168,9 +1217,14 @@ class COCO_Dataset:
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
+                details_corner_pos_ratio=details_corner_pos_ratio,
+                details_height_ratio=details_height_ratio,
+                details_leeway=details_leeway, details_color=details_color,
+                details_thickness=details_thickness,
                 skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
                 show_bbox=show_bbox, show_kpt=show_kpt,
-                show_skeleton=show_skeleton, show_seg=show_seg
+                show_skeleton=show_skeleton, show_seg=show_seg,
+                show_details=show_details
             )
             quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width)
             if quit_flag:
@@ -1190,8 +1244,12 @@ class COCO_Dataset:
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True
+        show_skeleton: bool=True, show_seg: bool=True,
+        show_details: bool=False
     ):
         """
         Generates and saves visualizations of the annotations of this dataset to a dump folder.
@@ -1239,10 +1297,17 @@ class COCO_Dataset:
                         Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
         skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
         skeleton_color: The color of the skeleton segments that are to be drawn.
+        details_corner_pos_ratio: Ratio that determines where the details are positioned with respect
+                                  to the upper lefthand cornder.
+        details_height_ratio: The height ratio of the details box.
+        details_leeway: The leeway between lines in the details box.
+        details_color: The color of the text in the details box.
+        details_thickness: The thickness of the text in the details box.
         show_bbox: If False, the bbox will not be drawn at all.
         show_kpt: If False, the keypoints will not be drawn at all.
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
+        show_details: If True, the filename of the current frame and other information will be written to the screen.
         """
 
         # Prepare save directory
@@ -1274,8 +1339,13 @@ class COCO_Dataset:
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
                     skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                    details_corner_pos_ratio=details_corner_pos_ratio,
+                    details_height_ratio=details_height_ratio,
+                    details_leeway=details_leeway, details_color=details_color,
+                    details_thickness=details_thickness,
                     show_bbox=show_bbox, show_kpt=show_kpt,
-                    show_skeleton=show_skeleton, show_seg=show_seg
+                    show_skeleton=show_skeleton, show_seg=show_seg,
+                    show_details=show_details
                 )
             else:
                 img = cv2.imread(coco_image.coco_url)
@@ -1312,8 +1382,12 @@ class COCO_Dataset:
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True
+        show_skeleton: bool=True, show_seg: bool=True,
+        show_details: bool=False
     ):
         """
         save_path: Path to where you would like to save the visualization video of this dataset.
@@ -1363,10 +1437,17 @@ class COCO_Dataset:
                         Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
         skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
         skeleton_color: The color of the skeleton segments that are to be drawn.
+        details_corner_pos_ratio: Ratio that determines where the details are positioned with respect
+                                  to the upper lefthand cornder.
+        details_height_ratio: The height ratio of the details box.
+        details_leeway: The leeway between lines in the details box.
+        details_color: The color of the text in the details box.
+        details_thickness: The thickness of the text in the details box.
         show_bbox: If False, the bbox will not be drawn at all.
         show_kpt: If False, the keypoints will not be drawn at all.
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
+        show_details: If True, the filename of the current frame and other information will be written to the screen.
         """
         # Check Output Path
         if file_exists(save_path) and not overwrite:
@@ -1398,8 +1479,13 @@ class COCO_Dataset:
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
                     skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                    details_corner_pos_ratio=details_corner_pos_ratio,
+                    details_height_ratio=details_height_ratio,
+                    details_leeway=details_leeway, details_color=details_color,
+                    details_thickness=details_thickness,
                     show_bbox=show_bbox, show_kpt=show_kpt,
-                    show_skeleton=show_skeleton, show_seg=show_seg
+                    show_skeleton=show_skeleton, show_seg=show_seg,
+                    show_details=show_details
                 )
             else:
                 img = cv2.imread(coco_image.coco_url)
