@@ -38,6 +38,9 @@ annotation_utils/dataset/config/__init__.py
 annotation_utils/dataset/config/path.py
 annotation_utils/dataset/construction/__init__.py
 annotation_utils/dataset/construction/combine_split.py
+annotation_utils/dataset/refactored/__init__.py
+annotation_utils/dataset/refactored/config/__init__.py
+annotation_utils/dataset/refactored/config/dataset_config.py
 annotation_utils/labelimg/__init__.py
 annotation_utils/labelimg/annotation/__init__.py
 annotation_utils/labelimg/annotation/labelimg_annotation.py

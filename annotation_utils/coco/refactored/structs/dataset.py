@@ -34,7 +34,7 @@ from .handlers import COCO_License_Handler, COCO_Image_Handler, \
 from .misc import KeypointGroup
 from ....labelme.refactored import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ....util.utils.coco import COCO_Mapper_Handler
-from ....dataset.config import DatasetPathConfig
+from ....dataset.refactored.config import DatasetConfigCollectionHandler
 
 class COCO_Dataset:
     """
@@ -710,7 +710,7 @@ class COCO_Dataset:
         This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
         Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
         ase well as their corresponding image directories.
-        For more information about how to make this dataset configuration file, please refer to the DatasetPathConfig class.
+        For more information about how to make this dataset configuration file, please refer to the DatasetConfigCollectionHandler class.
 
         config_path: The path to your dataset configuration file.
         img_sort_attr_name: The attribute name that you would like to sort the dataset images by before the datasets are combined.
@@ -718,15 +718,23 @@ class COCO_Dataset:
         show_pbar: If True, a progress bar will be shown while the images and annotations are loaded into the dataset.
         """
 
-        dataset_path_config = DatasetPathConfig.from_load(target=config_path)
-        dataset_dir_list, img_dir_list, ann_path_list, ann_format_list = dataset_path_config.get_paths()
-        check_value_from_list(item_list=ann_format_list, valid_value_list=['coco'])
+        dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        config_list = []
+        for collection in dataset_path_config:
+            for config in collection:
+                check_value(config.ann_format, valid_value_list=['coco'])
+                config_list.append(config)
+        # dataset_dir_list, img_dir_list, ann_path_list, ann_format_list = dataset_path_config.get_paths()
+        # check_value_from_list(item_list=ann_format_list, valid_value_list=['coco'])
         dataset_list = []
-        pbar = tqdm(total=len(img_dir_list), unit='dataset(s)') if show_pbar else None
+        # pbar = tqdm(total=len(img_dir_list), unit='dataset(s)') if show_pbar else None
+        pbar = tqdm(total=len(config_list), unit='dataset(s)') if show_pbar else None
         if pbar is not None:
             pbar.set_description(f'Loading Dataset List...')
-        for img_dir, ann_path in zip(img_dir_list, ann_path_list):
-            dataset = COCO_Dataset.load_from_path(json_path=ann_path, img_dir=img_dir, check_paths=True)
+        # for img_dir, ann_path in zip(img_dir_list, ann_path_list):
+        for config in config_list:
+            # dataset = COCO_Dataset.load_from_path(json_path=ann_path, img_dir=img_dir, check_paths=True)
+            dataset = COCO_Dataset.load_from_path(json_path=config.ann_path, img_dir=config.img_dir, check_paths=True)
             if img_sort_attr_name is not None:
                 dataset.images.sort(attr_name=img_sort_attr_name)
             dataset_list.append(dataset)
