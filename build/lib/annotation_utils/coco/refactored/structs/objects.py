@@ -16,7 +16,7 @@ from common_utils.common_types.bbox import BBox
 from common_utils.common_types.segmentation import Segmentation
 
 from ...camera import Camera
-from .base import BaseStructObject
+from ....base import BaseStructObject
 
 class COCO_Info(BaseStructObject['COCO_Info']):
     def __init__(

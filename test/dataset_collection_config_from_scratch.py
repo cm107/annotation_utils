@@ -67,4 +67,3 @@ handler.append(
 )
 
 handler.save_to_path('scratch_config.yaml', overwrite=True)
-# TODO: Debug ann_path

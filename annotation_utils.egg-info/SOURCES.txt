@@ -6,6 +6,8 @@ annotation_utils.egg-info/SOURCES.txt
 annotation_utils.egg-info/dependency_links.txt
 annotation_utils.egg-info/requires.txt
 annotation_utils.egg-info/top_level.txt
+annotation_utils/base/__init__.py
+annotation_utils/base/structs.py
 annotation_utils/coco/__init__.py
 annotation_utils/coco/annotation/__init__.py
 annotation_utils/coco/annotation/coco_annotation.py
@@ -17,7 +19,6 @@ annotation_utils/coco/combiner/__init__.py
 annotation_utils/coco/combiner/combiner.py
 annotation_utils/coco/refactored/__init__.py
 annotation_utils/coco/refactored/structs/__init__.py
-annotation_utils/coco/refactored/structs/base.py
 annotation_utils/coco/refactored/structs/dataset.py
 annotation_utils/coco/refactored/structs/handlers.py
 annotation_utils/coco/refactored/structs/misc.py
@@ -41,6 +42,7 @@ annotation_utils/dataset/construction/combine_split.py
 annotation_utils/dataset/refactored/__init__.py
 annotation_utils/dataset/refactored/config/__init__.py
 annotation_utils/dataset/refactored/config/dataset_config.py
+annotation_utils/dataset/refactored/config/path.py
 annotation_utils/labelimg/__init__.py
 annotation_utils/labelimg/annotation/__init__.py
 annotation_utils/labelimg/annotation/labelimg_annotation.py

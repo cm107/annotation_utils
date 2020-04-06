@@ -11,7 +11,7 @@ from common_utils.path_utils import get_extension_from_filename
 from common_utils.file_utils import file_exists
 
 from .objects import COCO_License, COCO_Image, COCO_Annotation, COCO_Category
-from .base import BaseStructHandler
+from ....base import BaseStructHandler
 
 class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_License']):
     def __init__(self, license_list: List[COCO_License]=None):
