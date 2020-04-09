@@ -1372,7 +1372,7 @@ class COCO_Dataset:
                     raise Exception
                 cv2.imwrite(save_path, img)
             else:
-                file_extension = get_extension_from_filename
+                file_extension = get_extension_from_filename(coco_image.file_name)
                 save_path = get_next_dump_path(dump_dir=save_dir, file_extension=file_extension)
                 cv2.imwrite(save_path, img)
 
