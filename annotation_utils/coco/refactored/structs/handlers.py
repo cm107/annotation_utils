@@ -96,17 +96,27 @@ class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO
     def get_annotations_from_imgIds(self, imgIds: list) -> List[COCO_Annotation]:		
         return [ann for ann in self if ann.image_id in imgIds]
 
+    def to_dict_list(self, strict: bool=True) -> List[dict]:
+        return [item.to_dict(strict=strict) for item in self]
+
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json_data = self.to_dict_list(strict=strict)
+        json.dump(json_data, open(save_path, 'w'), indent=2, ensure_ascii=False)
+
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> COCO_Annotation_Handler:
+    def from_dict_list(cls, dict_list: List[dict], strict: bool=True) -> COCO_Annotation_Handler:
         return COCO_Annotation_Handler(
-            annotation_list=[COCO_Annotation.from_dict(ann_dict) for ann_dict in dict_list]
+            annotation_list=[COCO_Annotation.from_dict(ann_dict, strict=strict) for ann_dict in dict_list]
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Annotation_Handler:
+    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Annotation_Handler:
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
-        return COCO_Annotation_Handler.from_dict_list(json_data)
+        return COCO_Annotation_Handler.from_dict_list(json_data, strict=strict)
 
 class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Category']):
     def __init__(self, category_list: List[COCO_Category]=None):
@@ -141,14 +151,24 @@ class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Cat
         label_skeleton = unique_category.get_label_skeleton()
         return skeleton, label_skeleton
 
+    def to_dict_list(self, strict: bool=True) -> List[dict]:
+        return [item.to_dict(strict=strict) for item in self]
+
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json_data = self.to_dict_list(strict=strict)
+        json.dump(json_data, open(save_path, 'w'), indent=2, ensure_ascii=False)
+
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> COCO_Category_Handler:
+    def from_dict_list(cls, dict_list: List[dict], strict: bool=True) -> COCO_Category_Handler:
         return COCO_Category_Handler(
-            category_list=[COCO_Category.from_dict(cat_dict) for cat_dict in dict_list]
+            category_list=[COCO_Category.from_dict(cat_dict, strict=strict) for cat_dict in dict_list]
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Category_Handler:
+    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Category_Handler:
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
-        return COCO_Category_Handler.from_dict_list(json_data)
+        return COCO_Category_Handler.from_dict_list(json_data, strict=strict)

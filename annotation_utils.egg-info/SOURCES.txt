@@ -65,4 +65,3 @@ annotation_utils/util/utils/utils.py
 annotation_utils/util/utils/coco/__init__.py
 annotation_utils/util/utils/coco/buffer.py
 annotation_utils/util/utils/coco/id_map.py
-test/test_prune_keypoints.py

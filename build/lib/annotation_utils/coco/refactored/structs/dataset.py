@@ -148,7 +148,7 @@ class COCO_Dataset:
             categories=COCO_Category_Handler()
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self, strict: bool=True) -> dict:
         """
         Converts the COCO_Dataset object to a dictionary format, which is the standard format of COCO datasets.
         """
@@ -156,12 +156,12 @@ class COCO_Dataset:
             'info': self.info.to_dict(),
             'licenses': self.licenses.to_dict_list(),
             'images': self.images.to_dict_list(),
-            'annotations': self.annotations.to_dict_list(),
-            'categories': self.categories.to_dict_list()
+            'annotations': self.annotations.to_dict_list(strict=strict),
+            'categories': self.categories.to_dict_list(strict=strict)
         }
 
     @classmethod
-    def from_dict(cls, dataset_dict: dict) -> COCO_Dataset:
+    def from_dict(cls, dataset_dict: dict, strict: bool=True) -> COCO_Dataset:
         """
         Converts a coco dataset dictionary (the standard COCO format) to a COCO_Dataset class object.
         """
@@ -176,8 +176,8 @@ class COCO_Dataset:
             info=COCO_Info.from_dict(dataset_dict['info']),
             licenses=COCO_License_Handler.from_dict_list(dataset_dict['licenses']),
             images=COCO_Image_Handler.from_dict_list(dataset_dict['images']),
-            annotations=COCO_Annotation_Handler.from_dict_list(dataset_dict['annotations']),
-            categories=COCO_Category_Handler.from_dict_list(dataset_dict['categories']),
+            annotations=COCO_Annotation_Handler.from_dict_list(dataset_dict['annotations'], strict=strict),
+            categories=COCO_Category_Handler.from_dict_list(dataset_dict['categories'], strict=strict)
         )
 
     def auto_fix_img_paths(self, src_container_dir: str, ignore_old_matches: bool=True):
@@ -265,7 +265,7 @@ class COCO_Dataset:
         if pbar is not None:
             pbar.close()
 
-    def save_to_path(self, save_path: str, overwrite: bool=False):
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
         """
         Save this COCO_Dataset object to a json file in the standard COCO format.
         
@@ -275,11 +275,11 @@ class COCO_Dataset:
         if file_exists(save_path) and not overwrite:
             logger.error(f'File already exists at save_path: {save_path}')
             raise Exception
-        json_dict = self.to_dict()
+        json_dict = self.to_dict(strict=strict)
         json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def load_from_path(cls, json_path: str, img_dir: str=None, check_paths: bool=True) -> COCO_Dataset:
+    def load_from_path(cls, json_path: str, img_dir: str=None, check_paths: bool=True, strict: bool=True) -> COCO_Dataset:
         """
         Loads a COCO_Dataset object from a COCO json file.
 
@@ -292,7 +292,7 @@ class COCO_Dataset:
         """
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
-        dataset = COCO_Dataset.from_dict(json_dict)
+        dataset = COCO_Dataset.from_dict(json_dict, strict=strict)
         if img_dir is not None:
             check_dir_exists(img_dir)
             for coco_image in dataset.images:

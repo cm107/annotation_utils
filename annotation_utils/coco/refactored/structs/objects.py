@@ -203,20 +203,35 @@ class COCO_Image(BaseStructObject['COCO_License']):
 class COCO_Annotation(BaseStructObject['COCO_License']):
     def __init__(
         self,
-        segmentation: Segmentation, num_keypoints: int, area: float, iscrowd: int,
-        keypoints: Keypoint2D_List, image_id: int, bbox: BBox, category_id: int,
-        id: int,
-        keypoints_3d: Keypoint3D_List=None, camera: Camera=None
+        id: int, category_id: int, image_id: int, # Standard Required
+        segmentation: Segmentation=None, # Standard Optional
+        bbox: BBox=None, area: float=None,
+        keypoints: Keypoint2D_List=None, num_keypoints: int=None,
+        iscrowd: int=0,
+        keypoints_3d: Keypoint3D_List=None, camera: Camera=None # Custom Optional
     ):
-        self.segmentation = segmentation
-        self.num_keypoints = num_keypoints
-        self.area = area
-        self.iscrowd = iscrowd
-        self.keypoints = keypoints
-        self.image_id = image_id
-        self.bbox = bbox
-        self.category_id = category_id
+        # Standard Required
         self.id = id
+        self.category_id = category_id
+        self.image_id = image_id
+
+        # Standard Optional
+        self.segmentation = segmentation if segmentation is not None else Segmentation([])
+        if bbox is not None:
+            self.bbox = bbox
+        else:
+            if len(self.segmentation) > 0:
+                self.bbox = self.segmentation.to_bbox()
+            else:
+                logger.error(f'A COCO_Annotation needs to be given either a bbox or a non-empty segmentation at the very least to make a valid annotation.')
+                logger.error(f'id: {id}, category_id: {category_id}, image_id: {image_id}')
+                raise Exception
+        self.area = area
+        self.keypoints = keypoints if keypoints is not None else Keypoint2D_List([])
+        self.num_keypoints = num_keypoints if num_keypoints is not None else len(self.keypoints)
+        self.iscrowd = iscrowd
+
+        # Custom Optional
         self.keypoints_3d = keypoints_3d
         self.camera = camera
 
@@ -247,101 +262,119 @@ class COCO_Annotation(BaseStructObject['COCO_License']):
         print_str += '\t'*indent + f'camera: {self.camera}'
         return print_str
 
-    @classmethod
-    def simple_constructor(
-        cls,
-        image_id: int, category_id: int, id: int,
-        segmentation: Segmentation=Segmentation([]),
-        bbox: BBox=None,
-        keypoints: Keypoint2D_List=Keypoint2D_List([]),
-        iscrowd: int=0,
-        keypoints_3d: Keypoint3D_List=None, camera: Camera=None
-    ) -> COCO_Annotation:
-        if bbox is None:
-            if len(segmentation) > 0:
-                seg_bbox_list = segmentation.to_bbox()
-                seg_bbox_xmin = min([seg_bbox.xmin for seg_bbox in seg_bbox_list])
-                seg_bbox_ymin = min([seg_bbox.ymin for seg_bbox in seg_bbox_list])
-                seg_bbox_xmax = max([seg_bbox.xmax for seg_bbox in seg_bbox_list])
-                seg_bbox_ymax = max([seg_bbox.ymax for seg_bbox in seg_bbox_list])
-                result_bbox = BBox(xmin=seg_bbox_xmin, ymin=seg_bbox_ymin, xmax=seg_bbox_xmax, ymax=seg_bbox_ymax)
-            else:
-                logger.error(f'Need to specify either segmentation or bbox')
-                raise Exception
+    def to_dict(self, strict: bool=True) -> dict:
+        if strict:
+            data_dict = {
+                'segmentation': self.segmentation.to_list(demarcation=False),
+                'num_keypoints': self.num_keypoints,
+                'area': self.area,
+                'iscrowd': self.iscrowd,
+                'keypoints': self.keypoints.to_list(demarcation=False),
+                'image_id': self.image_id,
+                'bbox': self.bbox.to_list(output_format='pminsize'),
+                'category_id': self.category_id,
+                'id': self.id
+            }
+            if self.keypoints_3d is not None:
+                data_dict['keypoints_3d'] = self.keypoints_3d.to_list(demarcation=False)
+            if self.camera is not None:
+                data_dict['camera_params'] = self.camera.to_dict()
+            return data_dict
         else:
-            result_bbox = bbox
-        
-        return COCO_Annotation(
-            segmentation=segmentation,
-            num_keypoints=len(keypoints),
-            area=result_bbox.area(),
-            iscrowd=iscrowd,
-            keypoints=keypoints,
-            image_id=image_id,
-            bbox=result_bbox,
-            category_id=category_id,
-            id=id,
-            keypoints_3d=keypoints_3d,
-            camera=camera
-        )
+            data_dict = {
+                'bbox': self.bbox.to_list(output_format='pminsize'),
+                'area': self.area,
+                'iscrowd': self.iscrowd,
+                'image_id': self.image_id,
+                'category_id': self.category_id,
+                'id': self.id
+            }
+            if len(self.segmentation) > 0:
+                data_dict['segmentation'] = self.segmentation.to_list(demarcation=False)
+            if len(self.keypoints) > 0:
+                data_dict['keypoints'] = self.keypoints.to_list(demarcation=False)
+                data_dict['num_keypoints'] = self.num_keypoints
 
-    def to_dict(self) -> dict:
-        data_dict = {
-            'segmentation': self.segmentation.to_list(demarcation=False),
-            'num_keypoints': self.num_keypoints,
-            'area': self.area,
-            'iscrowd': self.iscrowd,
-            'keypoints': self.keypoints.to_list(demarcation=False),
-            'image_id': self.image_id,
-            'bbox': self.bbox.to_list(output_format='pminsize'),
-            'category_id': self.category_id,
-            'id': self.id
-        }
-        if self.keypoints_3d is not None:
-            data_dict['keypoints_3d'] = self.keypoints_3d.to_list(demarcation=False)
-        if self.camera is not None:
-            data_dict['camera_params'] = self.camera.to_dict()
-        return data_dict
+            if self.keypoints_3d is not None:
+                data_dict['keypoints_3d'] = self.keypoints_3d.to_list(demarcation=False)
+            if self.camera is not None:
+                data_dict['camera_params'] = self.camera.to_dict()
+            return data_dict
+
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json_dict = self.to_dict(strict=strict)
+        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, ann_dict: dict) -> COCO_Annotation:
-        check_required_keys(
-            ann_dict,
-            required_keys=[
-                'segmentation', 'num_keypoints', 'area',
-                'iscrowd', 'keypoints', 'image_id',
-                'bbox', 'category_id', 'id'
-            ]
-        )
-        return COCO_Annotation(
-            segmentation=Segmentation.from_list(ann_dict['segmentation'], demarcation=False),
-            num_keypoints=ann_dict['num_keypoints'],
-            area=ann_dict['area'],
-            iscrowd=ann_dict['iscrowd'],
-            keypoints=Keypoint2D_List.from_list(ann_dict['keypoints'], demarcation=False),
-            image_id=ann_dict['image_id'],
-            bbox=BBox.from_list(ann_dict['bbox'], input_format='pminsize'),
-            category_id=ann_dict['category_id'],
-            id=ann_dict['id'],
-            keypoints_3d=Keypoint3D_List.from_list(ann_dict['keypoints_3d'], demarcation=False) if 'keypoints_3d' in ann_dict else None,
-            camera=Camera.from_dict(ann_dict['camera_params']) if 'camera_params' in ann_dict else None
-        )
+    def from_dict(cls, ann_dict: dict, strict: bool=True) -> COCO_Annotation:
+        if strict:
+            check_required_keys(
+                ann_dict,
+                required_keys=[
+                    'segmentation', 'num_keypoints', 'area',
+                    'iscrowd', 'keypoints', 'image_id',
+                    'bbox', 'category_id', 'id'
+                ]
+            )
+            return COCO_Annotation(
+                segmentation=Segmentation.from_list(ann_dict['segmentation'], demarcation=False),
+                num_keypoints=ann_dict['num_keypoints'],
+                area=ann_dict['area'],
+                iscrowd=ann_dict['iscrowd'],
+                keypoints=Keypoint2D_List.from_list(ann_dict['keypoints'], demarcation=False),
+                image_id=ann_dict['image_id'],
+                bbox=BBox.from_list(ann_dict['bbox'], input_format='pminsize'),
+                category_id=ann_dict['category_id'],
+                id=ann_dict['id'],
+                keypoints_3d=Keypoint3D_List.from_list(ann_dict['keypoints_3d'], demarcation=False) if 'keypoints_3d' in ann_dict else None,
+                camera=Camera.from_dict(ann_dict['camera_params']) if 'camera_params' in ann_dict else None
+            )
+        else:
+            check_required_keys(
+                ann_dict,
+                required_keys=[
+                    'id', 'category_id', 'image_id'
+                ]
+            )
+            return COCO_Annotation(
+                segmentation=Segmentation.from_list(ann_dict['segmentation'], demarcation=False) if 'segmentation' in ann_dict else None,
+                num_keypoints=ann_dict['num_keypoints'] if 'num_keypoints' in ann_dict else None,
+                area=ann_dict['area'] if 'area' in ann_dict else None,
+                iscrowd=ann_dict['iscrowd'] if 'iscrowd' in ann_dict else None,
+                keypoints=Keypoint2D_List.from_list(ann_dict['keypoints'], demarcation=False) if 'keypoints' in ann_dict else None,
+                image_id=ann_dict['image_id'],
+                bbox=BBox.from_list(ann_dict['bbox'], input_format='pminsize') if 'bbox' in ann_dict else None,
+                category_id=ann_dict['category_id'],
+                id=ann_dict['id'],
+                keypoints_3d=Keypoint3D_List.from_list(ann_dict['keypoints_3d'], demarcation=False) if 'keypoints_3d' in ann_dict else None,
+                camera=Camera.from_dict(ann_dict['camera_params']) if 'camera_params' in ann_dict else None
+            )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Annotation:
+    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Annotation:
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
-        return COCO_Annotation.from_dict(json_dict)
+        return COCO_Annotation.from_dict(ann_dict=json_dict, strict=strict)
 
 class COCO_Category(BaseStructObject['COCO_License']):
     def __init__(
-        self, supercategory: str, id: int, name: str, keypoints: List[str], skeleton: List[list]
+        self, id: int, supercategory: str=None, name: str=None, keypoints: List[str]=None, skeleton: List[list]=None
     ):
-        self.supercategory = supercategory
+        # Standard Required
         self.id = id
-        self.name = name
-        self.keypoints = keypoints
-        self.skeleton = skeleton
+
+        # Standard Optional
+        if supercategory is None and name is None:
+            logger.error(f'Need to provide COCO_Category with either supercategory or name at the very least, but both are None.')
+            logger.error(f'id: {id}')
+            raise Exception
+        self.supercategory = supercategory if supercategory is not None else name
+        self.name = name if name is not None else supercategory
+        self.keypoints = keypoints if keypoints is not None else []
+        self.skeleton = skeleton if skeleton is not None else []
 
     def __str__(self):
         print_str = "========================\n"
@@ -365,22 +398,60 @@ class COCO_Category(BaseStructObject['COCO_License']):
             result = result and self.id == other.id
         return result
 
+    def to_dict(self, strict: bool=True) -> dict:
+        if strict:
+            return self.__dict__
+        else:
+            result_dict = {
+                'id': self.id,
+                'name': self.name
+            }
+            if self.supercategory != self.name:
+                result_dict['supercategory'] = self.supercategory
+            if len(self.keypoints) > 0:
+                result_dict['keypoints'] = self.keypoints
+            if len(self.skeleton) > 0:
+                result_dict['skeleton'] = self.skeleton
+            return result_dict
+
+    def save_to_path(self: T, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json_dict = self.to_dict(strict=strict)
+        json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
+
     @classmethod
-    def from_dict(cls, category_dict: dict) -> COCO_Category:
-        check_required_keys(
-            category_dict,
-            required_keys=[
-                'supercategory', 'id', 'name',
-                'keypoints', 'skeleton'
-            ]
-        )
-        return COCO_Category(
-            supercategory=category_dict['supercategory'],
-            id=category_dict['id'],
-            name=category_dict['name'],
-            keypoints=category_dict['keypoints'],
-            skeleton=category_dict['skeleton'],
-        )
+    def from_dict(cls, category_dict: dict, strict: bool=True) -> COCO_Category:
+        if strict:
+            check_required_keys(
+                category_dict,
+                required_keys=[
+                    'supercategory', 'id', 'name',
+                    'keypoints', 'skeleton'
+                ]
+            )
+            return COCO_Category(
+                supercategory=category_dict['supercategory'],
+                id=category_dict['id'],
+                name=category_dict['name'],
+                keypoints=category_dict['keypoints'],
+                skeleton=category_dict['skeleton'],
+            )
+        else:
+            check_required_keys(
+                category_dict,
+                required_keys=[
+                    'id'
+                ]
+            )
+            return COCO_Category(
+                id=category_dict['id'],
+                supercategory=category_dict['supercategory'] if 'supercategory' in category_dict else None,
+                name=category_dict['name'] if 'name' in category_dict else None,
+                keypoints=category_dict['keypoints'] if 'keypoints' in category_dict else None,
+                skeleton=category_dict['skeleton'] if 'skeleton' in category_dict else None
+            )
 
     @classmethod
     def from_label_skeleton(
@@ -418,7 +489,7 @@ class COCO_Category(BaseStructObject['COCO_License']):
         return str_skeleton
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Category:
+    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Category:
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
-        return COCO_Category.from_dict(json_dict)
+        return COCO_Category.from_dict(json_dict, strict=strict)
