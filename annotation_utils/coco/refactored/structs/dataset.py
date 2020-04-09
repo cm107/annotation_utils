@@ -200,7 +200,7 @@ class COCO_Dataset:
 
     def move_images(
         self, dst_img_dir: str,
-        preserve_filenames: bool=False, update_img_paths: bool=True, overwrite: bool=False,
+        preserve_filenames: bool=False, overwrite_duplicates: bool=False, update_img_paths: bool=True, overwrite: bool=False,
         show_pbar: bool=True
     ):
         """
@@ -209,6 +209,10 @@ class COCO_Dataset:
 
         dst_img_dir: The directory where you would like to save the combined image set.
         preserve_filenames: If False, unique filenames will be generated so as to not create a filename conflict.
+        overwrite_duplicates: Only applicable when preserve_filenames=True.
+                              In the event that two images with the same filename are moved to dst_img_dir from
+                              two different source folders, an error will be raised if overwrite_duplicates=False.
+                              If overwrite_duplicates=True, the second copy will be overwrite the first copy.
         update_img_paths: If True, all coco_url paths specified in self.images will be updated to reflect the new
                           combined image directory.
         overwrite: If True, all files in dst_img_dir will be deleted before copying images into the folder.
@@ -247,7 +251,7 @@ class COCO_Dataset:
             else:
                 img_filename = get_filename(coco_image.coco_url)
                 dst_img_path = f'{dst_img_dir}/{img_filename}'
-                if file_exists(dst_img_path):
+                if file_exists(dst_img_path) and not overwrite_duplicates:
                     logger.error(f'Failed to copy {coco_image.coco_url} to {dst_img_dir}')
                     logger.error(f'{img_filename} already exists in destination directory.')
                     logger.error(f'Hint: In order to use preserve_filenames=True, all filenames in the dataset must be unique.')
