@@ -9,64 +9,34 @@ License: MIT License
 Description: # annotation_utils
         Utilities that are used for assisting with making annotated data.
         
-        ## Standard Installation (recommended)
+        ## Installation
         ```console
         pip install https://github.com/cm107/annotation_utils/archive/master.zip
         ```
         
-        ## Submodule Installation
-        See below.
-        
-        ## Explanation
-        This repository is meant to be used as a submodule.
-        This repository by itself is a collection of useful methods and classes that relate to creating and managing annotated data.
-        
-        ## Dependencies
-        In order to be able to use this repository, the following dependencies must be met.
-        
-        ### Pip Dependencies
-        You can install the pip dependencies to this repository with the following command:
-        ```console
-        pip install json matplotlib pycocotools shapely numpy
-        ```
-        
-        Note: It is recommended that you install pip dependencies inside of a virtual environment.
-        
-        ### Directory Structure Dependencies
-        This repository itself is to be treated as a submodule.
-        Furthermore, it has other submodule dependencies, which must reside in the parent directory that contains this repository.
-        * Submodule Dependencies:
-            * [logger](https://github.com/cm107/logger.git)
-            * [common_utils](https://github.com/cm107/common_utils.git)
-        
-        ### Recommended Directory Structure
-        * root
-            * src
-                * submodules
-                    * logger
-                    * common_utils
-                    * annotation_utils
-        
-        ### Setting Up Submodules
-        Execute the following command from your repository's root directory:
+        ## Update Build
+        If you change the code and want to re-build the package, do the following.
         
         ```console
-        git submodule add https://github.com/cm107/logger.git src/submodules/logger
-        git submodule add https://github.com/cm107/common_utils.git src/submodules/common_utils
-        git submodule add https://github.com/cm107/annotation_utils.git src/submodules/annotation_utils
+        ./build_package.sh
         ```
         
-        ## How To Setup Your Submodules After Your Root Repository Is Freshly Pulled
-        It is recommended that you include the following text into your root repository's README
+        The package can then be installed locally.
+        ```console
+        pip install -e .
+        ```
         
-        Add the following alias to your git.
-        ```console
-        git config --global alias.update '!git pull && git submodule update --init --recursive'
-        ```
-        Then update your repository.
-        ```console
-        git update
-        ```
+        ## Important Note
+        * Many of the classes and methods in this repository have been refactored, but have not yet been organized.
+        * The latest COCO utilities can be found under [annotation_utils/coco/refactored](annotation_utils/coco/refactored).
+        * The latest Labelme utilities can be found under [annotation_utils/labelme/refactored](annotation_utils/labelme/refactored).
+        * The latest dataset management utilities can be found under [annotation_utils/dataset/refactored](annotation_utils/dataset/refactored).
+        
+        ## Usage
+        There is not any official documentation about usage yet, but for usage examples you may refer to the [test folder](test).
+        * [COCO Utility Usage Examples](test/coco)
+        * [Labelme Utility Usage Examples](test/labelme)
+        * [Dataset Utility Usage Examples](test/dataset)
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
