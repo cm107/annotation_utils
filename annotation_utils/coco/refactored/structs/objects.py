@@ -371,8 +371,10 @@ class COCO_Category(BaseStructObject['COCO_License']):
             logger.error(f'Need to provide COCO_Category with either supercategory or name at the very least, but both are None.')
             logger.error(f'id: {id}')
             raise Exception
-        self.supercategory = supercategory if supercategory is not None else name
-        self.name = name if name is not None else supercategory
+        supercategory0 = str(supercategory) if type(supercategory) in [int, float] else supercategory
+        name0 = str(name) if type(name) in [int, float] else name
+        self.supercategory = supercategory0 if supercategory0 is not None else name0
+        self.name = name0 if name0 is not None else supercategory0
         self.keypoints = keypoints if keypoints is not None else []
         self.skeleton = skeleton if skeleton is not None else []
 
