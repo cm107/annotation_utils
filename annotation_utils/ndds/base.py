@@ -317,7 +317,7 @@ if __name__ == '__main__':
                 coco_annotation_list.append(coco_annotation)
         
 
-    save_location = "./test/annot-coco.json"
+    save_location = "../../../hsr_coco/annot-coco.json"
 
 
     save_path_dir = os.path.dirname(os.path.abspath(save_location))
