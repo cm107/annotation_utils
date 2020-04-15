@@ -941,6 +941,21 @@ class COCO_Dataset:
                 if verbose:
                     logger.info(f'Deleted image id: {coco_image.id}')
 
+    def remove_categories_by_name(self, category_names: List[str], verbose: bool=False):
+        self.categories.remove_by_name(
+            names=category_names,
+            ann_handler=self.annotations,
+            img_handler=self.images,
+            license_handler=self.licenses,
+            verbose=verbose
+        )
+
+    def print_handler_lengths(self):
+        logger.info(f'len(licenses): {len(self.licenses)}')
+        logger.info(f'len(images): {len(self.images)}')
+        logger.info(f'len(annotations): {len(self.annotations)}')
+        logger.info(f'len(categories): {len(self.categories)}')
+
     def draw_annotation(
         self, img: np.ndarray, ann_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],

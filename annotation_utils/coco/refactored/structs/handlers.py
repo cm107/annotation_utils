@@ -6,7 +6,8 @@ import operator
 import random
 
 from logger import logger
-from common_utils.check_utils import check_type, check_type_from_list, check_file_exists
+from common_utils.check_utils import check_type, check_type_from_list, \
+    check_file_exists, check_value_from_list
 from common_utils.path_utils import get_extension_from_filename
 from common_utils.file_utils import file_exists
 
@@ -17,12 +18,6 @@ class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_Licen
     def __init__(self, license_list: List[COCO_License]=None):
         super().__init__(obj_type=COCO_License, obj_list=license_list)
         self.license_list = self.obj_list
-
-    def get_license_from_id(self, id: int) -> COCO_License:
-        """ TODO: Delete all references to this method. """
-        logger.warning(f'get_license_from_id is decapricated.')
-        logger.warning(f'Please use get_obj_from_id instead.')
-        return self.get_obj_from_id(id=id)
 
     @classmethod
     def from_dict_list(cls, dict_list: List[dict]) -> COCO_License_Handler:
@@ -36,16 +31,36 @@ class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_Licen
         json_data = json.load(open(json_path, 'r'))
         return COCO_License_Handler.from_dict_list(json_data)
 
+    def remove(self, id_list: List[int], verbose: bool=False):
+        # TODO: Create a base class that inherits from BaseStruct that requires an id class parameter
+        # This method could be added to the base handler of the resulting object class.
+        if len(id_list) > 0:
+            idx_list = list(range(len(self)))
+            idx_list.reverse()
+            for idx in idx_list:
+                if self[idx].id in id_list:
+                    del self[idx]
+                    if verbose:
+                        logger.info(f'Deleted License Id: {idx}')
+
+    def remove_if_no_imgs(self, img_handler: COCO_Image_Handler, id_list: List[int]=None, verbose: bool=False):
+        rm_license_id_list = []
+        if id_list is not None:
+            for license_id in id_list:
+                imgs = img_handler.get_images_from_licenseIds([license_id])
+                if len(imgs) == 0:
+                    rm_license_id_list.append(license_id)
+        else:
+            for coco_license in self:
+                imgs = img_handler.get_images_from_licenseIds([coco_license.id])
+                if len(imgs) == 0:
+                    rm_license_id_list.append(license_id)
+        self.remove(rm_license_id_list, verbose=verbose)
+
 class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
     def __init__(self, image_list: List[COCO_Image]=None):
         super().__init__(obj_type=COCO_Image, obj_list=image_list)
         self.image_list = self.obj_list
-
-    def get_image_from_id(self, id: int) -> COCO_Image:
-        """ TODO: Delete all references to this method. """
-        logger.warning(f'get_image_from_id is decapricated.')
-        logger.warning(f'Please use get_obj_from_id instead.')
-        return self.get_obj_from_id(id=id)
 
     def get_images_from_file_name(self, file_name: str) -> List[COCO_Image]:
         return [coco_image for coco_image in self if file_name == coco_image.file_name]
@@ -67,6 +82,9 @@ class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
     def get_images_from_imgIds(self, imgIds: list) -> List[COCO_Image]:		
 	        return [x for x in self if x.id in imgIds]
 
+    def get_images_from_licenseIds(self, licenseIds: List[int]) -> List[COCO_Image]:
+        return [x for x in self if x.license_id in licenseIds]
+
     @classmethod
     def from_dict_list(cls, dict_list: List[dict]) -> COCO_Image_Handler:
         return COCO_Image_Handler(
@@ -79,22 +97,63 @@ class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
         json_data = json.load(open(json_path, 'r'))
         return COCO_Image_Handler.from_dict_list(json_data)
 
+    def remove(self, id_list: List[int], verbose: bool=False):
+        # TODO: Create a base class that inherits from BaseStruct that requires an id class parameter
+        # This method could be added to the base handler of the resulting object class.
+        if len(id_list) > 0:
+            idx_list = list(range(len(self)))
+            idx_list.reverse()
+            for idx in idx_list:
+                if self[idx].id in id_list:
+                    del self[idx]
+                    if verbose:
+                        logger.info(f'Deleted Image Id: {idx}')
+    
+    def remove_if_no_anns(self, ann_handler: COCO_Annotation_Handler, license_handler: COCO_License_Handler=None, id_list: List[int]=None, verbose: bool=False):
+        """Removes all of the COCO_Image objects in the handler that do not have any corresponding annotations.
+        
+        Arguments:
+            ann_handler {COCO_Annotation_Handler} -- [Reference COCO Annotation Handler]
+            license_handler {COCO_License_Handler} -- [
+                The COCO License Handler that you would like to update according to image removals.
+                If None, licenses will not be updated.
+            ]
+        
+        Keyword Arguments:
+            id_list {List[int]} -- [
+                The image IDs that you would like to check.
+                If None, all images are checked.
+            ] (default: {None})
+        """
+        rm_image_id_list = []
+        if id_list is not None:
+            for image_id in id_list:
+                anns = ann_handler.get_annotations_from_imgIds([image_id])
+                if len(anns) == 0:
+                    rm_image_id_list.append(image_id)
+        else:
+            for coco_image in self:
+                anns = ann_handler.get_annotations_from_imgIds([coco_image.id])
+                if len(anns) == 0:
+                    rm_image_id_list.append(coco_image.id)
+        self.remove(rm_image_id_list, verbose=verbose)
+        if license_handler is not None:
+            pending_license_id_list = [license.id for license in license_handler]
+            license_handler.remove_if_no_imgs(img_handler=self, id_list=pending_license_id_list, verbose=verbose)
+
 class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO_Annotation']):
     def __init__(self, annotation_list: List[COCO_Annotation]=None):
         super().__init__(obj_type=COCO_Annotation, obj_list=annotation_list)
         self.annotation_list = self.obj_list
-
-    def get_annotation_from_id(self, id: int) -> COCO_Annotation:
-        """ TODO: Delete all references to this method. """
-        logger.warning(f'get_annotation_from_id is decapricated.')
-        logger.warning(f'Please use get_obj_from_id instead.')
-        return self.get_obj_from_id(id=id)
 
     def get_annotations_from_annIds(self, annIds: list) -> List[COCO_Annotation]:		
         return [ann for ann in self if ann.id in annIds]		
         
     def get_annotations_from_imgIds(self, imgIds: list) -> List[COCO_Annotation]:		
         return [ann for ann in self if ann.image_id in imgIds]
+    
+    def get_annotations_from_catIds(self, catIds: list) -> List[COCO_Annotation]:
+        return [ann for ann in self if ann.category_id in catIds]
 
     def to_dict_list(self, strict: bool=True) -> List[dict]:
         return [item.to_dict(strict=strict) for item in self]
@@ -118,16 +177,46 @@ class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO
         json_data = json.load(open(json_path, 'r'))
         return COCO_Annotation_Handler.from_dict_list(json_data, strict=strict)
 
+    def remove(self, id_list: List[int], verbose: bool=False):
+        # TODO: Create a base class that inherits from BaseStruct that requires an id class parameter
+        # This method could be added to the base handler of the resulting object class.
+        if len(id_list) > 0:
+            idx_list = list(range(len(self)))
+            idx_list.reverse()
+            for idx in idx_list:
+                if self[idx].id in id_list:
+                    del self[idx]
+                    if verbose:
+                        logger.info(f'Deleted Annotation Id: {idx}')
+    
+    def remove_if_no_categories(
+        self, cat_handler: COCO_Category_Handler,
+        img_handler: COCO_Image_Handler=None, license_handler: COCO_License_Handler=None, id_list: List[int]=None, verbose: bool=False
+    ):
+        rm_ann_id_list = []
+        pending_img_id_list = []
+        existing_cat_id_list = [cat.id for cat in cat_handler]
+
+        if id_list is not None:
+            anns = self.get_annotations_from_annIds(id_list)
+            for ann in anns:
+                if ann.category_id not in existing_cat_id_list:
+                    rm_ann_id_list.append(ann.id)
+                    pending_img_id_list.append(ann.image_id)
+        else:
+            for ann in self:
+                if ann.category_id not in existing_cat_id_list:
+                    rm_ann_id_list.append(ann.id)
+                    pending_img_id_list.append(ann.image_id)
+        
+        self.remove(rm_ann_id_list, verbose=verbose)
+        if img_handler is not None:
+            img_handler.remove_if_no_anns(ann_handler=self, license_handler=license_handler, id_list=pending_img_id_list, verbose=verbose)
+
 class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Category']):
     def __init__(self, category_list: List[COCO_Category]=None):
         super().__init__(obj_type=COCO_Category, obj_list=category_list)
         self.category_list = self.obj_list
-
-    def get_category_from_id(self, id: int) -> COCO_Category:
-        """ TODO: Delete all references to this method. """
-        logger.warning(f'get_category_from_id is decapricated.')
-        logger.warning(f'Please use get_obj_from_id instead.')
-        return self.get_obj_from_id(id=id)
 
     def get_categories_from_name(self, name: str) -> List[COCO_Category]:		
         return [cat for cat in self if cat.name == name]
@@ -172,3 +261,33 @@ class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Cat
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
         return COCO_Category_Handler.from_dict_list(json_data, strict=strict)
+    
+    def remove(self, id_list: List[int], verbose: bool=False):
+        # TODO: Create a base class that inherits from BaseStruct that requires an id class parameter
+        # This method could be added to the base handler of the resulting object class.
+        if len(id_list) > 0:
+            idx_list = list(range(len(self)))
+            idx_list.reverse()
+            for idx in idx_list:
+                if self[idx].id in id_list:
+                    del self[idx]
+                    if verbose:
+                        logger.info(f'Deleted Category Id: {idx}')
+    
+    def remove_by_name(
+        self, names: List[str],
+        ann_handler: COCO_Annotation_Handler=None, img_handler: COCO_Image_Handler=None, license_handler: COCO_License_Handler=None,
+        verbose: bool=False
+    ):
+        existing_category_names = [coco_cat.name for coco_cat in self]
+        check_value_from_list(names, valid_value_list=existing_category_names)
+        rm_ids = [coco_cat.id for coco_cat in self if coco_cat.name in names]
+        self.remove(rm_ids, verbose=verbose)
+        if ann_handler is not None:
+            ann_handler.remove_if_no_categories(
+                cat_handler=self,
+                img_handler=img_handler,
+                license_handler=license_handler,
+                id_list=None,
+                verbose=verbose
+            )
