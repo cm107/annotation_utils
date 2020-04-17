@@ -2,9 +2,17 @@
 Utilities that are used for assisting with making annotated data.
 
 ## Installation
+### Install From Github
 ```console
 pip install https://github.com/cm107/annotation_utils/archive/master.zip
 ```
+
+### Install From Pypi
+```console
+pip install pyclay-annotation_utils
+```
+
+Note: The github package is updated more often than the pypi package.
 
 ## Update Build
 If you change the code and want to re-build the package, do the following.

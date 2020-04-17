@@ -1,11 +1,6 @@
 README.md
 setup.py
 annotation_utils/__init__.py
-annotation_utils.egg-info/PKG-INFO
-annotation_utils.egg-info/SOURCES.txt
-annotation_utils.egg-info/dependency_links.txt
-annotation_utils.egg-info/requires.txt
-annotation_utils.egg-info/top_level.txt
 annotation_utils/base/__init__.py
 annotation_utils/base/structs.py
 annotation_utils/coco/__init__.py
@@ -65,3 +60,8 @@ annotation_utils/util/utils/utils.py
 annotation_utils/util/utils/coco/__init__.py
 annotation_utils/util/utils/coco/buffer.py
 annotation_utils/util/utils/coco/id_map.py
+pyclay_annotation_utils.egg-info/PKG-INFO
+pyclay_annotation_utils.egg-info/SOURCES.txt
+pyclay_annotation_utils.egg-info/dependency_links.txt
+pyclay_annotation_utils.egg-info/requires.txt
+pyclay_annotation_utils.egg-info/top_level.txt
