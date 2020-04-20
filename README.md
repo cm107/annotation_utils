@@ -27,7 +27,7 @@ pip install -e .
 ```
 
 ## Important Note
-* Many of the classes and methods in this repository have been refactored, but have not yet been organized.
+* Outdated/obsolete code has been moved to the [annotation_utils/old](annotation_utils/old) folder as of version 0.2.
 * The latest COCO utilities can be found under [annotation_utils/coco/refactored](annotation_utils/coco/refactored).
 * The latest Labelme utilities can be found under [annotation_utils/labelme/refactored](annotation_utils/labelme/refactored).
 * The latest dataset management utilities can be found under [annotation_utils/dataset/refactored](annotation_utils/dataset/refactored).
