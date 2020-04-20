@@ -1,6 +1,6 @@
 from logger import logger
 from common_utils.common_types.point import Point2D_List
-from annotation_utils.labelme.refactored import LabelmeAnnotation, LabelmeShape
+from annotation_utils.labelme.structs import LabelmeAnnotation, LabelmeShape
 
 ann = LabelmeAnnotation.load_from_path('/home/clayton/workspace/test/labelme_testing/orig_cat.json')
 ann.shapes.append(

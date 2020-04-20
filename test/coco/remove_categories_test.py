@@ -1,4 +1,4 @@
-from annotation_utils.coco.refactored.structs import COCO_Dataset
+from annotation_utils.coco.structs import COCO_Dataset
 
 dataset = COCO_Dataset.load_from_path(
     json_path='/home/clayton/Downloads/screw1_mark-100-_coco-data/screw-coco.json',

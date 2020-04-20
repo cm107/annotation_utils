@@ -1,5 +1,4 @@
-from annotation_utils.dataset.refactored.config.dataset_config import Path
-from logger import logger
+from annotation_utils.dataset.config.dataset_config import Path
 
 assert Path.get_longest_container_dir(
     [

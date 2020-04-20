@@ -1,4 +1,4 @@
-from annotation_utils.coco.refactored.structs import COCO_Dataset, \
+from annotation_utils.coco.structs import COCO_Dataset, \
     COCO_License, COCO_Image, COCO_Annotation, COCO_Category
 from common_utils.common_types.bbox import BBox
 from logger import logger

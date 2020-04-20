@@ -1,5 +1,5 @@
 from logger import logger
-from annotation_utils.coco.refactored.structs import COCO_Dataset
+from annotation_utils.coco.structs import COCO_Dataset
 
 dataset = COCO_Dataset.load_from_path(
     json_path='bk_28_02_2020_11_18_30_coco-data/HSR-coco.json',
