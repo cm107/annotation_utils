@@ -212,16 +212,12 @@ class CocoNDDSConverter:
         camera_settings_json = self.get_camera_settings()
 
         for i, json_path in enumerate(json_path_list):
-            logger.blue(f"{i}: {json_path}")
             ann_dict = json.load(open(json_path, 'r'))
             camera_dict = ann_dict['camera_data']
             camera_instrinsic_settings = camera_settings_json[0]["intrinsic_settings"]
             camera_params = CameraParam(f=[camera_instrinsic_settings["fx"], camera_instrinsic_settings["fy"]], c=[camera_instrinsic_settings["cx"], camera_instrinsic_settings["cy"]], T=camera_dict['location_worldframe'])
             location_worldframe = Point3D.from_list(coords=camera_dict['location_worldframe'])
             quaternion_worldframe = Quaternion.from_list(coords=camera_dict['quaternion_xyzw_worldframe'])
-
-            logger.cyan(f"location_worldframe: {location_worldframe}")
-            logger.cyan(f"quaternion_worldframe: {quaternion_worldframe}")
 
             ann_object_list = ann_dict['objects']
             image_location = os.path.abspath(json_path[:-5]+'.png')

@@ -47,7 +47,6 @@ category will be based on NDDS tag
     #  check saved annotation
     json_dict_list = json.load(open(save_location, 'r'))
 
-    logger.yellow(json_dict_list)
 ```
 
 ## NDDS tag usage
