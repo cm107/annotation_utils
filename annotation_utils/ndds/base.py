@@ -14,10 +14,6 @@ from coco_base import CocoInfo, CocoLicense, CocoImage, CocoAnnotation, CocoCate
 import datetime
 import cv2
 
-class Test:
-    def __init__(self,a: int = 1):
-        print(a)
-
 class CameraParam:
     def __init__(self,f: [float], c: List[float], T: List[float]):
         self.f = f
@@ -181,20 +177,154 @@ class Custom_Object_From_NDDS():
         self.a = 1
 
 
+class CocoNDDSConverter:
+    def __init__(self, data_dir: str, info_dict: dict, license_dict_list: List[dict], category_dict_list:List[dict], save_path: str):
+        self.data_dir = data_dir
+        self.save_path = os.path.abspath(save_path)
+        
+        self.coco_info = CocoInfo().from_dict(coco_dict=info_dict)
+        self.coco_license_list = [CocoLicense().from_dict(coco_dict=license_dict) for license_dict in license_dict_list]
+        self.coco_image_list = []
+        self.coco_annotation_list= []
+        self.coco_category_list = [CocoCategory().from_dict(coco_dict=category_dict) for category_dict in category_dict_list]
+    
 
+    def get_all_object_json_files(self):
+
+        json_path_list = get_all_files_of_extension(dir_path=self.data_dir, extension='json')
+        json_path_list = [json_path for json_path in json_path_list if '_camera' not in json_path]
+        json_path_list = [json_path for json_path in json_path_list if '_object' not in json_path]
+        json_path_list.sort()
+        return json_path_list
+
+    def get_camera_settings(self):
+
+        json_path_list = get_all_files_of_extension(dir_path=self.data_dir, extension='json')
+        camera_settings_path = [json_path for json_path in json_path_list if '_camera' in json_path][0]
+        camera_settings_json = json.load(open(camera_settings_path, 'r'))["camera_settings"]
+        return camera_settings_json
+    
+
+    def process(self):
+
+        object_name = np.array([item.name for item in self.coco_category_list])
+        json_path_list = self.get_all_object_json_files()
+        camera_settings_json = self.get_camera_settings()
+
+        for i, json_path in enumerate(json_path_list):
+            logger.blue(f"{i}: {json_path}")
+            ann_dict = json.load(open(json_path, 'r'))
+            camera_dict = ann_dict['camera_data']
+            camera_instrinsic_settings = camera_settings_json[0]["intrinsic_settings"]
+            camera_params = CameraParam(f=[camera_instrinsic_settings["fx"], camera_instrinsic_settings["fy"]], c=[camera_instrinsic_settings["cx"], camera_instrinsic_settings["cy"]], T=camera_dict['location_worldframe'])
+            location_worldframe = Point3D.from_list(coords=camera_dict['location_worldframe'])
+            quaternion_worldframe = Quaternion.from_list(coords=camera_dict['quaternion_xyzw_worldframe'])
+
+            logger.cyan(f"location_worldframe: {location_worldframe}")
+            logger.cyan(f"quaternion_worldframe: {quaternion_worldframe}")
+
+            ann_object_list = ann_dict['objects']
+            image_location = os.path.abspath(json_path[:-5]+'.png')
+
+            coco_image = CocoImage(license=1, file_name=os.path.basename(image_location), coco_url=image_location, height= camera_settings_json[0]["captured_image_size"]["height"], width= camera_settings_json[0]["captured_image_size"]["width"], date_captured=today, flickr_url=None, id=i)
+            self.coco_image_list.append(coco_image)
+            # coco_annotation(bbox=[1,1,1,1], image_id= i, category_id= 0, is_crowd=0, id=i)
+            ndds_ann_object_list = []
+            # print(coco_image)
+            for ann_object in ann_object_list:
+                ndds_ann_object = NDDS_Annotation_Object.from_object_dict(ann_object)
+                if any(ele in ndds_ann_object.class_name for ele in object_name):
+                    mask = np.array([ele in ndds_ann_object.class_name for ele in object_name])
+                    object_name_single = object_name[mask][0]
+
+                    category_id = [category.id for category in self.coco_category_list if category.name == object_name_single][0]
+                    object_index = ndds_ann_object.class_name.replace(object_name_single, '')
+
+                    # get segmentation color
+                    RGBint = ndds_ann_object.instance_id
+                    pixel_b =  RGBint & 255
+                    pixel_g = (RGBint >> 8) & 255
+                    pixel_r =   (RGBint >> 16) & 255
+                    color_instance_rgb = [pixel_b,pixel_g,pixel_r]
+
+                    # get segmentation and bbox
+                    instance_img = cv2.imread(coco_image.coco_url.replace('.png', '.is.png'))
+                        
+                    bgr_lower, bgr_upper = (int(color_instance_rgb[0]-1), int(color_instance_rgb[1]-1), int(color_instance_rgb[2]-1)), (int(color_instance_rgb[0]+1), int(color_instance_rgb[1]+1), int(color_instance_rgb[2]+1))
+                    color_mask = cv2.inRange(src=instance_img, lowerb=bgr_lower, upperb=bgr_upper)
+                    color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    seg = Segmentation.from_contour(contour_list=color_contours)
+                        
+                    if len(seg) == 0:
+                        print("image segmentation not found, please check color code")
+                        continue
+                            
+                    seg_bbox = seg.to_bbox()
+                        
+                    outer_xmin = float(seg_bbox.xmin)
+                    outer_ymin = float(seg_bbox.ymin)
+                    outer_xmax = float(seg_bbox.xmax)
+                    outer_ymax = float(seg_bbox.ymax)
+                    outer_bbox = BBox(xmin=outer_xmin, ymin=outer_ymin, xmax=outer_xmax, ymax=outer_ymax)
+                    outer_bbox_h, outer_bbox_w = outer_bbox.shape()
+                    outer_bbox_area = outer_bbox.area()
+
+                    bbox_final =[outer_bbox.xmin, outer_bbox.ymin, outer_bbox_w, outer_bbox_h]
+
+                    if outer_bbox_area < 10:
+                        print("object too small to be considered")
+                        continue
+                    
+                    # try to get keypoints
+                    keypoint_dict = {}
+                    keypoint_3d_dict = {}
+                    for ann_object in ann_object_list:
+                        ndds_keypoint_object = NDDS_Annotation_Object.from_object_dict(ann_object)
+                        if "point" in ndds_keypoint_object.class_name:
+                            point_name = ndds_keypoint_object.class_name.replace("point", "")
+                            keypoint_list = [category.keypoints for category in self.coco_category_list if category.name == object_name_single][0]
+                            if object_index in point_name:
+                                point_name = point_name.replace(object_index,"")
+                                keypoint_dict.update({
+                                    point_name: ndds_keypoint_object.projected_cuboid_centroid
+                                })
+                                keypoint_3d_dict.update({
+                                    point_name: ndds_keypoint_object.cuboid_centroid
+                                })
+
+                    keypoints = [item for sublist in [[keypoint_dict[item].x, keypoint_dict[item].y, 2] for item in keypoint_list] for item in sublist]
+                    keypoints_3d = [item for sublist in [[keypoint_3d_dict[item].x, keypoint_3d_dict[item].y, keypoint_3d_dict[item].z, 2] for item in keypoint_list] for item in sublist]
+                    coco_annotation = CocoAnnotation(bbox=bbox_final, image_id= i, category_id= category_id, is_crowd=0, id=len(self.coco_annotation_list)+1, 
+                                                    keypoints=keypoints, keypoints_3d = keypoints_3d, segmentation=seg.to_list(), area=outer_bbox_area,
+                                                    orientation_xyzw=ndds_ann_object.quaternion_xyzw.to_dict(), camera_params=camera_params.to_dict(), num_keypoints=len(keypoints))
+                    self.coco_annotation_list.append(coco_annotation)
+        
+        self.save_images()
+       
+        return CocoDataset(info=self.coco_info, licenses=self.coco_license_list, images=self.coco_image_list, annotations=self.coco_annotation_list, categories=self.coco_category_list), self.save_path
+
+    def save_images(self):
+
+        save_path_dir = os.path.dirname(os.path.abspath(self.save_path))
+        Path(save_path_dir).mkdir(parents=True, exist_ok=True)
+        # move images
+        for images in self.coco_image_list:
+            shutil.copy(images.coco_url, f'{save_path_dir}/'+images.file_name)
+            images.coco_url = save_path_dir+images.file_name
+
+        CocoDataset(info=self.coco_info, licenses=self.coco_license_list, images=self.coco_image_list, annotations=self.coco_annotation_list, categories=self.coco_category_list).save_to_path(save_path=save_location)
 
 if __name__ == '__main__': 
+    # data location
     test_dir = rel_to_abs_path(get_script_dir())
     data_dir = f"{test_dir}/../../../HSR"
-    json_path_list = get_all_files_of_extension(dir_path=data_dir, extension='json')
+
+    # save location
+    save_location = "../../../hsr_coco/annot-coco.json"
+
+    # initiate coco info, license, and category
     today = datetime.datetime.now().strftime("%Y/%m/%d")
     year = datetime.datetime.now().strftime("%Y")
-    camera_settings_path = [json_path for json_path in json_path_list if '_camera' in json_path][0]
-    camera_settings_json = json.load(open(camera_settings_path, 'r'))["camera_settings"]
-    
-    json_path_list = [json_path for json_path in json_path_list if '_camera' not in json_path]
-    json_path_list = [json_path for json_path in json_path_list if '_object' not in json_path]
-    json_path_list.sort()
 
     info_dict = {
         "description": "HSR 2020 Dataset",
@@ -209,7 +339,6 @@ if __name__ == '__main__':
       "id": 1,
       "name": "Private License"
     }]
-
     # change this to desired object
     category_dict_list = [{
       "supercategory": "hsr",
@@ -219,117 +348,18 @@ if __name__ == '__main__':
       "skeleton": [[1,2],[2,3],[3,4],[4,1],[1,5],[2,6],[3,7],[4,8],[5,6],[6,7],[7,8],[8,5],[5,9],[6,10],[7,11],[8,12],[9,10],[10,11],[11,12],[12,9]]
       }
       ]
-
-
-    coco_info = CocoInfo().from_dict(coco_dict=info_dict)
-    coco_license_list = [CocoLicense().from_dict(coco_dict=license_dict) for license_dict in license_dict_list]
-    coco_image_list = []
-    coco_annotation_list = []
-    coco_category_list = [CocoCategory().from_dict(coco_dict=category_dict) for category_dict in category_dict_list]
     
-    object_name = np.array([item.name for item in coco_category_list])
-    for i, json_path in enumerate(json_path_list):
-        logger.blue(f"{i}: {json_path}")
-        ann_dict = json.load(open(json_path, 'r'))
-        camera_dict = ann_dict['camera_data']
-        camera_instrinsic_settings = camera_settings_json[0]["intrinsic_settings"]
-        camera_params = CameraParam(f=[camera_instrinsic_settings["fx"], camera_instrinsic_settings["fy"]], c=[camera_instrinsic_settings["cx"], camera_instrinsic_settings["cy"]], T=camera_dict['location_worldframe'])
-        location_worldframe = Point3D.from_list(coords=camera_dict['location_worldframe'])
-        quaternion_worldframe = Quaternion.from_list(coords=camera_dict['quaternion_xyzw_worldframe'])
+    coco_convert = CocoNDDSConverter(data_dir=data_dir, info_dict=info_dict, license_dict_list=license_dict_list, category_dict_list=category_dict_list, save_path=save_location)
 
-        logger.cyan(f"location_worldframe: {location_worldframe}")
-        logger.cyan(f"quaternion_worldframe: {quaternion_worldframe}")
-
-        ann_object_list = ann_dict['objects']
-        image_location = os.path.abspath(json_path[:-5]+'.png')
-
-        coco_image = CocoImage(license=1, file_name=os.path.basename(image_location), coco_url=image_location, height= camera_settings_json[0]["captured_image_size"]["height"], width= camera_settings_json[0]["captured_image_size"]["width"], date_captured=today, flickr_url=None, id=i)
-        coco_image_list.append(coco_image)
-        # coco_annotation(bbox=[1,1,1,1], image_id= i, category_id= 0, is_crowd=0, id=i)
-        ndds_ann_object_list = []
-        # print(coco_image)
-        for ann_object in ann_object_list:
-            ndds_ann_object = NDDS_Annotation_Object.from_object_dict(ann_object)
-            if any(ele in ndds_ann_object.class_name for ele in object_name):
-                mask = np.array([ele in ndds_ann_object.class_name for ele in object_name])
-                object_name_single = object_name[mask][0]
-
-                category_id = [category.id for category in coco_category_list if category.name == object_name_single][0]
-                object_index = ndds_ann_object.class_name.replace(object_name_single, '')
-
-                # get segmentation color
-                RGBint = ndds_ann_object.instance_id
-                pixel_b =  RGBint & 255
-                pixel_g = (RGBint >> 8) & 255
-                pixel_r =   (RGBint >> 16) & 255
-                color_instance_rgb = [pixel_b,pixel_g,pixel_r]
-
-                # get segmentation and bbox
-                instance_img = cv2.imread(coco_image.coco_url.replace('.png', '.is.png'))
-                    
-                bgr_lower, bgr_upper = (int(color_instance_rgb[0]-1), int(color_instance_rgb[1]-1), int(color_instance_rgb[2]-1)), (int(color_instance_rgb[0]+1), int(color_instance_rgb[1]+1), int(color_instance_rgb[2]+1))
-                color_mask = cv2.inRange(src=instance_img, lowerb=bgr_lower, upperb=bgr_upper)
-                color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                seg = Segmentation.from_contour(contour_list=color_contours)
-                    
-                if len(seg) == 0:
-                    print("image segmentation not found, please check color code")
-                    continue
-                        
-                seg_bbox = seg.to_bbox()
-                    
-                outer_xmin = float(seg_bbox.xmin)
-                outer_ymin = float(seg_bbox.ymin)
-                outer_xmax = float(seg_bbox.xmax)
-                outer_ymax = float(seg_bbox.ymax)
-                outer_bbox = BBox(xmin=outer_xmin, ymin=outer_ymin, xmax=outer_xmax, ymax=outer_ymax)
-                outer_bbox_h, outer_bbox_w = outer_bbox.shape()
-                outer_bbox_area = outer_bbox.area()
-
-                bbox_final =[outer_bbox.xmin, outer_bbox.ymin, outer_bbox_w, outer_bbox_h]
-
-                if outer_bbox_area < 10:
-                    print("object too small to be considered")
-                    continue
-                
-                # try to get keypoints
-                keypoint_dict = {}
-                keypoint_3d_dict = {}
-                for ann_object in ann_object_list:
-                    ndds_keypoint_object = NDDS_Annotation_Object.from_object_dict(ann_object)
-                    if "point" in ndds_keypoint_object.class_name:
-                        point_name = ndds_keypoint_object.class_name.replace("point", "")
-                        keypoint_list = [category.keypoints for category in coco_category_list if category.name == object_name_single][0]
-                        if object_index in point_name:
-                            point_name = point_name.replace(object_index,"")
-                            keypoint_dict.update({
-                                point_name: ndds_keypoint_object.projected_cuboid_centroid
-                            })
-                            keypoint_3d_dict.update({
-                                point_name: ndds_keypoint_object.cuboid_centroid
-                            })
-
-                keypoints = [item for sublist in [[keypoint_dict[item].x, keypoint_dict[item].y, 2] for item in keypoint_list] for item in sublist]
-                keypoints_3d = [item for sublist in [[keypoint_3d_dict[item].x, keypoint_3d_dict[item].y, keypoint_3d_dict[item].z, 2] for item in keypoint_list] for item in sublist]
-                coco_annotation = CocoAnnotation(bbox=bbox_final, image_id= i, category_id= category_id, is_crowd=0, id=len(coco_annotation_list)+1, 
-                                                keypoints=keypoints, keypoints_3d = keypoints_3d, segmentation=seg.to_list(), area=outer_bbox_area,
-                                                orientation_xyzw=ndds_ann_object.quaternion_xyzw.to_dict(), camera_params=camera_params.to_dict(), num_keypoints=len(keypoints))
-                coco_annotation_list.append(coco_annotation)
-        
-
-    save_location = "../../../hsr_coco/annot-coco.json"
-
-
-    save_path_dir = os.path.dirname(os.path.abspath(save_location))
-    Path(save_path_dir).mkdir(parents=True, exist_ok=True)
-    #move images
-    for images in coco_image_list:
-        shutil.copy(images.coco_url, f'{save_path_dir}/'+images.file_name)
-        images.coco_url = save_path_dir+images.file_name
-
-    coco_dataset = CocoDataset(info=coco_info, licenses=coco_license_list, images=coco_image_list, annotations=coco_annotation_list, categories=coco_category_list)
-    coco_dataset.save_to_path(save_path=save_location)
+    # process data, return json and saved directory
+    coco_dataset, img_dir = coco_convert.process()
     
+    #  check saved annotation
     json_dict_list = json.load(open(save_location, 'r'))
 
-    logger.yellow(coco_dataset)
+    logger.yellow(json_dict_list)
+
+
+
+
+
