@@ -15,19 +15,24 @@ import datetime
 import cv2
 
 class CameraParam:
-    def __init__(self,f: [float], c: List[float], T: List[float]):
+    def __init__(self,f: [float], c: List[float], T: List[float], resx:float, resy: float):
+        self.resx = resx
+        self.resy = resy
         self.f = f
         self.c = c
         self.T = T
     
     def __str__(self):
-        return f"camera intrinsics ({self.f},{self.c}, {self.T})"
+        return f"camera intrinsics ({self.f},{self.c}, {self.T}), resolution x,y: {self.resx}, {self.resy}"
     
     def __repr__(self):
         return self.__str__
     
     def to_dict(self):
         return self.__dict__
+
+    def to_dict_fct(self):
+        return {"f": self.f, "c": self.c, "T": self.T}
 
 
 
@@ -166,17 +171,6 @@ class NDDS_Annotation_Object:
         )
 
 
-
-class Custom_Object_From_NDDS():
-    def __init__(
-        self,
-        class_name: str, instance_id: int, visibility: int, location: Point3D, quaternion_xyzw: Quaternion,
-        pose_transform: np.ndarray, cuboid_centroid: Point3D, projected_cuboid_centroid: Point2D,
-        bounding_box: BBox, cuboid: Cuboid3D, projected_cuboid: Cuboid2D
-        ):
-        self.a = 1
-
-
 class CocoNDDSConverter:
     def __init__(self, data_dir: str, info_dict: dict, license_dict_list: List[dict], category_dict_list:List[dict], save_path: str):
         self.data_dir = data_dir
@@ -187,7 +181,7 @@ class CocoNDDSConverter:
         self.coco_image_list = []
         self.coco_annotation_list= []
         self.coco_category_list = [CocoCategory().from_dict(coco_dict=category_dict) for category_dict in category_dict_list]
-    
+        self.camera_settings_json = self.get_camera_settings()
 
     def get_all_object_json_files(self):
 
@@ -205,99 +199,56 @@ class CocoNDDSConverter:
         return camera_settings_json
     
 
-    def process(self):
+    def get_instance_segmentation(self, img, lower_thres: list = (0,0,0), upper_thresh: list = (255,255,255)):
 
-        object_name = np.array([item.name for item in self.coco_category_list])
-        json_path_list = self.get_all_object_json_files()
-        camera_settings_json = self.get_camera_settings()
+        color_mask = cv2.inRange(src=img, lowerb=lower_thres, upperb=upper_thresh)
+        color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        seg = Segmentation.from_contour(contour_list=color_contours)
 
-        for i, json_path in enumerate(json_path_list):
-            ann_dict = json.load(open(json_path, 'r'))
-            camera_dict = ann_dict['camera_data']
-            camera_instrinsic_settings = camera_settings_json[0]["intrinsic_settings"]
-            camera_params = CameraParam(f=[camera_instrinsic_settings["fx"], camera_instrinsic_settings["fy"]], c=[camera_instrinsic_settings["cx"], camera_instrinsic_settings["cy"]], T=camera_dict['location_worldframe'])
-            location_worldframe = Point3D.from_list(coords=camera_dict['location_worldframe'])
-            quaternion_worldframe = Quaternion.from_list(coords=camera_dict['quaternion_xyzw_worldframe'])
+        return seg
 
-            ann_object_list = ann_dict['objects']
-            image_location = os.path.abspath(json_path[:-5]+'.png')
+    def get_keypoints(self, ann_object_list: list, object_name_single, object_index):
+    
+        keypoint_dict = {}
+        keypoint_3d_dict = {}
+        for ann_object in ann_object_list:
+            ndds_keypoint_object = NDDS_Annotation_Object.from_object_dict(ann_object)
+            if "point" in ndds_keypoint_object.class_name:
+                point_name = ndds_keypoint_object.class_name.replace("point", "")
+                keypoint_list = [category.keypoints for category in self.coco_category_list if category.name == object_name_single][0]
+                if object_index in point_name:
+                    point_name = point_name.replace(object_index,"")
+                    keypoint_dict.update({
+                        point_name: ndds_keypoint_object.projected_cuboid_centroid
+                    })
+                    keypoint_3d_dict.update({
+                        point_name: ndds_keypoint_object.cuboid_centroid
+                    })
 
-            coco_image = CocoImage(license=1, file_name=os.path.basename(image_location), coco_url=image_location, height= camera_settings_json[0]["captured_image_size"]["height"], width= camera_settings_json[0]["captured_image_size"]["width"], date_captured=today, flickr_url=None, id=i)
-            self.coco_image_list.append(coco_image)
-            # coco_annotation(bbox=[1,1,1,1], image_id= i, category_id= 0, is_crowd=0, id=i)
-            ndds_ann_object_list = []
-            # print(coco_image)
-            for ann_object in ann_object_list:
-                ndds_ann_object = NDDS_Annotation_Object.from_object_dict(ann_object)
-                if any(ele in ndds_ann_object.class_name for ele in object_name):
-                    mask = np.array([ele in ndds_ann_object.class_name for ele in object_name])
-                    object_name_single = object_name[mask][0]
+        keypoints = [item for sublist in [[keypoint_dict[item].x, keypoint_dict[item].y, 2] for item in keypoint_list] for item in sublist]
+        keypoints_3d = [item for sublist in [[keypoint_3d_dict[item].x, keypoint_3d_dict[item].y, keypoint_3d_dict[item].z, 2] for item in keypoint_list] for item in sublist]
 
-                    category_id = [category.id for category in self.coco_category_list if category.name == object_name_single][0]
-                    object_index = ndds_ann_object.class_name.replace(object_name_single, '')
-
-                    # get segmentation color
-                    RGBint = ndds_ann_object.instance_id
-                    pixel_b =  RGBint & 255
-                    pixel_g = (RGBint >> 8) & 255
-                    pixel_r =   (RGBint >> 16) & 255
-                    color_instance_rgb = [pixel_b,pixel_g,pixel_r]
-
-                    # get segmentation and bbox
-                    instance_img = cv2.imread(coco_image.coco_url.replace('.png', '.is.png'))
-                        
-                    bgr_lower, bgr_upper = (int(color_instance_rgb[0]-1), int(color_instance_rgb[1]-1), int(color_instance_rgb[2]-1)), (int(color_instance_rgb[0]+1), int(color_instance_rgb[1]+1), int(color_instance_rgb[2]+1))
-                    color_mask = cv2.inRange(src=instance_img, lowerb=bgr_lower, upperb=bgr_upper)
-                    color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    seg = Segmentation.from_contour(contour_list=color_contours)
-                        
-                    if len(seg) == 0:
-                        print("image segmentation not found, please check color code")
-                        continue
-                            
-                    seg_bbox = seg.to_bbox()
-                        
-                    outer_xmin = float(seg_bbox.xmin)
-                    outer_ymin = float(seg_bbox.ymin)
-                    outer_xmax = float(seg_bbox.xmax)
-                    outer_ymax = float(seg_bbox.ymax)
-                    outer_bbox = BBox(xmin=outer_xmin, ymin=outer_ymin, xmax=outer_xmax, ymax=outer_ymax)
-                    outer_bbox_h, outer_bbox_w = outer_bbox.shape()
-                    outer_bbox_area = outer_bbox.area()
-
-                    bbox_final =[outer_bbox.xmin, outer_bbox.ymin, outer_bbox_w, outer_bbox_h]
-
-                    if outer_bbox_area < 10:
-                        print("object too small to be considered")
-                        continue
-                    
-                    # try to get keypoints
-                    keypoint_dict = {}
-                    keypoint_3d_dict = {}
-                    for ann_object in ann_object_list:
-                        ndds_keypoint_object = NDDS_Annotation_Object.from_object_dict(ann_object)
-                        if "point" in ndds_keypoint_object.class_name:
-                            point_name = ndds_keypoint_object.class_name.replace("point", "")
-                            keypoint_list = [category.keypoints for category in self.coco_category_list if category.name == object_name_single][0]
-                            if object_index in point_name:
-                                point_name = point_name.replace(object_index,"")
-                                keypoint_dict.update({
-                                    point_name: ndds_keypoint_object.projected_cuboid_centroid
-                                })
-                                keypoint_3d_dict.update({
-                                    point_name: ndds_keypoint_object.cuboid_centroid
-                                })
-
-                    keypoints = [item for sublist in [[keypoint_dict[item].x, keypoint_dict[item].y, 2] for item in keypoint_list] for item in sublist]
-                    keypoints_3d = [item for sublist in [[keypoint_3d_dict[item].x, keypoint_3d_dict[item].y, keypoint_3d_dict[item].z, 2] for item in keypoint_list] for item in sublist]
-                    coco_annotation = CocoAnnotation(bbox=bbox_final, image_id= i, category_id= category_id, is_crowd=0, id=len(self.coco_annotation_list)+1, 
-                                                    keypoints=keypoints, keypoints_3d = keypoints_3d, segmentation=seg.to_list(), area=outer_bbox_area,
-                                                    orientation_xyzw=ndds_ann_object.quaternion_xyzw.to_dict(), camera_params=camera_params.to_dict(), num_keypoints=len(keypoints))
-                    self.coco_annotation_list.append(coco_annotation)
+        if len(keypoints) == 0:
+            print("keypoints is nil")
         
-        self.save_images()
-       
-        return CocoDataset(info=self.coco_info, licenses=self.coco_license_list, images=self.coco_image_list, annotations=self.coco_annotation_list, categories=self.coco_category_list), self.save_path
+        return keypoints, keypoints_3d
+    
+    def segmentation_id_to_color(self, ndds_ann_object: NDDS_Annotation_Object ):
+
+        RGBint = ndds_ann_object.instance_id
+        pixel_b =  RGBint & 255
+        pixel_g = (RGBint >> 8) & 255
+        pixel_r =   (RGBint >> 16) & 255
+        color_instance_rgb = [pixel_b,pixel_g,pixel_r]
+
+        return color_instance_rgb
+    
+    def camera_params_from_dict(self, ann_dict: dict):
+        camera_dict = ann_dict['camera_data']
+        camera_instrinsic_settings = self.camera_settings_json[0]["intrinsic_settings"]
+        camera_params = CameraParam(f=[camera_instrinsic_settings["fx"], camera_instrinsic_settings["fy"]], c=[camera_instrinsic_settings["cx"], camera_instrinsic_settings["cy"]], T=camera_dict['location_worldframe'], resx= camera_instrinsic_settings["resX"], resy= camera_instrinsic_settings["resY"])
+
+        return camera_params
 
     def save_images(self):
 
@@ -308,7 +259,69 @@ class CocoNDDSConverter:
             shutil.copy(images.coco_url, f'{save_path_dir}/'+images.file_name)
             images.coco_url = save_path_dir+images.file_name
 
-        CocoDataset(info=self.coco_info, licenses=self.coco_license_list, images=self.coco_image_list, annotations=self.coco_annotation_list, categories=self.coco_category_list).save_to_path(save_path=save_location)
+
+    def process(self, save_image_to_dir:bool= True):
+
+        object_name = np.array([item.name for item in self.coco_category_list])
+        json_path_list = self.get_all_object_json_files()
+
+        for i, json_path in enumerate(json_path_list):
+            ann_dict = json.load(open(json_path, 'r'))
+            camera_params = self.camera_params_from_dict(ann_dict=ann_dict)
+            ann_object_list = ann_dict['objects']
+
+            image_location = os.path.abspath(json_path[:-5]+'.png')
+            coco_image = CocoImage(license=1, file_name=os.path.basename(image_location), coco_url=image_location, height= camera_params.resx, width= camera_params.resy, date_captured=today, flickr_url=None, id=i)
+            self.coco_image_list.append(coco_image)
+
+            ndds_ann_object_list = []
+
+            for ann_object in ann_object_list:
+                ndds_ann_object = NDDS_Annotation_Object.from_object_dict(ann_object)
+                if any(ele in ndds_ann_object.class_name for ele in object_name):
+                    mask = np.array([ele in ndds_ann_object.class_name for ele in object_name])
+                    object_name_single = object_name[mask][0]
+
+                    category_id = [category.id for category in self.coco_category_list if category.name == object_name_single][0]
+                    object_index = ndds_ann_object.class_name.replace(object_name_single, '')
+
+                    color_instance_rgb = self.segmentation_id_to_color(ndds_ann_object)
+
+                    # get segmentation and bbox
+                    instance_img = cv2.imread(coco_image.coco_url.replace('.png', '.is.png'))
+                        
+                    seg = self.get_instance_segmentation(img= instance_img, lower_thres=(int(color_instance_rgb[0]-1), int(color_instance_rgb[1]-1), int(color_instance_rgb[2]-1)), upper_thresh=(int(color_instance_rgb[0]+1), int(color_instance_rgb[1]+1), int(color_instance_rgb[2]+1)))
+                        
+                    if len(seg) == 0:
+                        print("image segmentation not found, please check color code")
+                        continue
+                            
+                    outer_bbox = seg.to_bbox()
+
+                    if outer_bbox.area() < 10:
+                        print("object too small to be considered")
+                        continue
+                    
+                    keypoints, keypoints_3d = self.get_keypoints(ann_object_list=ann_object_list, object_name_single=object_name_single, object_index=object_index)
+
+                    coco_annotation = CocoAnnotation(bbox=outer_bbox.to_list(output_format='pminsize'), 
+                                                    image_id= i, 
+                                                    category_id= category_id, 
+                                                    is_crowd=0, 
+                                                    id=len(self.coco_annotation_list)+1, 
+                                                    keypoints=keypoints, 
+                                                    keypoints_3d = keypoints_3d, 
+                                                    segmentation=seg.to_list(),
+                                                    area=outer_bbox.area(),
+                                                    orientation_xyzw=ndds_ann_object.quaternion_xyzw.to_dict(), 
+                                                    camera_params=camera_params.to_dict_fct(), 
+                                                    num_keypoints=int(len(keypoints)/3))
+                    self.coco_annotation_list.append(coco_annotation)
+        if save_image_to_dir:
+            self.save_images()
+        
+        return CocoDataset(info=self.coco_info, licenses=self.coco_license_list, images=self.coco_image_list, annotations=self.coco_annotation_list, categories=self.coco_category_list), self.save_path
+
 
 if __name__ == '__main__': 
     # data location
@@ -349,11 +362,12 @@ if __name__ == '__main__':
 
     # process data, return json and saved directory
     coco_dataset, img_dir = coco_convert.process()
-    
+    coco_dataset.save_to_path(save_path=save_location)
+
     #  check saved annotation
     json_dict_list = json.load(open(save_location, 'r'))
-
     logger.yellow(json_dict_list)
+
 
 
 
