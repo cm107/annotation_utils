@@ -43,6 +43,7 @@ category will be based on NDDS tag
 
     # process data, return json and saved directory
     coco_dataset, img_dir = coco_convert.process()
+    coco_dataset.save_to_path(save_path=save_location)
     
     #  check saved annotation
     json_dict_list = json.load(open(save_location, 'r'))
