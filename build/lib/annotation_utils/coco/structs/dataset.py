@@ -480,7 +480,8 @@ class COCO_Dataset:
                 coco_cat = dataset.categories.get_unique_category_from_name(poly_label)
                 bound_group = KeypointGroup(bound_obj=poly, coco_cat=coco_cat)
                 # Register the keypoints inside of each polygon
-                for label, kpt_list in kpt_label2points_list.items():
+                temp_dict = kpt_label2points_list.copy()
+                for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
                         if kpt.within(poly):
                             bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label)
