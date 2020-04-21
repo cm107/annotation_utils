@@ -1,1 +1,0 @@
-from .splitter import COCO_Splitter

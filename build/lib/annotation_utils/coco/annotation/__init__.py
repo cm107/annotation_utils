@@ -1,1 +1,0 @@
-from .coco_annotation import COCO_AnnotationFileParser

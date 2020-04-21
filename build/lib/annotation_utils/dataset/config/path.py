@@ -1,185 +1,425 @@
-import yaml
-import json
+from __future__ import annotations
+from typing import List
 from logger import logger
-from common_utils.check_utils import check_type_from_list, check_type, check_value_from_list, \
-    check_file_exists, check_value
-from common_utils.path_utils import get_extension_from_path
+from common_utils.path_utils import rel_to_abs_path
+from common_utils.check_utils import check_type, check_type_from_list
 
-class DatasetPathConfig:
-    def __init__(self):
-        self.data = None
+class Path:
+    def __init__(self, path_str: str):
+        self.path_str = path_str
 
-        self.valid_extensions = ['json', 'yaml']
-        self.main_required_keys = ['collection_dir', 'dataset_names', 'dataset_specific']
-        self.specific_required_keys = ['img_dir', 'ann_path', 'ann_format']
-        self.valid_ann_formats = ['coco', 'custom']
+    def __str__(self) -> str:
+        return self.path_str
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __key(self) -> tuple:
+        return tuple([self.__class__] + list(self.__dict__.values()))
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return NotImplemented
+
+    def __len__(self) -> int:
+        return len(self.split())
+
+    def __getitem__(self, idx: int) -> Path:
+        if type(idx) is int:
+            if len(self) == 0:
+                logger.error(f"{type(self).__name__} is empty.")
+                raise IndexError
+            elif idx >= len(self) or idx < -len(self):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                return Path(self.split()[idx])
+        elif type(idx) is slice:
+            return Path.from_split(self.split()[idx.start:idx.stop:idx.step])
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __setitem__(self, idx: int, value: Path):
+        check_type(value, valid_type_list=[Path, str])
+        if type(value) is str:
+            value0 = Path(value)
+        else:
+            value0 = value
+        path_parts = self.split()
+        if type(idx) is int:
+            path_parts[idx] = value.path_str
+        elif type(idx) is slice:
+            path_parts[idx.start:idx.stop:idx.step] = value.split()
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __delitem__(self, idx):
+        if type(idx) is int:
+            if len(self) == 0:
+                logger.error(f"{type(self).__name__} is empty.")
+                raise IndexError
+            elif idx >= len(self) or idx < -len(self):
+                logger.error(f"Index out of range: {idx}")
+                raise IndexError
+            else:
+                path_parts = self.split()
+                del path_parts[idx]
+                result = Path.from_split(path_parts)
+                self.path_str = result.to_str()
+        elif type(idx) is slice:
+            path_parts = self.split()
+            del path_parts[idx.start:idx.stop:idx.step]
+            result = Path.from_split(path_parts)
+            self.path_str = result.to_str()
+        else:
+            logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
+            raise TypeError
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self) -> Path:
+        if self.n < len(self):
+            result = Path(self.split()[self.n])
+            self.n += 1
+            return result
+        else:
+            raise StopIteration
+
+    def __add__(self, other: Path) -> Path:
+        return Path.from_split(self.split() + other.split()).prune_slashes()
 
     @classmethod
-    def from_load(self, target, verbose: bool=False):
-        config = DatasetPathConfig()
-        config.load(target=target, verbose=verbose)
-        return config
+    def buffer(cls, path: Path) -> Path:
+        return path
 
-    def check_valid_config(self, collection_dict_list: list):
-        check_type(item=collection_dict_list, valid_type_list=[list])
-        for i, collection_dict in enumerate(collection_dict_list):
-            check_type(item=collection_dict, valid_type_list=[dict])
-            check_value_from_list(
-                item_list=list(collection_dict.keys()),
-                valid_value_list=self.main_required_keys
-            )
-            for required_key in self.main_required_keys:
-                if required_key not in collection_dict.keys():
-                    logger.error(f"collection_dict at index {i} is missing required key: {required_key}")
-                    raise Exception
-            collection_dir = collection_dict['collection_dir']
-            check_type(item=collection_dir, valid_type_list=[str])
-            dataset_names = collection_dict['dataset_names']
-            check_type(item=dataset_names, valid_type_list=[list])
-            check_type_from_list(item_list=dataset_names, valid_type_list=[str])
-            dataset_specific = collection_dict['dataset_specific']
-            check_type(item=dataset_specific, valid_type_list=[dict])
-            check_value_from_list(
-                item_list=list(dataset_specific.keys()),
-                valid_value_list=self.specific_required_keys
-            )
-            for required_key in self.specific_required_keys:
-                if required_key not in dataset_specific.keys():
-                    logger.error(f"dataset_specific at index {i} is missing required key: {required_key}")
-                    raise Exception
-            img_dir = dataset_specific['img_dir']
-            ann_path = dataset_specific['ann_path']
-            ann_format = dataset_specific['ann_format']
-            check_type_from_list(item_list=[img_dir, ann_path, ann_format], valid_type_list=[str, list])
-            if type(img_dir) is list and len(img_dir) != len(dataset_names):
-                logger.error(f"Length mismatch at index: {i}")
-                logger.error(f"type(img_dir) is list but len(img_dir) == {len(img_dir)} != {len(dataset_names)} == len(dataset_names)")
-                raise Exception
-            if type(ann_path) is list and len(ann_path) != len(dataset_names):
-                logger.error(f"Length mismatch at index: {i}")
-                logger.error(f"type(ann_path) is list but len(ann_path) == {len(ann_path)} != {len(dataset_names)} == len(dataset_names)")
-                raise Exception
-            if type(ann_format) is list and len(ann_format) != len(dataset_names):
-                logger.error(f"Length mismatch at index: {i}")
-                logger.error(f"type(ann_format) is list but len(ann_format) == {len(ann_format)} != {len(dataset_names)} == len(dataset_names)")
-                raise Exception
+    def copy(self) -> Path:
+        return Path(self.path_str)
 
-            if type(ann_format) is str:
-                check_value(item=ann_format, valid_value_list=self.valid_ann_formats)
-            elif type(ann_format) is list:
-                check_value_from_list(item_list=ann_format, valid_value_list=self.valid_ann_formats)
-            else:
-                raise Exception
+    def split(self) -> List[str]:
+        result = self.path_str.split('/')
+        result = [result_part for result_part in result]
+        return result
 
-    def write_config(self, dest_path: str, verbose: bool=False):
-        extension = get_extension_from_path(dest_path)
-        if extension == 'yaml':
-            yaml.dump(self.data, open(dest_path, 'w'), allow_unicode=True)
-        elif extension == 'json':
-            json.dump(self.data, open(dest_path, 'w'), indent=2, ensure_ascii=False)
+    @classmethod
+    def from_split(self, str_list: List[str]) -> Path:
+        return Path('/'.join(str_list))
+
+    def head(self) -> Path:
+        return self[0]
+
+    def no_head(self) -> Path:
+        return self[1:]
+
+    def tail(self) -> Path:
+        return self[-1]
+
+    def no_tail(self) -> Path:
+        return self[:-1]
+
+    def to_str(self) -> str:
+        return self.path_str
+
+    def pop_head(self) -> Path:
+        result = self.head()
+        self.path_str = self.no_head().to_str()
+        return result
+
+    def pop_tail(self) -> Path:
+        result = self.tail()
+        self.path_str = self.no_tail().to_str()
+        return result
+
+    def push_head(self, path_part: Path):
+        check_type(path_part, valid_type_list=[Path, str])
+        if type(path_part) is str:
+            path_part0 = Path(path_part)
         else:
-            logger.error(f"Invalid extension: {extension}")
-            logger.error(f"Valid file extensions: {self.valid_extensions}")
-            raise Exception
-        if verbose:
-            logger.good(f"Dataset path config written successfully to:\n{dest_path}")
-    
-    def load(self, target, verbose: bool=False):
-        if type(target) is str:
-            extension = get_extension_from_path(target)
-            if extension == 'yaml':
-                check_file_exists(target)
-                loaded_data = yaml.load(open(target, 'r'), Loader=yaml.FullLoader)
-            elif extension == 'json':
-                check_file_exists(target)
-                loaded_data = json.load(open(target, 'r'))
-            else:
-                logger.error(f"Invalid extension: {extension}")
-                logger.error(f"Note that string targets are assumed to be paths.")
-                logger.error(f"Valid file extensions: {self.valid_extensions}")
-                raise Exception
-        elif type(target) is list:
-            loaded_data = target
-        elif type(target) is dict:
-            loaded_data = [target]
-        else:
-            logger.error(f"Invalid target type: {type(target)}")
-            raise Exception
-        self.check_valid_config(collection_dict_list=loaded_data)
-        self.data = loaded_data
-        if verbose:
-            logger.good(f"Dataset path config has been loaded successfully.")
+            path_part0 = path_part
+        return Path.from_split([path_part0.path_str] + self.split())
 
-    def _get_img_dir_list(self, dataset_paths: list, img_dir) -> list:
-        check_type(item=img_dir, valid_type_list=[str, list])
-        if type(img_dir) is str:
-            img_dir_list = [f"{dataset_path}/{img_dir}" for dataset_path in dataset_paths]
-        elif type(img_dir) is list:
-            if len(img_dir) == len(dataset_paths):
-                check_type_from_list(item_list=img_dir, valid_type_list=[str])
-                img_dir_list = [f"{dataset_path}/{img_dir_path}" for dataset_path, img_dir_path in zip(dataset_paths, img_dir)]
-            else:
-                logger.error(f"type(img_dir) is list but len(img_dir) == {len(img_dir)} != {len(dataset_paths)} == len(dataset_paths)")
-                raise Exception
+    def push_tail(self, path_part: Path):
+        check_type(path_part, valid_type_list=[Path, str])
+        if type(path_part) is str:
+            path_part0 = Path(path_part)
         else:
-            raise Exception
-        return img_dir_list
+            path_part0 = path_part
+        return Path.from_split(self.split() + [path_part0.path_str])
 
-    def _get_ann_path_list(self, dataset_paths: list, ann_path) -> list:
-        check_type(item=ann_path, valid_type_list=[str, list])
-        if type(ann_path) is str:
-            ann_path_list = [f"{dataset_path}/{ann_path}" for dataset_path in dataset_paths]
-        elif type(ann_path) is list:
-            if len(ann_path) == len(dataset_paths):
-                check_type_from_list(item_list=ann_path, valid_type_list=[str])
-                ann_path_list = [f"{dataset_path}/{ann_path_path}" for dataset_path, ann_path_path in zip(dataset_paths, ann_path)]
-            else:
-                logger.error(f"type(ann_path) is list but len(ann_path) == {len(ann_path)} != {len(dataset_paths)} == len(dataset_paths)")
-                raise Exception
+    def get_extension(self) -> str:
+        if '.' in self.tail().path_str:
+            return self.tail().path_str.split('.')[-1]
         else:
-            raise Exception
-        return ann_path_list
+            return ''
 
-    def _get_ann_format_list(self, dataset_paths: list, ann_format) -> list:
-        check_type(item=ann_format, valid_type_list=[str, list])
+    def has_extension(self) -> bool:
+        return self.get_extension() != ''
+
+    def abs(self) -> Path:
+        return Path(rel_to_abs_path(self.to_str()))
+
+    def prune_slashes(self) -> Path:
+        path_str = self.to_str()
+        while '//' in path_str:
+            path_str = path_str.replace('//', '/')
+        return Path(path_str)
+
+    @classmethod
+    def get_unique_paths(cls, paths: List[Path]) -> List[Path]:
+        path_str_list = [path.path_str for path in paths]
+        unique_path_str_list = list(dict.fromkeys(path_str_list))
+        unique_paths = [Path(unique_path_str) for unique_path_str in unique_path_str_list]
+        return unique_paths
+
+    @classmethod
+    def has_common_head(cls, paths: List[Path]) -> bool:
+        if len(paths) > 1:
+            path_len_list = [len(path) for path in paths]
+            if 0 in path_len_list:
+                return False
+            path_heads = [path.head() for path in paths]
+            unique_path_heads = cls.get_unique_paths(path_heads)
+            if len(unique_path_heads) == 1:
+                return True
+            else:
+                return False
+        elif len(paths) == 1 and len(paths[0]) > 0 and paths[0] != Path(''):
+            return True
+        else:
+            return False
+
+    @classmethod
+    def has_common_tail(cls, paths: List[Path]) -> bool:
+        if len(paths) > 1:
+            path_len_list = [len(path) for path in paths]
+            if 0 in path_len_list:
+                return False
+            path_tails = [path.tail() for path in paths]
+            unique_path_tails = cls.get_unique_paths(path_tails)
+            if len(unique_path_tails) == 1:
+                return True
+            else:
+                return False
+        elif len(paths) == 1 and len(paths[0]) > 0 and paths[0] != Path(''):
+            return True
+        else:
+            return False
+
+    @classmethod
+    def get_common_head(cls, paths: List[Path]) -> (bool, Path):
+        if len(paths) > 1:
+            path_len_list = [len(path) for path in paths]
+            if 0 in path_len_list:
+                return False, None
+            path_heads = [path.head() for path in paths]
+            unique_path_heads = cls.get_unique_paths(path_heads)
+            if len(unique_path_heads) == 1 and unique_path_heads[0] != Path(''):
+                return True, unique_path_heads[0]
+            else:
+                return False, None
+        elif len(paths) == 1 and len(paths[0]) > 0 and paths[0].head() != Path(''):
+            return True, paths[0].head()
+        else:
+            return False, None
+
+    @classmethod
+    def get_common_tail(cls, paths: List[Path]) -> (bool, Path):
+        if len(paths) > 1:
+            path_len_list = [len(path) for path in paths]
+            if 0 in path_len_list:
+                return False, None
+            path_tails = [path.tail() for path in paths]
+            unique_path_tails = cls.get_unique_paths(path_tails)
+            if len(unique_path_tails) == 1 and unique_path_tails[0] != Path(''):
+                return True, unique_path_tails[0]
+            else:
+                return False, None
+        elif len(paths) == 1 and len(paths[0]) > 0 and paths[0].tail() != Path(''):
+            return True, paths[0].tail()
+        else:
+            return False, None
+
+    def replace(self, old: Path, new: Path) -> Path:
+        check_type_from_list([old, new], valid_type_list=[Path, str])
+        if type(old) is str:
+            old_path = Path(old)
+        else:
+            old_path = old
+        if type(new) is str:
+            new_path = Path(new)
+        else:
+            new_path = new
+        result = self.to_str()
+        result = result.replace(old_path.to_str(), new_path.to_str())
+        while '//' in result:
+            result = result.replace('//', '/')
+        return Path(result)
+
+    def possible_rel_paths(self) -> List[Path]:
+        return [Path.from_split(self.split()[i:]) for i in range(len(self))]
+
+    def possible_container_dirs(self) -> List[Path]:
+        result = [
+            Path.from_split(self.split()[:i]) if self.has_extension() else Path.from_split(self.split()[:i+1]) \
+                for i in range(len(self))
+        ]
+        result = [path for path in result if path.path_str != '']
+        return result
+
+    @classmethod
+    def del_duplicates(cls, path_list: List[Path]) -> List[Path]:
+        path_str_list = list(dict.fromkeys([path.path_str for path in path_list]))
+        return [Path(path_str) for path_str in path_str_list]
+
+    @classmethod
+    def get_common_container_dirs(cls, path_list: List[Path]) -> List[Path]:
+        if len(path_list) == 0:
+            logger.error(f"Encountered len(path_list) == 0")
+            raise Exception
+        possible_container_dirs_sets = []
+        for path in path_list:
+            possible_container_dirs_sets.append(set([path0.to_str() for path0 in path.possible_container_dirs()]))
+        common_container_dirs = list(set.intersection(*possible_container_dirs_sets))
+        return [Path(common_container_dir) for common_container_dir in common_container_dirs]
+
+    @classmethod
+    def get_longest_container_dir(cls, path_list: List[Path]) -> Path:
+        if len(path_list) == 0:
+            logger.error(f"Encountered len(path_list) == 0")
+            raise Exception
+        common_container_dirs = Path.get_common_container_dirs(path_list)
+        longest_container_dir = None
+        for common_container_dir in common_container_dirs:
+            if longest_container_dir is None or len(common_container_dir) > len(longest_container_dir):
+                longest_container_dir = common_container_dir
+        return longest_container_dir
+
+    @staticmethod
+    def _root_src_tail2dst_head(src_path: Path, dst_path: Path) -> bool:
+        check_type(src_path, valid_type_list=[Path])
+        check_type(dst_path, valid_type_list=[Path])
+        if len(src_path) > 0:
+            tail = src_path.pop_tail()
+            if tail != Path(''):
+                dst_path.path_str = (tail + dst_path).to_str()
+                success = True
+            else:
+                success = False
+        else:
+            success = False
+        return success
+
+    @classmethod
+    def _root_src_head2dst_tail(cls, src_path: Path, dst_path: Path) -> bool:
+        check_type(src_path, valid_type_list=[Path])
+        check_type(dst_path, valid_type_list=[Path])
+        if len(src_path) > 0:
+            head = src_path.pop_head()
+            if head != Path(''):
+                dst_path.path_str = (dst_path + head).to_str()
+                success = True
+            else:
+                success = False
+        else:
+            success = False
+        return success
+
+    @classmethod
+    def tail2head(cls, src_obj: List[Path], dst_obj: List[Path]) -> bool:
+        # TODO: Assertion test
+        check_type_from_list([src_obj, dst_obj], valid_type_list=[Path, list])
+        if type(src_obj) is list:
+            check_type_from_list(src_obj, valid_type_list=[Path])
+        if type(dst_obj) is list:
+            check_type_from_list(dst_obj, valid_type_list=[Path])
         
-        if type(ann_format) is str:
-            check_value(item=ann_format, valid_value_list=self.valid_ann_formats)
-            ann_format_list = [ann_format] * len(dataset_paths)
-        elif type(ann_format) is list:
-            check_value_from_list(item_list=ann_format, valid_value_list=self.valid_ann_formats)
-            if len(ann_format) == len(dataset_paths):
-                check_type_from_list(item_list=ann_format, valid_type_list=[str])
-                ann_format_list = ann_format
+        if type(src_obj) is Path:
+            if type(dst_obj) is Path:
+                success = cls._root_src_tail2dst_head(src_obj, dst_obj)
+            elif type(dst_obj) is list:
+                if len(src_obj) > 0:
+                    tail = src_obj.pop_tail()
+                    for dst_path in dst_obj:
+                        dst_path.path_str = (tail + dst_path).to_str()
+                    success = True
+                else:
+                    success = False
             else:
-                logger.error(f"type(ann_format) is list but len(ann_format) == {len(ann_format)} != {len(dataset_paths)} == len(dataset_paths)")
                 raise Exception
+        elif type(src_obj) is list:
+            has_common_tail, common_tail = cls.get_common_tail(src_obj)
+            if has_common_tail:
+                if type(dst_obj) is Path:
+                    dst_obj.path_str = (common_tail + dst_obj).to_str()
+                    for src_path in src_obj:
+                        src_path.path_str = src_path.no_tail().to_str()
+                    success = True
+                elif type(dst_obj) is list:
+                    if len(src_obj) != len(dst_obj):
+                        logger.error(f'len(src_obj) == {len(src_obj)} != {len(dst_obj)} == len(dst_obj)')
+                        raise Exception
+                    for dst_path in dst_obj:
+                        dst_path.path_str = (common_tail + dst_path).to_str()
+                    for src_path in src_obj:
+                        src_path.path_str = src_path.no_tail().to_str()
+                    success = True
+                else:
+                    raise Exception
+            else:
+                success = False
         else:
             raise Exception
-        return ann_format_list
+        return success
 
-    def get_paths(self) -> (list, list, list, list):
-        if self.data is None:
-            logger.error(f"Config hasn't been loaded yet. Please use load() method.")
+    @classmethod
+    def head2tail(cls, src_obj: List[Path], dst_obj: List[Path]) -> bool:
+        check_type_from_list([src_obj, dst_obj], valid_type_list=[Path, list])
+        if type(src_obj) is list:
+            check_type_from_list(src_obj, valid_type_list=[Path])
+        if type(dst_obj) is list:
+            check_type_from_list(dst_obj, valid_type_list=[Path])
+        
+        if type(src_obj) is Path:
+            if type(dst_obj) is Path:
+                success = cls._root_src_head2dst_tail(src_obj, dst_obj)
+            elif type(dst_obj) is list:
+                if len(src_obj) > 0:
+                    head = src_obj.pop_head()
+                    for dst_path in dst_obj:
+                        dst_path.path_str = (dst_path + head).to_str()
+                    success = True
+                else:
+                    success = False
+            else:
+                raise Exception
+        elif type(src_obj) is list:
+            has_common_head, common_head = cls.get_common_head(src_obj)
+            if has_common_head:
+                if type(dst_obj) is Path:
+                    dst_obj.path_str = (dst_obj + common_head).to_str()
+                    for src_path in src_obj:
+                        src_path.path_str = src_path.no_head().to_str()
+                    success = True
+                elif type(dst_obj) is list:
+                    if len(src_obj) != len(dst_obj):
+                        logger.error(f'len(src_obj) == {len(src_obj)} != {len(dst_obj)} == len(dst_obj)')
+                        raise Exception
+                    for dst_path in dst_obj:
+                        dst_path.path_str = (dst_path + common_head).to_str()
+                    for src_path in src_obj:
+                        src_path.path_str = src_path.no_head().to_str()
+                    success = True
+                else:
+                    raise Exception
+            else:
+                success = False
+        else:
             raise Exception
-
-        combined_dataset_dir_list = []
-        combined_img_dir_list = []
-        combined_ann_path_list = []
-        combined_ann_format_list = []
-        for collection_dict in self.data:
-            collection_dir = collection_dict['collection_dir']
-            dataset_names = collection_dict['dataset_names']
-            img_dir = collection_dict['dataset_specific']['img_dir']
-            ann_path = collection_dict['dataset_specific']['ann_path']
-            ann_format = collection_dict['dataset_specific']['ann_format']
-            dataset_paths = [f'{collection_dir}/{dataset_name}' for dataset_name in dataset_names]
-            img_dir_list = self._get_img_dir_list(dataset_paths=dataset_paths, img_dir=img_dir)
-            ann_path_list = self._get_ann_path_list(dataset_paths=dataset_paths, ann_path=ann_path)
-            ann_format_list = self._get_ann_format_list(dataset_paths=dataset_paths, ann_format=ann_format)
-            combined_dataset_dir_list.extend(dataset_paths)
-            combined_img_dir_list.extend(img_dir_list)
-            combined_ann_path_list.extend(ann_path_list)
-            combined_ann_format_list.extend(ann_format_list)
-
-        return combined_dataset_dir_list, combined_img_dir_list, combined_ann_path_list, combined_ann_format_list
+        return success
