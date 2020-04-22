@@ -1,5 +1,5 @@
 from logger import logger
-from annotation_utils.coco.refactored.structs import COCO_Category
+from annotation_utils.coco.structs import COCO_Category
 
 coco_cat = COCO_Category(
     id=0,

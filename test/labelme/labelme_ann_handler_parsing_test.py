@@ -1,4 +1,4 @@
-from annotation_utils.labelme.refactored import LabelmeAnnotationHandler
+from annotation_utils.labelme.structs import LabelmeAnnotationHandler
 from common_utils.common_types.bbox import BBox
 from common_utils.common_types.point import Point2D_List
 

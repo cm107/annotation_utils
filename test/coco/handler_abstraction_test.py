@@ -1,5 +1,5 @@
 from logger import logger
-from annotation_utils.coco.refactored.structs import COCO_License_Handler, COCO_License
+from annotation_utils.coco.structs import COCO_License_Handler, COCO_License
 
 license0 = COCO_License(url='url_a', id=0, name='license_a')
 license1 = COCO_License(url='url_b', id=1, name='license_b')

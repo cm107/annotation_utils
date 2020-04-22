@@ -1,4 +1,4 @@
-from annotation_utils.coco.refactored.structs import COCO_Category_Handler, COCO_Category
+from annotation_utils.coco.structs import COCO_Category_Handler, COCO_Category
 
 handler = COCO_Category_Handler()
 handler.append(

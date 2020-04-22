@@ -1,6 +1,4 @@
-from annotation_utils.coco.refactored.structs import COCO_Dataset
-from common_utils.common_types.keypoint import Keypoint2D_List
-from common_utils.common_types.segmentation import Segmentation
+from annotation_utils.coco.structs import COCO_Dataset
 from common_utils.file_utils import file_exists
 
 ann_save_path = 'preview_dataset.json'

@@ -1,4 +1,4 @@
-from annotation_utils.dataset.refactored.config import \
+from annotation_utils.dataset.config import \
     DatasetConfigCollectionHandler, DatasetConfigCollection, DatasetConfig
 
 handler = DatasetConfigCollectionHandler()

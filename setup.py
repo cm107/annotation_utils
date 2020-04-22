@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+import annotation_utils
 
 packages = find_packages(
         where='.',
@@ -9,8 +10,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name='annotation_utils',
-    version='0.1',
+    name='pyclay-annotation_utils',
+    version=annotation_utils.__version__,
     description='Utilities that are used for assisting with making annotated data.',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -35,8 +36,8 @@ setup(
         'labelme>=3.16.7',
         'PyYAML>=5.1.2',
         'pyqt5>=5.14.1',
-        'common_utils @ https://github.com/cm107/common_utils/archive/master.zip#egg=common_utils-0.1',
-        'logger @ https://github.com/cm107/logger/archive/master.zip#egg=logger-0.1'
+        'pyclay-common_utils @ https://github.com/cm107/common_utils/archive/master.zip',
+        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip'
     ],
     python_requires='>=3.7'
 )
