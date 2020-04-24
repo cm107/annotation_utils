@@ -2,7 +2,8 @@ from logger import logger
 from common_utils.path_utils import get_all_files_of_extension, get_filename
 from annotation_utils.ndds.structs.annotation import NDDS_Annotation
 
-json_paths = get_all_files_of_extension(dir_path='/home/clayton/workspace/prj/data_keep/data/ndds/HSR', extension='json')
+json_dir = '/home/clayton/workspace/prj/data_keep/data/ndds/HSR'
+json_paths = get_all_files_of_extension(dir_path=json_dir, extension='json')
 
 for json_path in json_paths:
     json_path.startswith('_')

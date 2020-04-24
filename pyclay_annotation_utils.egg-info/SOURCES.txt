@@ -2,6 +2,7 @@ README.md
 setup.py
 annotation_utils/__init__.py
 annotation_utils/base/__init__.py
+annotation_utils/base/basic.py
 annotation_utils/base/structs.py
 annotation_utils/coco/__init__.py
 annotation_utils/coco/camera/__init__.py

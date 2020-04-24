@@ -8,9 +8,9 @@ from common_utils.check_utils import check_file_exists, check_required_keys
 from common_utils.common_types.point import Point2D, Point3D
 from ..common.cuboid import Cuboid2D, Cuboid3D
 from ..common.angle import Quaternion
-from ...base.structs import BaseStructObject
+from ...base.basic import BasicLoadableObject
 
-class NDDS_Annotation_Object(BaseStructObject['NDDS_Annotation_Object']):
+class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
     def __init__(
         self,
         class_name: str, instance_id: int, visibility: int, location: Point3D, quaternion_xyzw: Quaternion,
@@ -30,11 +30,7 @@ class NDDS_Annotation_Object(BaseStructObject['NDDS_Annotation_Object']):
         self.cuboid = cuboid
         self.projected_cuboid = projected_cuboid
 
-    def __str__(self):
-        return f"NDDS_Annotation_Object({self.__dict__})"
-
     def to_dict(self) -> dict:
-        # TODO: Test
         return {
             'class': self.class_name,
             'instance_id': self.instance_id,
@@ -80,14 +76,8 @@ class NDDS_Annotation_Object(BaseStructObject['NDDS_Annotation_Object']):
             cuboid=Cuboid3D.from_list(object_dict['cuboid'], demarcation=True),
             projected_cuboid=Cuboid2D.from_list(object_dict['projected_cuboid'], demarcation=True)
         )
-    
-    @classmethod
-    def load_from_path(cls, json_path: str) -> NDDS_Annotation_Object:
-        check_file_exists(json_path)
-        json_dict = json.load(open(json_path, 'r'))
-        return NDDS_Annotation_Object.from_dict(json_dict)
 
-class CameraData(BaseStructObject['CameraData']):
+class CameraData(BasicLoadableObject['CameraData']):
     def __init__(self, location_worldframe: Point3D, quaternion_xyzw_worldframe: Quaternion):
         super().__init__()
         self.location_worldframe = location_worldframe
@@ -109,9 +99,3 @@ class CameraData(BaseStructObject['CameraData']):
             location_worldframe=Point3D.from_list(coords=item_dict['location_worldframe']),
             quaternion_xyzw_worldframe=Quaternion.from_list(coords=item_dict['quaternion_xyzw_worldframe'])
         )
-
-    @classmethod
-    def load_from_path(cls, json_path: str) -> CameraData:
-        check_file_exists(json_path)
-        json_dict = json.load(open(json_path, 'r'))
-        return CameraData.from_dict(json_dict)
