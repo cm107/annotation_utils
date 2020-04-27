@@ -155,7 +155,7 @@ class BaseStructHandler(Generic[H, T]):
     def shuffle(self):
         random.shuffle(self.obj_list)
 
-    def get_obj_from_id(self, id: int) -> T:
+    def get_obj_from_id(self, id: int) -> T: # Need to move this to a different base class
         id_list = []
         for obj in self:
             if id == obj.id:
