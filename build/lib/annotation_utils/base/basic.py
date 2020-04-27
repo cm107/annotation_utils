@@ -233,6 +233,9 @@ class BasicLoadableHandler(BasicHandler[H, T]):
     def __init__(self: H, obj_type: type, obj_list: List[T]=None):
         super().__init__(obj_type=obj_type, obj_list=obj_list)
 
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}({self.to_dict_list()})'
+
     def to_dict_list(self: H) -> List[dict]:
         return [item.to_dict() for item in self]
 
