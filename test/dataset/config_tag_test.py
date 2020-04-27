@@ -1,5 +1,5 @@
 from common_utils.file_utils import make_dir_if_not_exists
-from annotation_utils.dataset.refactored.config import DatasetConfigCollectionHandler, DatasetConfigCollection, DatasetConfig
+from annotation_utils.dataset.config import DatasetConfigCollectionHandler, DatasetConfigCollection, DatasetConfig
 
 handler = DatasetConfigCollectionHandler()
 data_dir = '/home/user/arbitrary/data/dir'

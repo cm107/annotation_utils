@@ -1,7 +1,5 @@
-from logger import logger
 from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_dir
-from annotation_utils.coco.refactored.structs import COCO_Dataset
-from annotation_utils.coco.refactored.structs import COCO_Category
+from annotation_utils.coco.structs import COCO_Dataset
 
 dataset = COCO_Dataset.load_from_path(json_path='output.json')
 # dataset.display_preview()

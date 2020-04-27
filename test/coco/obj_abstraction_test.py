@@ -1,5 +1,5 @@
 from logger import logger
-from annotation_utils.coco.refactored.structs import COCO_Info
+from annotation_utils.coco.structs import COCO_Info
 
 def reset_type_buffer(obj) -> object:
     return obj
@@ -30,7 +30,7 @@ logger.purple(f'info2:\n{info2}')
 
 info2.save_to_path('info.json', overwrite=True)
 
-from annotation_utils.coco.refactored.structs import COCO_Annotation, COCO_Dataset
+from annotation_utils.coco.structs import COCO_Dataset
 dataset = COCO_Dataset.combine_from_config(
     config_path='/home/clayton/workspace/prj/data_keep/data/toyota/dataset/config/yaml/box_hsr_kpt_sim.yaml',
     img_sort_attr_name='file_name',

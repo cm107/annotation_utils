@@ -1,7 +1,5 @@
 from logger import logger
-from annotation_utils.dataset.refactored.config import DatasetConfigCollectionHandler
-from annotation_utils.dataset.config import DatasetPathConfig
-import json
+from annotation_utils.dataset.config import DatasetConfigCollectionHandler
 
 handler = DatasetConfigCollectionHandler.load_from_path('/home/clayton/workspace/prj/data_keep/data/toyota/dataset/config/json/box_hsr_kpt_train.json')
 logger.purple(handler.to_dict_list())

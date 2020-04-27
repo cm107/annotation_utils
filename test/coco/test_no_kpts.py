@@ -1,4 +1,4 @@
-from annotation_utils.coco.refactored.structs import COCO_Dataset
+from annotation_utils.coco.structs import COCO_Dataset
 from common_utils.common_types.segmentation import Segmentation
 from common_utils.common_types.keypoint import Keypoint2D_List
 
