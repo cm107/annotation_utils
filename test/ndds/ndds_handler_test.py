@@ -1,5 +1,5 @@
 from logger import logger
-from annotation_utils.ndds.structs.annotation import NDDS_Frame_Handler
+from annotation_utils.ndds.structs.frame import NDDS_Frame_Handler
 
 json_dir = '/home/clayton/workspace/prj/data_keep/data/ndds/HSR'
 img_dir = json_dir
