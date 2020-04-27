@@ -17,6 +17,9 @@ annotation_utils/dataset/__init__.py
 annotation_utils/dataset/config/__init__.py
 annotation_utils/dataset/config/dataset_config.py
 annotation_utils/dataset/config/path.py
+annotation_utils/detectron/__init__.py
+annotation_utils/detectron/structs/__init__.py
+annotation_utils/detectron/structs/dataset.py
 annotation_utils/labelme/__init__.py
 annotation_utils/labelme/structs/__init__.py
 annotation_utils/labelme/structs/ann.py
