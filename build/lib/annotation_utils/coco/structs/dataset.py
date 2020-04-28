@@ -36,7 +36,7 @@ from .misc import KeypointGroup
 from ...labelme.structs import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ..util import COCO_Mapper_Handler
 from ...dataset.config import DatasetConfigCollectionHandler
-from ...ndds.structs import NDDS_Frame_Handler
+# from ...ndds.structs import NDDS_Frame_Handler
 
 class COCO_Dataset:
     """
@@ -577,62 +577,62 @@ class COCO_Dataset:
 
         return dataset
 
-    def to_ndds(self) -> NDDS_Frame_Handler:
-        raise NotImplementedError
+    # def to_ndds(self) -> NDDS_Frame_Handler:
+    #     raise NotImplementedError
 
-    @classmethod
-    def from_ndds(
-        cls, ndds_frame_handler: NDDS_Frame_Handler, categories: COCO_Category_Handler,
-        keypoint_map_dict: dict={},
-        license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
-        license_name: str='MIT License'
-    ) -> COCO_Dataset:
-        dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Frame_Handler')
-        dataset.categories = categories.copy()
-        cat_names = [cat.name for cat in dataset.categories]
-        cat_keypoints_list = [cat.keypoints for cat in dataset.categories]
+    # @classmethod
+    # def from_ndds(
+    #     cls, ndds_frame_handler: NDDS_Frame_Handler, categories: COCO_Category_Handler,
+    #     keypoint_map_dict: dict={},
+    #     license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
+    #     license_name: str='MIT License'
+    # ) -> COCO_Dataset:
+    #     dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Frame_Handler')
+    #     dataset.categories = categories.copy()
+    #     cat_names = [cat.name for cat in dataset.categories]
+    #     cat_keypoints_list = [cat.keypoints for cat in dataset.categories]
 
-        # Add a license to COCO Dataset
-        dataset.licenses.append(
-            COCO_License(
-                url=license_url,
-                name=license_name,
-                id=0
-            )
-        )
+    #     # Add a license to COCO Dataset
+    #     dataset.licenses.append(
+    #         COCO_License(
+    #             url=license_url,
+    #             name=license_name,
+    #             id=0
+    #         )
+    #     )
 
-        for frame in ndds_frame_handler:
-            # Load Image Handler
-            check_file_exists(frame.img_path)
-            img = cv2.imread(frame.img_path)
-            img_h, img_w = img.shape[:2]
-            image_id = len(images)
-            dataset.images.append(
-                COCO_Image(
-                    license_id=0,
-                    file_name=get_filename(frame.img_path),
-                    coco_url=frame.img_path,
-                    height=img_h,
-                    width=img_w,
-                    date_captured=get_ctime(frame.img_path),
-                    flickr_url=None,
-                    id=image_id
-                )
-            )
+    #     for frame in ndds_frame_handler:
+    #         # Load Image Handler
+    #         check_file_exists(frame.img_path)
+    #         img = cv2.imread(frame.img_path)
+    #         img_h, img_w = img.shape[:2]
+    #         image_id = len(images)
+    #         dataset.images.append(
+    #             COCO_Image(
+    #                 license_id=0,
+    #                 file_name=get_filename(frame.img_path),
+    #                 coco_url=frame.img_path,
+    #                 height=img_h,
+    #                 width=img_w,
+    #                 date_captured=get_ctime(frame.img_path),
+    #                 flickr_url=None,
+    #                 id=image_id
+    #             )
+    #         )
 
-            for ndds_obj in frame.ndds_ann.objects:
-                cat_found = False
-                if ndds_obj.class_name in keypoint_map_dict.keys() and keypoint_map_dict[ndds_obj.class_name] in cat_names:
-                    # Keypoint
-                    raise NotImplementedError
-                elif ndds_obj.class_name in cat_names:
-                    # Object
-                    raise NotImplementedError
-                else:
-                    logger.error(f'Invalid ndds_obj.class_name: {ndds_obj.class_name}')
-                    logger.error(f'Valid Object class names: {cat_names}')
-                    logger.error(f'Valid Keypoint class names: {keypoint_map_dict.keys()}')
-                    raise Exception
+    #         for ndds_obj in frame.ndds_ann.objects:
+    #             cat_found = False
+    #             if ndds_obj.class_name in keypoint_map_dict.keys() and keypoint_map_dict[ndds_obj.class_name] in cat_names:
+    #                 # Keypoint
+    #                 raise NotImplementedError
+    #             elif ndds_obj.class_name in cat_names:
+    #                 # Object
+    #                 raise NotImplementedError
+    #             else:
+    #                 logger.error(f'Invalid ndds_obj.class_name: {ndds_obj.class_name}')
+    #                 logger.error(f'Valid Object class names: {cat_names}')
+    #                 logger.error(f'Valid Keypoint class names: {keypoint_map_dict.keys()}')
+    #                 raise Exception
 
     def update_img_dir(self, new_img_dir: str, check_paths: bool=True):
         """
