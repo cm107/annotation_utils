@@ -1,8 +1,10 @@
 from __future__ import annotations
 import numpy as np
 import json
+from logger import logger
 from common_utils.common_types.bbox import BBox
-from common_utils.check_utils import check_file_exists, check_required_keys
+from common_utils.check_utils import check_file_exists, check_required_keys, \
+    check_value
 
 # from ..common.point import Point2D, Point3D
 from common_utils.common_types.point import Point2D, Point3D
@@ -77,6 +79,31 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
             projected_cuboid=Cuboid2D.from_list(object_dict['projected_cuboid'], demarcation=True)
         )
 
+    def parse_obj_info(self, naming_rule: str='type_object_instance_contained', delimiter: str='_') -> (str, str, str):
+        if naming_rule == 'type_object_instance_contained':
+            class_name_parts = self.class_name.split(delimiter)
+            if len(class_name_parts) == 4:
+                obj_type, obj_name, instance_name, contained_name = class_name_parts
+            elif len(class_name_parts) == 3:
+                obj_type, obj_name, instance_name = class_name_parts
+                contained_name = None
+            elif len(class_name_parts) == 2:
+                obj_type, obj_name = class_name_parts
+                instance_name, contained_name = None, None
+            elif len(class_name_parts) == 1:
+                obj_name = class_name_parts
+                obj_type = 'seg'
+                instance_name, contained_name = None, None
+            else:
+                logger.error(f"Too many delimiters ('{delimiter}') found in class_name: {self.class_name}")
+                logger.error(f'Parsed {len(class_name_parts)} parts. Expected <= 4.')
+                logger.error(f'self.instance_id: {self.instance_id}')
+                raise Exception
+            return obj_type, obj_name, instance_name, contained_name
+        else:
+            logger.error(f'Invalid naming rule: {naming_rule}')
+            raise NotImplementedError
+
 class CameraData(BasicLoadableObject['CameraData']):
     def __init__(self, location_worldframe: Point3D, quaternion_xyzw_worldframe: Quaternion):
         super().__init__()
@@ -99,3 +126,4 @@ class CameraData(BasicLoadableObject['CameraData']):
             location_worldframe=Point3D.from_list(coords=item_dict['location_worldframe']),
             quaternion_xyzw_worldframe=Quaternion.from_list(coords=item_dict['quaternion_xyzw_worldframe'])
         )
+    

@@ -66,6 +66,10 @@ class BasicLoadableObject(BasicObject[T]):
     def __str__(self) -> str:
         return f'{self.__class__}({self.to_dict()})'
 
+    @classmethod
+    def get_constructor_params(cls) -> list:
+        return [param for param in list(inspect.signature(cls.__init__).parameters.keys()) if param != 'self']
+
     def to_dict(self: T) -> dict:
         result = {}
         for key, val in self.to_constructor_dict().items():
@@ -133,11 +137,7 @@ class BasicHandler(Generic[H, T]):
         self.obj_list = obj_list if obj_list is not None else []
 
     def __str__(self: H):
-        print_str = ""
-        for obj in self.obj_list:
-            print_str += f"{obj}\n"
-
-        return print_str
+        return f'{self.__class__.__name__}({[obj for obj in self]})'
 
     def __repr__(self: H):
         return self.__str__()
