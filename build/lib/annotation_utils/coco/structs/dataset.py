@@ -20,10 +20,10 @@ from common_utils.cv_drawing_utils import \
     cv_simple_image_viewer, SimpleVideoViewer, \
     draw_bbox, draw_keypoints, draw_segmentation, draw_skeleton, \
     draw_text_rows_at_point
-from common_utils.common_types.point import Point2D_List
+from common_utils.common_types.point import Point2D, Point2D_List, Point3D, Point3D_List
 from common_utils.common_types.segmentation import Polygon, Segmentation
 from common_utils.common_types.bbox import BBox
-from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List
+from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
 from common_utils.time_utils import get_ctime
 from common_utils.image_utils import scale_to_max, pad_to_max
 
@@ -31,12 +31,13 @@ from .objects import COCO_Info
 from .handlers import COCO_License_Handler, COCO_Image_Handler, \
     COCO_Annotation_Handler, COCO_Category_Handler, \
     COCO_License, COCO_Image, COCO_Annotation, COCO_Category
+from ..camera import Camera
 
 from .misc import KeypointGroup
 from ...labelme.structs import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ..util import COCO_Mapper_Handler
 from ...dataset.config import DatasetConfigCollectionHandler
-from ...ndds.structs import NDDS_Frame_Handler
+from ...ndds.structs import NDDS_Frame_Handler, CameraConfig
 
 class COCO_Dataset:
     """
@@ -583,15 +584,24 @@ class COCO_Dataset:
     @classmethod
     def from_ndds(
         cls, ndds_frame_handler: NDDS_Frame_Handler, categories: COCO_Category_Handler,
+        camera_settings_path: str,
         naming_rule: str='type_object_instance_contained', delimiter: str='_',
         license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
-        license_name: str='MIT License'
+        license_name: str='MIT License',
+        ignore_unspecified_categories: bool=False,
+        bbox_area_threshold: float=10,
+        min_visibile_kpts: int=None
     ) -> COCO_Dataset:
         # TODO: Finish Implementing
         dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Frame_Handler')
         dataset.categories = categories.copy()
         cat_names = [cat.name for cat in dataset.categories]
         cat_keypoints_list = [cat.keypoints for cat in dataset.categories]
+
+
+        # Get Camera Settings
+        check_file_exists(camera_settings_path)
+        camera_config = CameraConfig.load_from_path(camera_settings_path)
 
         # Add a license to COCO Dataset
         dataset.licenses.append(
@@ -621,7 +631,92 @@ class COCO_Dataset:
                 )
             )
 
+            # Load Other Images
+            check_file_exists(frame.is_img_path)
+            instance_img = cv2.imread(frame.is_img_path)
+
             organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, show_pbar=False)
+            for labeled_obj in organized_handler:
+                specified_category_names = [cat.name for cat in categories]
+                if labeled_obj.obj_name not in specified_category_names:
+                    if ignore_unspecified_categories:
+                        continue
+                    else:
+                        logger.error(f'Found an NDDS Object name ({labeled_obj.obj_name}) that does not exist in the specified categories.')
+                        logger.error(f'specified_category_names: {specified_category_names}')
+                        logger.error(f'frame.img_path: {frame.img_path}')
+                        logger.error(f'Hint: Use ignore_unspecified_categories=True to bypass this check.')
+                        raise Exception
+                coco_cat = categories.get_unique_category_from_name(labeled_obj.obj_name)
+                for instance in labeled_obj.instances:
+                    if instance.instance_type == 'seg':
+                        # Get Segmentation
+                        instance_color = instance.ndds_ann_obj.get_color_from_id()
+                        seg = instance.ndds_ann_obj.get_instance_segmentation(img=instance_img, target_bgr=instance_color)
+                        if len(seg) == 0:
+                            logger.error(f'Failed to find segmentation using instance_color={instance_color}')
+                            logger.error(f'instance.ndds_ann_obj.instance_id: {instance.ndds_ann_obj.instance_id}')
+                            logger.error(f'frame.is_img_path: {frame.is_img_path}')
+                            raise Exception
+                        
+                        # Get Bounding Box
+                        seg_bbox = seg.to_bbox()
+                        if seg_bbox.area() < bbox_area_threshold:
+                            continue
+
+                        # Get Keypoints
+                        kpts_2d = Keypoint2D_List()
+                        kpts_3d = Keypoint3D_List()
+                        
+                        visible_kpt_count = 0
+                        for kpt_label in coco_cat.keypoints:
+                            found = False
+                            for contained_instance in instance.contained_instance_list:
+                                if contained_instance.instance_type == 'kpt' and contained_instance.instance_name == kpt_label:
+                                    kpts_2d.append(contained_instance.ndds_ann_obj.projected_cuboid_centroid)
+                                    kpts_3d.append(contained_instance.ndds_ann_obj.cuboid_centroid)
+                                    found = True
+                                    visible_kpt_count += 1
+                                    break
+                            if not found:
+                                kpts_2d.append(Keypoint2D(point=Point2D(x=0, y=0), visibility=0))
+                                kpts_3d.append(Keypoint3D(point=Point3D(x=0, y=0, z=0), visibility=0))
+                        if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
+                            continue
+
+                        # Get Camera TODO
+                        # camera = Camera(
+                        #     f=
+                        # )
+                        raise NotImplementedError
+
+                        dataset.annotations.append(
+                            COCO_Annotation(
+                                id=len(dataset.annotations),
+                                category_id=coco_cat.id,
+                                image_id=image_id,
+                                segmentation=seg,
+                                bbox=seg_bbox,
+                                area=seg_bbox.area(),
+                                keypoints=kpts_2d,
+                                num_keypoints=len(kpts_2d),
+                                iscrowd=0,
+                                keypoints_3d=kpts_3d,
+                                camera=frame.ndds_ann.camera_data
+                            )
+                        )
+
+                    elif instance.instance_type == 'bbox':
+                        raise NotImplementedError # TODO: Refer to Darwin's algorithm
+                    elif instance.instance_type == 'kpt':
+                        logger.error(f"'kpt' can only be used as a contained instance and not as a container instance")
+                        logger.error(f'instance:\n{instance}')
+                        raise Exception
+                    else:
+                        logger.error(f'Invalid instance.instance_type: {instance.instance_type}')
+                        logger.error(f'instance:\n{instance}')
+                        raise Exception
+
             raise NotImplementedError
 
     def update_img_dir(self, new_img_dir: str, check_paths: bool=True):

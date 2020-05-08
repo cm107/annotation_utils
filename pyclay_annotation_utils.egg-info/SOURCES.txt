@@ -35,10 +35,12 @@ annotation_utils/ndds/common/cuboid0.py
 annotation_utils/ndds/common/point.py
 annotation_utils/ndds/structs/__init__.py
 annotation_utils/ndds/structs/annotation.py
+annotation_utils/ndds/structs/dataset.py
 annotation_utils/ndds/structs/frame.py
 annotation_utils/ndds/structs/handlers.py
 annotation_utils/ndds/structs/instance.py
 annotation_utils/ndds/structs/objects.py
+annotation_utils/ndds/structs/settings.py
 annotation_utils/old/__init__.py
 annotation_utils/old/coco/__init__.py
 annotation_utils/old/coco/annotation/__init__.py

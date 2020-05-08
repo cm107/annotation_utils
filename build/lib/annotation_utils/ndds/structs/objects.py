@@ -1,10 +1,13 @@
 from __future__ import annotations
+from typing import List
 import numpy as np
+import cv2
 import json
 from logger import logger
 from common_utils.common_types.bbox import BBox
+from common_utils.common_types.segmentation import Segmentation
 from common_utils.check_utils import check_file_exists, check_required_keys, \
-    check_value
+    check_value, check_list_length
 
 # from ..common.point import Point2D, Point3D
 from common_utils.common_types.point import Point2D, Point3D
@@ -15,13 +18,17 @@ from ...base.basic import BasicLoadableObject
 class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
     def __init__(
         self,
-        class_name: str, instance_id: int, visibility: int, location: Point3D, quaternion_xyzw: Quaternion,
+        class_name: str, instance_id: int, visibility: float, location: Point3D, quaternion_xyzw: Quaternion,
         pose_transform: np.ndarray, cuboid_centroid: Point3D, projected_cuboid_centroid: Point2D,
         bounding_box: BBox, cuboid: Cuboid3D, projected_cuboid: Cuboid2D
     ):
         super().__init__()
         self.class_name = class_name
         self.instance_id = instance_id
+        if visibility < 0 or visibility > 1:
+            logger.error(f'visibility must be between 0 and 1')
+            logger.error(f'visibility: {visibility}')
+            raise Exception
         self.visibility = visibility
         self.location = location
         self.quaternion_xyzw = quaternion_xyzw
@@ -103,6 +110,24 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         else:
             logger.error(f'Invalid naming rule: {naming_rule}')
             raise NotImplementedError
+    
+    def get_color_from_id(self) -> List[int]:
+        RGBint = self.instance_id
+        pixel_b =  RGBint & 255
+        pixel_g = (RGBint >> 8) & 255
+        pixel_r =   (RGBint >> 16) & 255
+        color_instance_rgb = [pixel_b,pixel_g,pixel_r]
+        return color_instance_rgb
+
+    def get_instance_segmentation(self, img: np.ndarray, target_bgr: List[int]=None):
+        target_bgr = target_bgr if target_bgr is not None else self.get_color_from_id()
+        check_list_length(target_bgr, correct_length=3)
+        lower_bgr = [val - 1 if val - 1 >= 0 else 0 for val in target_bgr]
+        upper_bgr = [val + 1 if val + 1 <= 255 else 255 for val in target_bgr]
+        color_mask = cv2.inRange(src=img, lowerb=lower_bgr, upperb=upper_bgr)
+        color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        seg = Segmentation.from_contour(contour_list=color_contours)
+        return seg
 
 class CameraData(BasicLoadableObject['CameraData']):
     def __init__(self, location_worldframe: Point3D, quaternion_xyzw_worldframe: Quaternion):

@@ -24,7 +24,7 @@ class BasicObject(Generic[T]):
         return self.__str__()
     
     def __key(self) -> tuple:
-        return tuple([self.__class__] + list(self.__dict__.values()))
+        return tuple([self.__class__.__name__] + list(self.__dict__.values()))
 
     def __hash__(self):
         return hash(self.__key())
@@ -63,8 +63,19 @@ class BasicLoadableObject(BasicObject[T]):
     def __init__(self):
         super().__init__()
 
+    def __key(self) -> tuple:
+        return tuple([self.__class__.__name__] + list(self.to_dict()))
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return NotImplemented
+
     def __str__(self) -> str:
-        return f'{self.__class__}({self.to_dict()})'
+        return f'{self.__class__.__name__}({self.to_dict()})'
 
     @classmethod
     def get_constructor_params(cls) -> list:
@@ -83,6 +94,10 @@ class BasicLoadableObject(BasicObject[T]):
     
     @classmethod
     def from_dict(cls: T, item_dict: dict) -> T:
+        """
+        Note: It is required that all class constructor parameters be of a JSON serializable datatype.
+              If not, it is necessary to override this classmethod.
+        """
         constructor_dict = {}
         constructor_params = cls.get_constructor_params()
         unnecessary_params = []
@@ -135,6 +150,17 @@ class BasicHandler(Generic[H, T]):
         if obj_list is not None:
             check_type_from_list(obj_list, valid_type_list=[obj_type])
         self.obj_list = obj_list if obj_list is not None else []
+
+    def __key(self) -> tuple:
+        return tuple([self.__class__] + list(self.__dict__.values()))
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     def __str__(self: H):
         return f'{self.__class__.__name__}({[obj for obj in self]})'
