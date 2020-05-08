@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 import numpy as np
 from logger import logger
 from common_utils.check_utils import check_required_keys, check_type, check_type_from_list
@@ -30,6 +30,14 @@ class CapturedImageSize(BasicLoadableObject['CapturedImageSize']):
         self.width = width
         check_type(height, valid_type_list=[int])
         self.height = height
+
+    def shape(self) -> Tuple[int]:
+        """Returns (self.height, self.width)
+
+        Returns:
+            Tuple[int] -- [Image shape]
+        """
+        return (self.height, self.width, 3)
 
 class CameraSettings(BasicLoadableObject['CameraSettings']):
     def __init__(self, name: str, horizontal_fov: int, intrinsic_settings: IntrinsicSettings, captured_image_size: CapturedImageSize):

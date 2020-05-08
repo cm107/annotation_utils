@@ -37,7 +37,7 @@ from .misc import KeypointGroup
 from ...labelme.structs import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ..util import COCO_Mapper_Handler
 from ...dataset.config import DatasetConfigCollectionHandler
-from ...ndds.structs import NDDS_Frame_Handler, CameraConfig
+from ...ndds.structs import NDDS_Dataset, CameraConfig
 
 class COCO_Dataset:
     """
@@ -583,25 +583,25 @@ class COCO_Dataset:
 
     @classmethod
     def from_ndds(
-        cls, ndds_frame_handler: NDDS_Frame_Handler, categories: COCO_Category_Handler,
-        camera_settings_path: str,
+        cls, ndds_dataset: NDDS_Dataset, categories: COCO_Category_Handler,
         naming_rule: str='type_object_instance_contained', delimiter: str='_',
         license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
         license_name: str='MIT License',
         ignore_unspecified_categories: bool=False,
         bbox_area_threshold: float=10,
-        min_visibile_kpts: int=None
+        min_visibile_kpts: int=None,
+        camera_idx: int=0,
+        show_pbar: bool=False
     ) -> COCO_Dataset:
-        # TODO: Finish Implementing
-        dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Frame_Handler')
+        # Start constructing COCO Dataset
+        dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Dataset')
         dataset.categories = categories.copy()
         cat_names = [cat.name for cat in dataset.categories]
         cat_keypoints_list = [cat.keypoints for cat in dataset.categories]
 
 
-        # Get Camera Settings
-        check_file_exists(camera_settings_path)
-        camera_config = CameraConfig.load_from_path(camera_settings_path)
+        # Get Camera's Settings
+        camera_settings = ndds_dataset.camera_config.camera_settings[camera_idx]
 
         # Add a license to COCO Dataset
         dataset.licenses.append(
@@ -612,12 +612,26 @@ class COCO_Dataset:
             )
         )
 
-        for frame in ndds_frame_handler:
+        if show_pbar:
+            frame_pbar = tqdm(total=len(ndds_dataset.frames), unit='frame(s)', leave=True)
+            frame_pbar.set_description('Converting Frames')
+        for frame in ndds_dataset.frames:
+            # Define Camera
+            camera = Camera(
+                f=[camera_settings.intrinsic_settings.fx, camera_settings.intrinsic_settings.fy],
+                c=[camera_settings.intrinsic_settings.cx, camera_settings.intrinsic_settings.cy],
+                T=frame.ndds_ann.camera_data.location_worldframe.to_list()
+            )
+            
             # Load Image Handler
             check_file_exists(frame.img_path)
             img = cv2.imread(frame.img_path)
             img_h, img_w = img.shape[:2]
-            image_id = len(images)
+            if img.shape != camera_settings.captured_image_size.shape():
+                logger.error(f'img.shape == {img.shape} != {camera_settings.captured_image_size.shape()} == camera_settings.captured_image_size.shape()')
+                logger.error(f'frame.img_path: {frame.img_path}')
+                raise Exception
+            image_id = len(dataset.images)
             dataset.images.append(
                 COCO_Image(
                     license_id=0,
@@ -635,7 +649,7 @@ class COCO_Dataset:
             check_file_exists(frame.is_img_path)
             instance_img = cv2.imread(frame.is_img_path)
 
-            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, show_pbar=False)
+            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, show_pbar=show_pbar)
             for labeled_obj in organized_handler:
                 specified_category_names = [cat.name for cat in categories]
                 if labeled_obj.obj_name not in specified_category_names:
@@ -673,8 +687,8 @@ class COCO_Dataset:
                             found = False
                             for contained_instance in instance.contained_instance_list:
                                 if contained_instance.instance_type == 'kpt' and contained_instance.instance_name == kpt_label:
-                                    kpts_2d.append(contained_instance.ndds_ann_obj.projected_cuboid_centroid)
-                                    kpts_3d.append(contained_instance.ndds_ann_obj.cuboid_centroid)
+                                    kpts_2d.append(Keypoint2D(point=contained_instance.ndds_ann_obj.projected_cuboid_centroid, visibility=2))
+                                    kpts_3d.append(Keypoint3D(point=contained_instance.ndds_ann_obj.cuboid_centroid, visibility=2))
                                     found = True
                                     visible_kpt_count += 1
                                     break
@@ -683,12 +697,6 @@ class COCO_Dataset:
                                 kpts_3d.append(Keypoint3D(point=Point3D(x=0, y=0, z=0), visibility=0))
                         if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
                             continue
-
-                        # Get Camera TODO
-                        # camera = Camera(
-                        #     f=
-                        # )
-                        raise NotImplementedError
 
                         dataset.annotations.append(
                             COCO_Annotation(
@@ -702,7 +710,7 @@ class COCO_Dataset:
                                 num_keypoints=len(kpts_2d),
                                 iscrowd=0,
                                 keypoints_3d=kpts_3d,
-                                camera=frame.ndds_ann.camera_data
+                                camera=camera
                             )
                         )
 
@@ -716,8 +724,9 @@ class COCO_Dataset:
                         logger.error(f'Invalid instance.instance_type: {instance.instance_type}')
                         logger.error(f'instance:\n{instance}')
                         raise Exception
-
-            raise NotImplementedError
+            if show_pbar:
+                frame_pbar.update()
+        return dataset
 
     def update_img_dir(self, new_img_dir: str, check_paths: bool=True):
         """
