@@ -28,14 +28,16 @@ for frame in ndds_dataset.frames:
     # Delete Duplicate Objects
     frame.ndds_ann.objects.delete_duplicates(verbose=True, verbose_ref=frame.img_path)
 
+ndds_dataset.save_to_path(save_path='hsr_fixed_ndds.json', overwrite=True)
+
 # Convert To COCO Dataset
 dataset = COCO_Dataset.from_ndds(
     ndds_dataset=ndds_dataset,
-    categories=COCO_Category_Handler.load_from_path('/home/clayton/workspace/prj/data_keep/data/toyota/dataset/config/categories/hsr.json'),
+    categories=COCO_Category_Handler.load_from_path('/home/clayton/workspace/prj/data_keep/data/ndds/categories/hsr.json'),
     naming_rule='type_object_instance_contained',
-    show_pbar=True
+    show_pbar=True,
+    bbox_area_threshold=1
 )
 
-dataset.save_to_path('ndds2coco_test.json', overwrite=True)
-# dataset.display_preview(show_details=True)
-dataset.save_video(fps=3, show_details=True)
+dataset.save_to_path('hsr_ndds2coco_test.json', overwrite=True)
+dataset.display_preview(show_details=True)

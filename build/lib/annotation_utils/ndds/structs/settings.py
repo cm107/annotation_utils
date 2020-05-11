@@ -12,13 +12,13 @@ class IntrinsicSettings(BasicLoadableObject['IntrinsicSettings']):
         self.resX = resX
         check_type(resY, valid_type_list=[int])
         self.resY = resY
-        check_type(fx, valid_type_list=[float])
+        check_type(fx, valid_type_list=[float, int])
         self.fx = fx
-        check_type(fy, valid_type_list=[float])
+        check_type(fy, valid_type_list=[float, int])
         self.fy = fy
-        check_type(cx, valid_type_list=[float])
+        check_type(cx, valid_type_list=[float, int])
         self.cx = cx
-        check_type(cy, valid_type_list=[float])
+        check_type(cy, valid_type_list=[float, int])
         self.cy = cy
         check_type(s, valid_type_list=[int])
         self.s = s

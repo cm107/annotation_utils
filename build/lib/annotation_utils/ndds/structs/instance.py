@@ -14,8 +14,28 @@ class ObjectInstance(BasicObject['ObjectInstance']):
         super().__init__()
         
         # Required
-        check_value(instance_type, valid_value_list=['bbox', 'seg', 'kpt'])
-        self.instance_type = instance_type
+        if instance_type.startswith('bbox') and len(instance_type.replace('bbox', '')) > 0:
+            if instance_type.replace('bbox', '').isdigit():
+                self.part_num = int(instance_type.replace('bbox', ''))
+                self.instance_type = 'bbox'
+            else:
+                logger.error(f'Part number must be a string that can be converted to an integer.')
+                logger.error(f'Valid example: bbox0')
+                logger.error(f'Invalid example: bboxzero')
+                raise Exception
+        elif instance_type.startswith('seg') and len(instance_type.replace('seg', '')) > 0:
+            if instance_type.replace('seg', '').isdigit():
+                self.part_num = int(instance_type.replace('seg', ''))
+                self.instance_type = 'seg'
+            else:
+                logger.error(f'Part number must be a string that can be converted to an integer.')
+                logger.error(f'Valid example: seg0')
+                logger.error(f'Invalid example: segzero')
+                raise Exception
+        else:
+            check_value(instance_type, valid_value_list=['bbox', 'seg', 'kpt'])
+            self.instance_type = instance_type
+            self.part_num = None
         self.ndds_ann_obj = ndds_ann_obj
 
         # Optional
@@ -94,9 +114,9 @@ class ObjectInstanceHandler(BasicHandler['ObjectInstanceHandler', 'ObjectInstanc
             if obj_instance.ndds_ann_obj.instance_id == instance.ndds_ann_obj.instance_id:
                 logger.error(f'obj_instance.ndds_ann_obj.instance_id={obj_instance.ndds_ann_obj.instance_id} already exists in {self.__class__.__name__}')
                 raise Exception
-            if obj_instance.instance_type == instance.instance_type and obj_instance.instance_name == instance.instance_name:
+            if obj_instance.instance_type == instance.instance_type and obj_instance.instance_name == instance.instance_name and obj_instance.part_num == instance.part_num:
                 logger.error(
-                    f'(obj_instance.instance_type, obj_instance.instance_name)=({obj_instance.instance_type}, {obj_instance.instance_name}) ' + \
+                    f'(obj_instance.instance_type, obj_instance.instance_name, obj_instance.part_num)=({obj_instance.instance_type}, {obj_instance.instance_name}, {obj_instance.part_num}) ' + \
                     f'pair already exists in {self.__class__.__name__}'
                 )
                 if obj_instance.instance_name is None:

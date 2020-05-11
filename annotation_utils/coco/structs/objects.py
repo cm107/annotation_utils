@@ -102,7 +102,7 @@ class COCO_License(BaseStructObject['COCO_License']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_License.from_dict(json_dict)
 
-class COCO_Image(BaseStructObject['COCO_License']):
+class COCO_Image(BaseStructObject['COCO_Image']):
     def __init__(
         self, license_id: int, file_name: str, coco_url: str,
         height: int, width: int, date_captured: str, flickr_url: str, id: int
@@ -200,7 +200,7 @@ class COCO_Image(BaseStructObject['COCO_License']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Image.from_dict(json_dict)
 
-class COCO_Annotation(BaseStructObject['COCO_License']):
+class COCO_Annotation(BaseStructObject['COCO_Annotation']):
     def __init__(
         self,
         id: int, category_id: int, image_id: int, # Standard Required
@@ -359,7 +359,7 @@ class COCO_Annotation(BaseStructObject['COCO_License']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Annotation.from_dict(ann_dict=json_dict, strict=strict)
 
-class COCO_Category(BaseStructObject['COCO_License']):
+class COCO_Category(BaseStructObject['COCO_Category']):
     def __init__(
         self, id: int, supercategory: str=None, name: str=None, keypoints: List[str]=None, skeleton: List[list]=None
     ):
