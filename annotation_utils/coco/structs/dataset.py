@@ -667,39 +667,22 @@ class COCO_Dataset:
                 partitioned_coco_instances = {}
                 for instance in labeled_obj.instances:
                     if instance.instance_type == 'seg':
-                        # Get Segmentation
-                        instance_color = instance.ndds_ann_obj.get_color_from_id()
-                        seg = instance.ndds_ann_obj.get_instance_segmentation(img=instance_img, target_bgr=instance_color, interval=color_interval)
+                        # Get Segmentation, BBox, and Keypoints
+                        seg = instance.get_segmentation(
+                            instance_img=instance_img, color_interval=color_interval,
+                            is_img_path=frame.is_img_path
+                        )
                         if len(seg) == 0:
-                            logger.error(f'Failed to find segmentation using instance_color={instance_color}')
-                            logger.error(f'instance.ndds_ann_obj.instance_id: {instance.ndds_ann_obj.instance_id}')
-                            logger.error(f'frame.is_img_path: {frame.is_img_path}')
-                            raise Exception
-                        
-                        # Get Bounding Box
+                            continue
                         seg_bbox = seg.to_bbox()
                         if seg_bbox.area() < bbox_area_threshold:
                             continue
-
-                        # Get Keypoints
-                        kpts_2d = Keypoint2D_List()
-                        kpts_3d = Keypoint3D_List()
-                        
-                        visible_kpt_count = 0
-                        for kpt_label in coco_cat.keypoints:
-                            found = False
-                            for contained_instance in instance.contained_instance_list:
-                                if contained_instance.instance_type == 'kpt' and contained_instance.instance_name == kpt_label:
-                                    kpts_2d.append(Keypoint2D(point=contained_instance.ndds_ann_obj.projected_cuboid_centroid, visibility=2))
-                                    kpts_3d.append(Keypoint3D(point=contained_instance.ndds_ann_obj.cuboid_centroid, visibility=2))
-                                    found = True
-                                    visible_kpt_count += 1
-                                    break
-                            if not found:
-                                kpts_2d.append(Keypoint2D(point=Point2D(x=0, y=0), visibility=0))
-                                kpts_3d.append(Keypoint3D(point=Point3D(x=0, y=0, z=0), visibility=0))
+                        kpts_2d, kpts_3d = instance.get_keypoints(kpt_labels=coco_cat.keypoints)
+                        visible_kpt_count = sum([kpt.visibility == 2 for kpt in kpts_2d])
                         if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
                             continue
+
+                        # Construct COCO Annotation
                         coco_ann = COCO_Annotation(
                             id=len(dataset.annotations),
                             category_id=coco_cat.id,
@@ -1379,7 +1362,8 @@ class COCO_Dataset:
         details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True,
-        show_details: bool=False
+        show_details: bool=False,
+        window_name: str='COCO Visualization'
     ):
         """
         Displays a preview of the dataset in a popup window.
@@ -1429,6 +1413,7 @@ class COCO_Dataset:
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
         show_details: If True, the filename of the current frame and other information will be written to the screen.
+        window_name: The title displayed at the top of the preview window.
         """
         last_idx = len(self.images) if end_idx is None else end_idx
         for coco_image in self.images[start_idx:last_idx]:
@@ -1452,7 +1437,7 @@ class COCO_Dataset:
                 show_skeleton=show_skeleton, show_seg=show_seg,
                 show_details=show_details
             )
-            quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width)
+            quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width, window_name=window_name)
             if quit_flag:
                 break
 

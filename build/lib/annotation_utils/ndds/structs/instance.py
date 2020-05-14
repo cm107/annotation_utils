@@ -1,8 +1,12 @@
 from __future__ import annotations
 from typing import List
+import numpy as np
 
 from logger import logger
 from common_utils.check_utils import check_value, check_type
+from common_utils.common_types.segmentation import Segmentation
+from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
+from common_utils.common_types.point import Point2D, Point3D
 
 from ...base.basic import BasicObject, BasicHandler
 from .objects import NDDS_Annotation_Object
@@ -103,6 +107,37 @@ class ObjectInstance(BasicObject['ObjectInstance']):
             raise Exception
         
         self.contained_instance_list.append(new_contained_instance)
+    
+    def get_segmentation(self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None) -> Segmentation:
+        instance_color = self.ndds_ann_obj.get_color_from_id()
+        seg = self.ndds_ann_obj.get_instance_segmentation(img=instance_img, target_bgr=instance_color, interval=color_interval)
+        if len(seg) == 0 and self.ndds_ann_obj.visibility > 0.0:
+            logger.error(f'Failed to find segmentation using instance_color={instance_color}')
+            logger.error(f'self.ndds_ann_obj.visibility: {self.ndds_ann_obj.visibility}')
+            logger.error(f'self.ndds_ann_obj.instance_id: {self.ndds_ann_obj.instance_id}')
+            logger.error(f'self.ndds_ann_obj.class_name: {self.ndds_ann_obj.class_name}')
+            logger.error(f'(self.instance_type, self.instance_name, self.part_num): {(self.instance_type, self.instance_name, self.part_num)}')
+            if is_img_path is not None:
+                logger.error(f'is_img_path: {is_img_path}')
+            raise Exception
+        return seg
+
+    def get_keypoints(self, kpt_labels: List[str]) -> (Keypoint2D_List, Keypoint3D_List):
+        kpts_2d = Keypoint2D_List()
+        kpts_3d = Keypoint3D_List()
+        
+        for kpt_label in kpt_labels:
+            found = False
+            for contained_instance in self.contained_instance_list:
+                if contained_instance.instance_type == 'kpt' and contained_instance.instance_name == kpt_label:
+                    kpts_2d.append(Keypoint2D(point=contained_instance.ndds_ann_obj.projected_cuboid_centroid, visibility=2))
+                    kpts_3d.append(Keypoint3D(point=contained_instance.ndds_ann_obj.cuboid_centroid, visibility=2))
+                    found = True
+                    break
+            if not found:
+                kpts_2d.append(Keypoint2D.origin())
+                kpts_3d.append(Keypoint3D.origin())
+        return kpts_2d, kpts_3d
 
 class ObjectInstanceHandler(BasicHandler['ObjectInstanceHandler', 'ObjectInstance']):
     def __init__(self, instance_list: List[ObjectInstance]=None):
