@@ -45,6 +45,13 @@ class Measure_COCO_Dataset(COCO_Dataset):
             make_dir_if_not_exists(output_dir)
             delete_all_files_in_dir(output_dir, ask_permission=False)
 
+    def _save_image(self, img: np.ndarray, save_path: str):
+        if not file_exists(save_path):
+            cv2.imwrite(filename=save_path, img=img)
+        else:
+            logger.error(f'File already exists: {save_path}')
+            raise Exception
+
     def _load_licenses(self):
         # Load Licenses
         self.measure_dataset.licenses = self.licenses.copy()
@@ -86,7 +93,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
                 )
             )
 
-    def _get_measure_annotations(self, frame_anns: List[COCO_Annotation]) -> List[COCO_Annotation]:
+    def _get_measure_annotations(self, frame_anns: List[COCO_Annotation], orig_image: COCO_Image) -> List[COCO_Annotation]:
         measure_ann_list = []
         for coco_ann in frame_anns:
             coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
@@ -126,12 +133,144 @@ class Measure_COCO_Dataset(COCO_Dataset):
             self.whole_number_dataset.images.append(whole_number_coco_image)
         return whole_number_coco_image_list
 
-    def _save_image(self, img: np.ndarray, save_path: str):
-        if not file_exists(save_path):
-            cv2.imwrite(filename=save_path, img=img)
-        else:
-            logger.error(f'File already exists: {save_path}')
-            raise Exception
+    def _get_number_anns_list(self, frame_anns: List[COCO_Annotation], measure_ann_list: List[COCO_Annotation], orig_image: COCO_Image, supercategory: str) -> List[COCO_Annotation]:
+        anns_list = [[]]*len(measure_ann_list)
+        for coco_ann in frame_anns:
+            coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
+            if coco_cat.supercategory == supercategory:
+                found = False
+                for i in range(len(measure_ann_list)):
+                    if coco_ann.bbox.within(measure_ann_list[i].bbox):
+                        anns_list[i].append(coco_ann)
+                        found = True
+                        break
+                if not found:
+                    logger.error(f"Couldn't find matching measure bbox for the given coco_ann.")
+                    logger.error(f"coco_ann:\n{coco_ann}")
+                    logger.error(f"coco_cat:\n{coco_cat}")
+                    logger.error(f"orig_image:\n{orig_image}")
+                    raise Exception
+        return anns_list
+    
+    def _process_single_digit_ann(self, frame_img: np.ndarray, whole_number_coco_image: COCO_Image, whole_ann: COCO_Annotation, measure_ann: COCO_Annotation, whole_number_count: int):
+        coco_cat = self.categories.get_obj_from_id(whole_ann.category_id)
+        whole_number_cat = self.whole_number_dataset.categories.get_unique_category_from_name('whole_number')
+
+        # Update Digit Image Handler
+        orig_bbox = whole_ann.bbox.to_int()
+        whole_number_bbox_region = frame_img[orig_bbox.ymin:orig_bbox.ymax, orig_bbox.xmin:orig_bbox.xmax, :]
+        whole_number_img_save_path = f'{digit_dir}/{get_rootname_from_filename(whole_number_coco_image.file_name)}_{whole_number_count}.{get_extension_from_filename(whole_number_coco_image.file_name)}'
+        self._save_image(img=whole_number_bbox_region, save_path=whole_number_img_save_path)
+        digit_coco_image = COCO_Image.from_img_path(
+            img_path=whole_number_img_save_path,
+            license_id=0,
+            image_id=len(self.digit_dataset.images)
+        )
+        self.digit_dataset.images.append(digit_coco_image)
+
+        # Update Whole Number Annotation Handler
+        measure_bbox = measure_ann.bbox
+        measure_bbox_ref_point = Point2D(x=measure_bbox.xmin, y=measure_bbox.ymin)
+        whole_number_seg = whole_ann.segmentation-measure_bbox_ref_point
+        whole_number_bbox = whole_number_seg.to_bbox()
+        whole_number_coco_ann = COCO_Annotation(
+            id=len(self.whole_number_dataset.annotations),
+            category_id=whole_number_cat.id,
+            image_id=whole_number_coco_image.id,
+            segmentation=whole_number_seg,
+            bbox=whole_number_bbox,
+            area=whole_number_bbox.area()
+        )
+        self.whole_number_dataset.annotations.append(whole_number_coco_ann)
+
+        # Update Digit Annotation Handler
+        digit_cat = self.digit_dataset.categories.get_unique_category_from_name(coco_cat.name)
+        whole_number_bbox_ref_point = measure_bbox_ref_point + Point2D(x=whole_number_bbox.xmin, y=whole_number_bbox.ymin)
+        digit_seg = whole_ann.segmentation-whole_number_bbox_ref_point
+        digit_bbox = digit_seg.to_bbox()
+        digit_coco_ann = COCO_Annotation(
+            id=len(self.digit_dataset.annotations),
+            category_id=digit_cat.id,
+            image_id=digit_coco_image.id,
+            segmentation=digit_seg,
+            bbox=digit_bbox,
+            area=digit_bbox.area()
+        )
+        self.digit_dataset.annotations.append(digit_coco_ann)
+
+    def _get_organized_parts(self, part_anns: List[COCO_Annotation]) -> List[dict]:
+        organized_parts = []
+        for part_ann in part_anns:
+            coco_cat = self.categories.get_obj_from_id(part_ann.category_id)
+            whole_name, part_name = coco_cat.name.split('part')
+            organized_part = {
+                'whole_name': whole_name,
+                'part_names': [part_name],
+                'anns': [part_ann]
+            }
+            organized_parts.append(organized_part)
+        
+        part_del_idx_list = []
+        for j in list(range(len(organized_parts)))[::-1]:
+            for i in range(j):
+                if organized_parts[i]['whole_name'] == organized_parts[j]['whole_name']:
+                    organized_parts[i]['part_names'].extend(organized_parts[j]['part_names'])
+                    organized_parts[i]['anns'].extend(organized_parts[j]['anns'])
+                    part_del_idx_list.append(j)
+                    break
+        for part_del_idx in part_del_idx_list:
+            del organized_parts[part_del_idx]
+
+        return organized_parts
+
+    def _process_organized_part(self, organized_part: dict, frame_img: np.ndarray, whole_number_coco_image: COCO_Image, measure_ann: COCO_Annotation, whole_number_count: int):
+        whole_number_cat = self.whole_number_dataset.categories.get_unique_category_from_name('whole_number')
+        whole_number_seg = None
+        for part_ann in organized_part['anns']:
+            whole_number_seg = whole_number_seg + part_ann.segmentation if whole_number_seg is not None else part_ann.segmentation
+        
+        whole_number_abs_bbox = whole_number_seg.to_bbox().to_int()
+
+        whole_number_bbox_region = frame_img[whole_number_abs_bbox.ymin:whole_number_abs_bbox.ymax, whole_number_abs_bbox.xmin:whole_number_abs_bbox.xmax, :]
+        whole_number_img_save_path = f'{digit_dir}/{get_rootname_from_filename(whole_number_coco_image.file_name)}_{whole_number_count}.{get_extension_from_filename(whole_number_coco_image.file_name)}'
+        self._save_image(img=whole_number_bbox_region, save_path=whole_number_img_save_path)
+        digit_coco_image = COCO_Image.from_img_path(
+            img_path=whole_number_img_save_path,
+            license_id=0,
+            image_id=len(self.digit_dataset.images)
+        )
+        self.digit_dataset.images.append(digit_coco_image)
+
+        measure_bbox_ref_point = Point2D(x=measure_ann.bbox.xmin, y=measure_ann.bbox.ymin)
+        whole_number_seg = whole_number_seg - measure_bbox_ref_point # relative to measure bbox
+        whole_number_bbox = whole_number_seg.to_bbox() # relative to measure bbox
+
+        whole_number_coco_ann = COCO_Annotation(
+            id=len(self.whole_number_dataset.annotations),
+            category_id=whole_number_cat.id,
+            image_id=whole_number_coco_image.id,
+            segmentation=whole_number_seg,
+            bbox=whole_number_bbox,
+            area=whole_number_bbox.area()
+        )
+        self.whole_number_dataset.annotations.append(whole_number_coco_ann)
+
+        for part_ann in organized_part['anns']:
+            part_ann = COCO_Annotation.buffer(part_ann)
+            coco_cat = self.categories.get_obj_from_id(part_ann.category_id)
+            digit_cat = self.digit_dataset.categories.get_unique_category_from_name(coco_cat.name.split('part')[-1])
+            whole_number_bbox_ref_point = measure_bbox_ref_point + Point2D(x=whole_number_bbox.xmin, y=whole_number_bbox.ymin)
+            digit_seg = part_ann.segmentation - whole_number_bbox_ref_point
+            digit_bbox = digit_seg.to_bbox()
+            digit_coco_ann = COCO_Annotation(
+                id=len(self.digit_dataset.annotations),
+                category_id=digit_cat.id,
+                image_id=digit_coco_image.id,
+                segmentation=digit_seg,
+                bbox=digit_bbox,
+                area=digit_bbox.area()
+            )
+            self.digit_dataset.annotations.append(digit_coco_ann)
 
     def _convert_frame(self, orig_image: COCO_Image, whole_number_dir: str, digit_dir: str):
         whole_number_cat = self.whole_number_dataset.categories.get_unique_category_from_name('whole_number')
@@ -143,168 +282,40 @@ class Measure_COCO_Dataset(COCO_Dataset):
 
         # Process Images and Annotations For Measure Dataset
         self.measure_dataset.images.append(orig_image)
-        measure_ann_list = self._get_measure_annotations(frame_anns=frame_anns)
+        measure_ann_list = self._get_measure_annotations(frame_anns=frame_anns, orig_image=orig_image)
         self._load_measure_annotations(measure_ann_list=measure_ann_list)
 
         # Process Whole Number Images
         whole_number_coco_image_list = self._process_whole_number_images(frame_img=frame_img, orig_image=orig_image, whole_number_dir=whole_number_dir, measure_ann_list=measure_ann_list)
 
         # Process Single Digit Cases
-        digit_count = 0
-        for coco_ann in frame_anns:
-            coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
-            if coco_cat.supercategory == 'whole_number':
-                found = False
-                for i in range(len(measure_ann_list)):
-                    if coco_ann.bbox.within(measure_ann_list[i].bbox):
-                        # Update Digit Image Handler
-                        whole_number_coco_image = whole_number_coco_image_list[i]
-                        orig_bbox = coco_ann.bbox.to_int()
-                        whole_number_bbox_region = frame_img[orig_bbox.ymin:orig_bbox.ymax, orig_bbox.xmin:orig_bbox.xmax, :]
-                        whole_number_img_save_path = f'{digit_dir}/{get_rootname_from_filename(whole_number_coco_image.file_name)}_{digit_count}.{get_extension_from_filename(whole_number_coco_image.file_name)}'
-                        self._save_image(img=whole_number_bbox_region, save_path=whole_number_img_save_path)
-                        digit_coco_image = COCO_Image.from_img_path(
-                            img_path=whole_number_img_save_path,
-                            license_id=0,
-                            image_id=len(self.digit_dataset.images)
-                        )
-                        self.digit_dataset.images.append(digit_coco_image)
-
-                        # Update Whole Number Annotation Handler
-                        measure_bbox = measure_ann_list[i].bbox
-                        measure_bbox_ref_point = Point2D(x=measure_bbox.xmin, y=measure_bbox.ymin)
-                        whole_number_seg = coco_ann.segmentation-measure_bbox_ref_point
-                        whole_number_bbox = whole_number_seg.to_bbox()
-                        whole_number_coco_ann = COCO_Annotation(
-                            id=len(self.whole_number_dataset.annotations),
-                            category_id=whole_number_cat.id,
-                            image_id=whole_number_coco_image.id,
-                            segmentation=whole_number_seg,
-                            bbox=whole_number_bbox,
-                            area=whole_number_bbox.area()
-                        )
-                        self.whole_number_dataset.annotations.append(whole_number_coco_ann)
-
-                        # Update Digit Annotation Handler
-                        digit_cat = self.digit_dataset.categories.get_unique_category_from_name(coco_cat.name)
-                        whole_number_bbox_ref_point = measure_bbox_ref_point + Point2D(x=whole_number_bbox.xmin, y=whole_number_bbox.ymin)
-                        digit_seg = coco_ann.segmentation-whole_number_bbox_ref_point
-                        digit_bbox = digit_seg.to_bbox()
-                        digit_coco_ann = COCO_Annotation(
-                            id=len(self.digit_dataset.annotations),
-                            category_id=digit_cat.id,
-                            image_id=digit_coco_image.id,
-                            segmentation=digit_seg,
-                            bbox=digit_bbox,
-                            area=digit_bbox.area()
-                        )
-                        self.digit_dataset.annotations.append(digit_coco_ann)
-
-                        found = True
-                        break
-                if found:
-                    digit_count += 1
-                else:
-                    logger.error(f"Couldn't find matching measure bbox for the given coco_ann.")
-                    logger.error(f"coco_ann:\n{coco_ann}")
-                    logger.error(f"coco_cat:\n{coco_cat}")
-                    logger.error(f"orig_image:\n{orig_image}")
-                    raise Exception
+        whole_number_count = 0
+        whole_anns_list = self._get_number_anns_list(frame_anns=frame_anns, measure_ann_list=measure_ann_list, orig_image=orig_image, supercategory='whole_number')
+        
+        for whole_anns, measure_ann, whole_number_coco_image in zip(whole_anns_list, measure_ann_list, whole_number_coco_image_list):
+            for whole_ann in whole_anns:
+                self._process_single_digit_ann(
+                    frame_img=frame_img, whole_number_coco_image=whole_number_coco_image,
+                    whole_ann=whole_ann, measure_ann=measure_ann, whole_number_count=whole_number_count
+                )
+                whole_number_count += 1
         
         # Process Multiple Digit Cases
-        part_anns_list = [[]]*len(measure_ann_list)
-        for coco_ann in frame_anns:
-            coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
-            if coco_cat.supercategory == 'part_number':
-                found = False
-                for i in range(len(measure_ann_list)):
-                    if coco_ann.bbox.within(measure_ann_list[i].bbox):
-                        part_anns_list[i].append(coco_ann)
-                        found = True
-                        break
-                if not found:
-                    logger.error(f"Couldn't find matching measure bbox for the given coco_ann.")
-                    logger.error(f"coco_ann:\n{coco_ann}")
-                    logger.error(f"coco_cat:\n{coco_cat}")
-                    logger.error(f"orig_image:\n{orig_image}")
-                    raise Exception
+        part_anns_list = self._get_number_anns_list(frame_anns=frame_anns, measure_ann_list=measure_ann_list, orig_image=orig_image, supercategory='part_number')
         
-        for k in range(len(measure_ann_list)):
-            whole_number_coco_image = whole_number_coco_image_list[k]
-            measure_ann = measure_ann_list[k]
-            part_dicts = []
-            for part_ann in part_anns_list[k]:
-                coco_cat = self.categories.get_obj_from_id(part_ann.category_id)
-                whole_name, part_name = coco_cat.name.split('part')
-                part_dict = {
-                    'whole_name': whole_name,
-                    'part_names': [part_name],
-                    'anns': [part_ann]
-                }
-                part_dicts.append(part_dict)
-            
-            part_del_idx_list = []
-            for j in list(range(len(part_dicts)))[::-1]:
-                for i in range(j):
-                    if part_dicts[i]['whole_name'] == part_dicts[j]['whole_name']:
-                        part_dicts[i]['part_names'].extend(part_dicts[j]['part_names'])
-                        part_dicts[i]['anns'].extend(part_dicts[j]['anns'])
-                        part_del_idx_list.append(j)
-                        break
-            for part_del_idx in part_del_idx_list:
-                del part_dicts[part_del_idx]
+        for part_anns, measure_ann, whole_number_coco_image in zip(part_anns_list, measure_ann_list, whole_number_coco_image_list):
+            organized_parts = self._get_organized_parts(part_anns=part_anns)
         
-            for part_dict in part_dicts:
-                if len(part_dict['anns']) == 1:
-                    logger.error(f"Found only 1 part for {part_dict['whole_name']}: {part_dict['part_names']}")
+            for organized_part in organized_parts:
+                if len(organized_part['anns']) == 1:
+                    logger.error(f"Found only 1 part for {organized_part['whole_name']}: {organized_part['part_names']}")
                     raise Exception
-                whole_number_seg = None
-                for part_ann in part_dict['anns']:
-                    whole_number_seg = whole_number_seg + part_ann.segmentation if whole_number_seg is not None else part_ann.segmentation
-                
-                whole_number_abs_bbox = whole_number_seg.to_bbox().to_int()
-
-                whole_number_bbox_region = frame_img[whole_number_abs_bbox.ymin:whole_number_abs_bbox.ymax, whole_number_abs_bbox.xmin:whole_number_abs_bbox.xmax, :]
-                whole_number_img_save_path = f'{digit_dir}/{get_rootname_from_filename(whole_number_coco_image.file_name)}_{digit_count}.{get_extension_from_filename(whole_number_coco_image.file_name)}'
-                self._save_image(img=whole_number_bbox_region, save_path=whole_number_img_save_path)
-                digit_coco_image = COCO_Image.from_img_path(
-                    img_path=whole_number_img_save_path,
-                    license_id=0,
-                    image_id=len(self.digit_dataset.images)
+                self._process_organized_part(
+                    organized_part=organized_part,
+                    frame_img=frame_img, whole_number_coco_image=whole_number_coco_image,
+                    measure_ann=measure_ann, whole_number_count=whole_number_count
                 )
-                self.digit_dataset.images.append(digit_coco_image)
-
-                measure_bbox_ref_point = Point2D(x=measure_ann.bbox.xmin, y=measure_ann.bbox.ymin)
-                whole_number_seg = whole_number_seg - measure_bbox_ref_point # relative to measure bbox
-                whole_number_bbox = whole_number_seg.to_bbox() # relative to measure bbox
-
-                whole_number_coco_ann = COCO_Annotation(
-                    id=len(self.whole_number_dataset.annotations),
-                    category_id=whole_number_cat.id,
-                    image_id=whole_number_coco_image.id,
-                    segmentation=whole_number_seg,
-                    bbox=whole_number_bbox,
-                    area=whole_number_bbox.area()
-                )
-                self.whole_number_dataset.annotations.append(whole_number_coco_ann)
-
-                for part_ann in part_dict['anns']:
-                    part_ann = COCO_Annotation.buffer(part_ann)
-                    coco_cat = self.categories.get_obj_from_id(part_ann.category_id)
-                    digit_cat = self.digit_dataset.categories.get_unique_category_from_name(coco_cat.name.split('part')[-1])
-                    whole_number_bbox_ref_point = measure_bbox_ref_point + Point2D(x=whole_number_bbox.xmin, y=whole_number_bbox.ymin)
-                    digit_seg = part_ann.segmentation - whole_number_bbox_ref_point
-                    digit_bbox = digit_seg.to_bbox()
-                    digit_coco_ann = COCO_Annotation(
-                        id=len(self.digit_dataset.annotations),
-                        category_id=digit_cat.id,
-                        image_id=digit_coco_image.id,
-                        segmentation=digit_seg,
-                        bbox=digit_bbox,
-                        area=digit_bbox.area()
-                    )
-                    self.digit_dataset.annotations.append(digit_coco_ann)
-                digit_count += 1
+                whole_number_count += 1
 
     def _convert(self, measure_dir: str, whole_number_dir: str, digit_dir: str):
         for coco_image in self.images:
@@ -322,7 +333,6 @@ class Measure_COCO_Dataset(COCO_Dataset):
             whole_number_dir=whole_number_dir,
             digit_dir=digit_dir
         )
-
         return self.measure_dataset, self.whole_number_dataset, self.digit_dataset
 
 # Load NDDS Dataset
@@ -403,8 +413,6 @@ for frame in ndds_dataset.frames:
         elif ann_obj.class_name == '90part_zero9':
             obj_type, obj_name, instance_name = 'seg', '90part0', '0'
             ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}'
-
-ndds_dataset.save_to_path(save_path='measure_all_fixed.json', overwrite=True)
 
 # Convert To COCO Dataset
 dataset = Measure_COCO_Dataset.from_ndds(
