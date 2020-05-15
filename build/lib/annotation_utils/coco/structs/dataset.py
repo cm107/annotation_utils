@@ -594,6 +594,107 @@ class COCO_Dataset:
         camera_idx: int=0,
         show_pbar: bool=False
     ) -> COCO_Dataset:
+        """Creates a COCO_Dataset object from an NDDS_Dataset object.
+        The conversion is based on the naming convention of the labels in the NDDS Dataset, so it is important
+        to fix the labels in the NDDS_Dataset object before conversion when necessary.
+        Note that it is also necessary to define the categories that you want to use in your COCO_Dataset by
+        providing a COCO_Category_Handler object. Refer to the COCO_Category_Handler class for usage information.
+
+        Arguments:
+            ndds_dataset {NDDS_Dataset} -- [NDDS_Dataset object]
+            categories {COCO_Category_Handler} -- [Category Handler that you would like to use for your converted COCO dataset.]
+
+        Keyword Arguments:
+            naming_rule {str} -- [
+                The naming rule that you would like when converting the NDDS Dataset to a COCO Dataset.
+                The category name is separated from the instance name and other strings included in the NDDS annotation label
+                based on the naming rule, so it is important that you choose the correct naming rule for your use case.
+                Right now only the 'type_object_instance_contained' pattern is available.
+            ] (default: {'type_object_instance_contained'})
+            delimiter {str} -- [
+                The delimiter string that you would like to use when parsing information from the NDDS annotation label.
+                Example: If you use delimiter='_', the NDDS annotation label should look something like 'objtype_objname_instancename'
+            ] (default: {'_'})
+            license_url {str} -- [
+                The license url that you would like to associate with all of the images in your converted COCO dataset.
+            ] (default: {'https://github.com/cm107/annotation_utils/blob/master/LICENSE'})
+            license_name {str} -- [The technical name of your dataset's images' license.] (default: {'MIT License'})
+            ignore_unspecified_categories {bool} -- [
+                If True, all of the object names in your NDDS dataset (after parsing from the label) that do not match up with
+                what is defined in the provided COCO_Category_Handler object will be ignored.
+                Otherwise, an error will be thrown if an undefined object name is encountered.
+            ] (default: {False})
+            bbox_area_threshold {float} -- [
+                The threshold that determines when to exclude a segmentation/bbox annotation from the dataset conversion.
+                Example: bbox_area_threshold=10 means that any bbox annotation that has an area less than 10 pixels will be excluded.
+            ] (default: {10})
+            min_visibile_kpts {int} -- [
+                The threshold that determines when to exclude an annotation from a keypoint dataset conversion.
+                Example: min_visible_kpts=3 means that any bbox/segmentation annotation that contains less than 3 keypoints will
+                         be excluded from the conversion.
+            ] (default: {None})
+            color_interval {int} -- [
+                The color interval that is used when calculating the segmentations from the mask images saved in the NDDS dataset directory.
+                The a unique bgr color is assigned to each object instance in the frame based on instance_id, and each mask image represents that relationship.
+                Unless there is something wrong with the mask images, the default color_interval=1 should always work.
+                Change this value only when debugging.
+            ] (default: {1})
+            camera_idx {int} -- [
+                There is a json file in the NDDS dataset directory called _camera_settings.json.
+                camera_idx is the index of the camera in _camera_settings.json that you used when making your NDDS dataset.
+                Since there is usually only one camera defined, the default camera_idx=0 should usually work.
+            ] (default: {0})
+            show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
+
+        Returns:
+            COCO_Dataset -- [The converted COCO Dataset object.]
+
+        Usage:
+            ```python
+            from logger import logger
+            from annotation_utils.ndds.structs import NDDS_Dataset
+            from annotation_utils.coco.structs import COCO_Dataset, COCO_Category_Handler
+
+            # Load NDDS Dataset
+            ndds_dataset = NDDS_Dataset.load_from_dir(
+                json_dir='/path/to/ndds/dir',
+                show_pbar=True
+            )
+
+            # Fix NDDS Dataset naming so that it follows convention. (This is not necessary if the NDDS dataset already follows the naming convention.)
+            for frame in ndds_dataset.frames:
+                # Fix Naming Convention
+                for ann_obj in frame.ndds_ann.objects:
+                    if ann_obj.class_name == 'objname1':
+                        obj_type, obj_name, instance_name = 'seg', 'objname', '1'
+                        ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}'
+                    elif ann_obj.class_name.startswith('point'):
+                        obj_type, obj_name = 'kpt', 'objname'
+                        temp = ann_obj.class_name.replace('point', '')
+                        instance_name, contained_name = temp[1], temp[0]
+                        ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}_{contained_name}'
+                    elif ...:
+                        ...
+                    else:
+                        logger.error(f'ann_obj.class_name: {ann_obj.class_name}')
+                        raise Exception
+                
+                # Delete Duplicate Objects
+                frame.ndds_ann.objects.delete_duplicates(verbose=True, verbose_ref=frame.img_path)
+
+            # Convert To COCO Dataset
+            dataset = COCO_Dataset.from_ndds(
+                ndds_dataset=ndds_dataset,
+                categories=COCO_Category_Handler.load_from_path('/path/to/categories.json'),
+                naming_rule='type_object_instance_contained',
+                show_pbar=True,
+                bbox_area_threshold=50
+            )
+
+            dataset.save_to_path('ndds2coco_test.json', overwrite=True)
+            dataset.display_preview(show_details=True)
+            ```
+        """
         # Start constructing COCO Dataset
         dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Dataset')
         dataset.categories = categories.copy()
@@ -713,7 +814,7 @@ class COCO_Dataset:
                                     raise Exception
 
                     elif instance.instance_type == 'bbox':
-                        raise NotImplementedError # TODO: Refer to Darwin's algorithm
+                        raise NotImplementedError
                     elif instance.instance_type == 'kpt':
                         logger.error(f"'kpt' can only be used as a contained instance and not as a container instance")
                         logger.error(f'instance:\n{instance}')
