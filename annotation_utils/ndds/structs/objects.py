@@ -126,7 +126,7 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         upper_bgr = [val + interval if val + interval <= 255 else 255 for val in target_bgr]
         color_mask = cv2.inRange(src=img, lowerb=tuple(lower_bgr), upperb=tuple(upper_bgr))
         color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        seg = Segmentation.from_contour(contour_list=color_contours)
+        seg = Segmentation.from_contour(contour_list=color_contours, exclude_invalid_polygons=True)
         return seg
 
 class CameraData(BasicLoadableObject['CameraData']):
