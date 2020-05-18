@@ -1241,11 +1241,13 @@ class COCO_Dataset:
         self, img: np.ndarray, ann_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1266,8 +1268,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1278,6 +1283,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1311,7 +1317,8 @@ class COCO_Dataset:
                 if show_bbox:
                     result = draw_bbox(
                         img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                        label_thickness=bbox_label_thickness, label_only=bbox_label_only
+                        label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+                        label_orientation=bbox_label_orientation
                     )
             elif draw_target.lower() == 'seg':
                 if show_seg:
@@ -1324,7 +1331,7 @@ class COCO_Dataset:
                         img=result, keypoints=vis_keypoints_arr,
                         radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
                         show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
-                        label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+                        label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
                     )
             elif draw_target.lower() == 'skeleton':
                 if show_skeleton:
@@ -1343,11 +1350,13 @@ class COCO_Dataset:
         self, image_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1368,8 +1377,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1380,6 +1392,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1409,11 +1422,13 @@ class COCO_Dataset:
                 img=img, ann_id=coco_ann.id,
                 draw_order=draw_order,
                 bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                 bbox_label_only=bbox_label_only,
                 seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                 kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_color=kpt_label_color,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
                 skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
@@ -1450,11 +1465,13 @@ class COCO_Dataset:
         start_idx: int=0, end_idx: int=None, preview_width: int=1000,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1481,8 +1498,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1493,6 +1513,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1522,11 +1543,13 @@ class COCO_Dataset:
                 image_id=coco_image.id,
                 draw_order=draw_order,
                 bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                 bbox_label_only=bbox_label_only,
                 seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                 kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_color=kpt_label_color,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
                 details_corner_pos_ratio=details_corner_pos_ratio,
@@ -1548,11 +1571,13 @@ class COCO_Dataset:
         start_idx: int=0, end_idx: int=None, preview_width: int=1000,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1587,8 +1612,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1599,6 +1627,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1643,11 +1672,13 @@ class COCO_Dataset:
                     image_id=coco_image.id,
                     draw_order=draw_order,
                     bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                    bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                    show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                    bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                     bbox_label_only=bbox_label_only,
                     seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                     kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                     show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                    kpt_label_color=kpt_label_color,
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
                     skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
@@ -1686,11 +1717,13 @@ class COCO_Dataset:
         start_idx: int=0, end_idx: int=None, preview_width: int=1000,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1727,8 +1760,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1739,6 +1775,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1783,11 +1820,13 @@ class COCO_Dataset:
                     image_id=coco_image.id,
                     draw_order=draw_order,
                     bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                    bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                    show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                    bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                     bbox_label_only=bbox_label_only,
                     seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                     kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                     show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                    kpt_label_color=kpt_label_color,
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
                     skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton

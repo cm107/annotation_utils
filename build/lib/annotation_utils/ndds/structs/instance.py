@@ -111,15 +111,18 @@ class ObjectInstance(BasicObject['ObjectInstance']):
     def get_segmentation(self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None) -> Segmentation:
         instance_color = self.ndds_ann_obj.get_color_from_id()
         seg = self.ndds_ann_obj.get_instance_segmentation(img=instance_img, target_bgr=instance_color, interval=color_interval)
-        if len(seg) == 0 and self.ndds_ann_obj.visibility > 0.0:
+        if len(seg) == 0 and self.ndds_ann_obj.visibility > 0.0 and self.ndds_ann_obj.is_in_frame(instance_img.shape):
+            logger.error(f'=================================================================')
             logger.error(f'Failed to find segmentation using instance_color={instance_color}')
             logger.error(f'self.ndds_ann_obj.visibility: {self.ndds_ann_obj.visibility}')
             logger.error(f'self.ndds_ann_obj.instance_id: {self.ndds_ann_obj.instance_id}')
             logger.error(f'self.ndds_ann_obj.class_name: {self.ndds_ann_obj.class_name}')
             logger.error(f'(self.instance_type, self.instance_name, self.part_num): {(self.instance_type, self.instance_name, self.part_num)}')
+            logger.error(f'instance_img.shape: {instance_img.shape}')
+            logger.error(f'self.ndds_ann_obj.bounding_box: {self.ndds_ann_obj.bounding_box}')
             if is_img_path is not None:
                 logger.error(f'is_img_path: {is_img_path}')
-            raise Exception
+            # raise Exception
         return seg
 
     def get_keypoints(self, kpt_labels: List[str]) -> (Keypoint2D_List, Keypoint3D_List):

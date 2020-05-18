@@ -129,6 +129,11 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         seg = Segmentation.from_contour(contour_list=color_contours, exclude_invalid_polygons=True)
         return seg
 
+    def is_in_frame(self, frame_shape: List[int]) -> bool:
+        frame_h, frame_w = frame_shape[:2]
+        frame_bbox = BBox(xmin=0, ymin=0, xmax=frame_w, ymax=frame_h)
+        return self.bounding_box.within(frame_bbox)
+
 class CameraData(BasicLoadableObject['CameraData']):
     def __init__(self, location_worldframe: Point3D, quaternion_xyzw_worldframe: Quaternion):
         super().__init__()

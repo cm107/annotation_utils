@@ -4,7 +4,7 @@ from lib.measure_dataset import Measure_COCO_Dataset
 
 # Load NDDS Dataset
 ndds_dataset = NDDS_Dataset.load_from_dir(
-    json_dir='/home/clayton/workspace/prj/data_keep/data/ndds/measure_5',
+    json_dir='/home/clayton/workspace/prj/data_keep/data/ndds/mv_500',
     show_pbar=True
 )
 
@@ -87,7 +87,8 @@ dataset = Measure_COCO_Dataset.from_ndds(
     categories=COCO_Category_Handler.load_from_path('/home/clayton/workspace/prj/data_keep/data/ndds/categories/measure_all.json'),
     naming_rule='type_object_instance_contained', delimiter='_',
     ignore_unspecified_categories=True,
-    show_pbar=True
+    show_pbar=True,
+    bbox_area_threshold=1
 )
 
 # Output Directories
