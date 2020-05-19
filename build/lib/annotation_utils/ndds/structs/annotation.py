@@ -1,4 +1,8 @@
 from __future__ import annotations
+<<<<<<< HEAD
+from common_utils.check_utils import check_required_keys
+from ...base.basic import BasicLoadableObject
+=======
 from typing import List
 import json
 from tqdm import tqdm
@@ -10,6 +14,7 @@ from common_utils.path_utils import get_filename, get_rootname_from_path, \
 from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_dir, \
     copy_file
 from ...base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
+>>>>>>> master
 from .handlers import NDDS_Annotation_Object_Handler
 from .objects import CameraData
 
@@ -33,6 +38,8 @@ class NDDS_Annotation(BasicLoadableObject['NDDS_Annotation']):
             camera_data=CameraData.from_dict(ann_dict['camera_data']),
             objects=NDDS_Annotation_Object_Handler.from_dict_list(ann_dict['objects'])
         )
+<<<<<<< HEAD
+=======
 
 class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
     def __init__(
@@ -184,3 +191,4 @@ class NDDS_Frame_Handler(
             if show_pbar:
                 pbar.update()
         return handler
+>>>>>>> master

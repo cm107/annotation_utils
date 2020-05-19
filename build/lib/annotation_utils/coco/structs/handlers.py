@@ -15,6 +15,8 @@ from .objects import COCO_License, COCO_Image, COCO_Annotation, COCO_Category
 from ...base import BaseStructHandler
 
 class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_License']):
+    """A handler class that is used to manage/manipulate COCO_License objects.
+    """
     def __init__(self, license_list: List[COCO_License]=None):
         super().__init__(obj_type=COCO_License, obj_list=license_list)
         self.license_list = self.obj_list
@@ -58,6 +60,67 @@ class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_Licen
         self.remove(rm_license_id_list, verbose=verbose)
 
 class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
+    """A handler class that is used to manage/manipulate COCO_Image objects.
+
+    In order to construct and load a COCO_Image_Handler, you can load up the handler
+    one-by-one as follows.
+
+    Typical Use Case:
+        ```python
+        import cv2
+        from common_utils.path_utils import get_all_files_in_extension_list, get_filename
+        from common_utils.constants import opencv_compatible_img_extensions
+        from annotation_utils.coco.structs import COCO_Image_Handler, COCO_Image
+
+        images = COCO_Image_Handler()
+
+        img_paths = get_all_files_in_extension_list(
+            dir_path='/path/to/image/directory',
+            extension_list=opencv_compatible_img_extensions
+        )
+        for img_path in img_paths:
+            img = cv2.imread(filename=img_path)
+            img_h, img_w = img.shape[:2]
+            images.append(
+                COCO_Image(
+                    license_id=0,
+                    file_name=get_filename(img_path),
+                    coco_url=img_path,
+                    height=img_h,
+                    width=img_w,
+                    date_captured="Today's Date",
+                    flickr_url=None,
+                    id=len(images)
+                )
+            )
+        ```
+
+    Entering the file_name, width, height, date_created, etc. can be a bit tedious.
+    In order to have those fields filled in automatically, use the following code
+    instead.
+
+    Simple Use Case:
+        ```python
+        from common_utils.path_utils import get_all_files_in_extension_list
+        from common_utils.constants import opencv_compatible_img_extensions
+        from annotation_utils.coco.structs import COCO_Image_Handler, COCO_Image
+        
+        images = COCO_Image_Handler()
+
+        img_paths = get_all_files_in_extension_list(
+            dir_path='/path/to/image/directory',
+            extension_list=opencv_compatible_img_extensions
+        )
+        for img_path in img_paths:
+            images.append(
+                COCO_Image.from_img_path(
+                    img_path=img_path,
+                    license_id=0,
+                    image_id=len(images)
+                )
+            )
+        ```
+    """
     def __init__(self, image_list: List[COCO_Image]=None):
         super().__init__(obj_type=COCO_Image, obj_list=image_list)
         self.image_list = self.obj_list
@@ -142,6 +205,8 @@ class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
             license_handler.remove_if_no_imgs(img_handler=self, id_list=pending_license_id_list, verbose=verbose)
 
 class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO_Annotation']):
+    """A handler class that is used to manage/manipulate COCO_Annotation objects.
+    """
     def __init__(self, annotation_list: List[COCO_Annotation]=None):
         super().__init__(obj_type=COCO_Annotation, obj_list=annotation_list)
         self.annotation_list = self.obj_list
@@ -214,6 +279,104 @@ class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO
             img_handler.remove_if_no_anns(ann_handler=self, license_handler=license_handler, id_list=pending_img_id_list, verbose=verbose)
 
 class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Category']):
+    """A handler class that is used to manage/manipulate COCO_Category objects.
+
+    Save Examples:
+        Saving a category handler to a json file allows you to use it later in a different script.
+
+        When there are no keypoints, the COCO_Category_Handler can be simply constructed as shown.
+        ```python
+        from annotation_utils.coco.structs import COCO_Category_Handler, COCO_Category
+
+        # Simple Non-Keypoint Example
+        categories = COCO_Category_Handler(
+            [
+                COCO_Category(
+                    id=0,
+                    supercategory='bird',
+                    name='duck'
+                ),
+                COCO_Category(
+                    id=1,
+                    supercategory='bird',
+                    name='sparrow'
+                ),
+                COCO_Category(
+                    id=1,
+                    supercategory='bird',
+                    name='pigeon'
+                )
+            ]
+        )
+        categories.save_to_path('birds.json')
+        ```
+
+        It can also be constructed as an empty handler, and the categories can be appended from a for loop.
+        Note that if supercategory is not specified, supercategory=name will be assumed.
+        ```python
+        from annotation_utils.coco.structs import COCO_Category_Handler, COCO_Category
+
+        # Simple Non-Keypoint Example using for loop
+        categories = COCO_Category_Handler()
+
+        for name in ['duck', 'sparrow', 'pigion']:
+            categories.append(
+                COCO_Category(
+                    id=len(categories),
+                    name=name
+                )
+            )
+        categories.save_to_path('birds.json')
+        ```
+
+        A keypoint category handler can be constructed as follows.
+        ```python
+        # Keypoint Example
+        categories = COCO_Category_Handler(
+            COCO_Category(
+                id=0,
+                supercategory='pet',
+                name='dog',
+                keypoints=[ # The keypoint labels are defined here
+                    'left_eye', 'right_eye', # 0, 1
+                    'mouth_left', 'mouth_center', 'mouth_right' # 2, 3, 4
+                ],
+                skeleton=[ # The connections between keypoints are defined with indecies here
+                    [0, 1],
+                    [2, 3], [3,4]
+                ]
+            )
+        )
+        categories.save_to_path('dog.json')
+        ```
+
+        When constructing a keypoint category handler, using COCO_Category.from_label_skeleton
+        removes the need to keep track of indecies when defining the skeleton.
+        ```python
+        # Simple Keypoint Example
+        categories = COCO_Category_Handler(
+            COCO_Category.from_label_skeleton(
+                id=0,
+                supercategory='pet',
+                name='dog',
+                label_skeleton=[
+                    ['left_eye', 'right_eye'],
+                    ['mouth_left', 'mouth_center'], ['mouth_center', 'mouth_right']
+                ]
+            )
+        )
+        categories.save_to_path('dog.json')
+        ```
+    
+    Load Examples:
+        In order to load a saved category handler into your code, you can simply load it from the saved file path.
+
+        ```python
+        from annotation_utils.coco.structs import COCO_Category_Handler
+
+        bird_categories = COCO_Category_Handler.load_from_path('/path/to/birds.json')
+        ```
+    """
     def __init__(self, category_list: List[COCO_Category]=None):
         super().__init__(obj_type=COCO_Category, obj_list=category_list)
         self.category_list = self.obj_list

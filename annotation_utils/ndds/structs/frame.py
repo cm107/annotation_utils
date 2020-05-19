@@ -1,4 +1,6 @@
 from __future__ import annotations
+import sys
+import traceback
 from typing import List
 from tqdm import tqdm
 from logger import logger
@@ -10,6 +12,8 @@ from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_
     copy_file
 from ...base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 from .annotation import NDDS_Annotation
+from .objects import NDDS_Annotation_Object
+from .instance import LabeledObjectHandler, LabeledObject, ObjectInstance
 
 class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
     def __init__(
@@ -49,6 +53,93 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
             is_img_path=item_dict['is_img_path'] if 'is_img_path' in item_dict else None
         )
 
+    def to_labeled_obj_handler(self, naming_rule: str='type_object_instance_contained', delimiter: str='_', show_pbar: bool=False) -> LabeledObjectHandler:
+        def process_non_contained(handler: LabeledObjectHandler, ann_obj: NDDS_Annotation_Object):
+            obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
+            if obj_name not in handler.get_obj_names(): # New Object
+                labeled_obj = LabeledObject(obj_name=obj_name)
+                labeled_obj.instances.append(
+                    ObjectInstance(
+                        instance_type=obj_type,
+                        ndds_ann_obj=ann_obj,
+                        instance_name=instance_name
+                    )
+                )
+                handler.append(labeled_obj)
+            else: # Object Name already in handler
+                try:
+                    handler[handler.index(obj_name=obj_name)].instances.append(
+                        ObjectInstance(
+                            instance_type=obj_type,
+                            ndds_ann_obj=ann_obj,
+                            instance_name=instance_name
+                        )
+                    )
+                except:
+                    etype, evalue, tb = sys.exc_info()
+                    e = traceback.format_tb(tb=tb)
+                    print(''.join(e))
+                    logger.error(f"Failed to add instance to {obj_type}_{obj_name}")
+                    raise Exception
+
+        def process_contained(handler: LabeledObjectHandler, ann_obj: NDDS_Annotation_Object):
+            obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
+            if obj_name not in handler.get_obj_names():
+                logger.error(
+                    f"Contained object (contained_name={contained_name}) " + \
+                    f"cannot be defined before container object (obj_name={obj_name}) is defined."
+                )
+                raise Exception
+            obj_idx = handler.index(obj_name=obj_name)
+            if instance_name not in handler[obj_idx].instances.get_instance_names():
+                logger.error(
+                    f"Contained object (contained_name={contained_name}) " + \
+                    f"cannot be defined before container object (obj_name={obj_name}) " + \
+                    f" and container instance (instance_name={instance_name}) are defined."
+                )
+            instance_idx = handler[obj_idx].instances.index(instance_name=instance_name)
+            try:
+                handler[obj_idx].instances[instance_idx].append_contained(
+                    ObjectInstance(
+                        instance_type=obj_type,
+                        ndds_ann_obj=ann_obj,
+                        instance_name=contained_name
+                    )
+                )
+            except:
+                etype, evalue, tb = sys.exc_info()
+                e = traceback.format_tb(tb=tb)
+                print(''.join(e))
+                logger.error(f"Failed to add contained instance to {obj_type}_{obj_name}_{instance_name}")
+                raise Exception
+
+        handler = LabeledObjectHandler()
+        if naming_rule == 'type_object_instance_contained':
+            # Add Non-contained Objects First
+            if show_pbar:
+                non_contained_pbar = tqdm(total=len(self.ndds_ann.objects), unit='ann_obj', leave=False)
+                non_contained_pbar.set_description('Processing Containers')
+            for ann_obj in self.ndds_ann.objects:
+                obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
+                if contained_name is None: # Non-contained Object
+                    process_non_contained(handler=handler, ann_obj=ann_obj)
+                if show_pbar:
+                    non_contained_pbar.update()
+        
+            # Add Contained Objects Second
+            if show_pbar:
+                contained_pbar = tqdm(total=len(self.ndds_ann.objects), unit='ann_obj', leave=False)
+                contained_pbar.set_description('Processing Containables')
+            for ann_obj in self.ndds_ann.objects:
+                obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
+                if contained_name is not None: # Contained Object
+                    process_contained(handler=handler, ann_obj=ann_obj)
+                if show_pbar:
+                    contained_pbar.update()
+            return handler
+        else:
+            raise NotImplementedError
+
 class NDDS_Frame_Handler(
     BasicLoadableHandler['NDDS_Frame_Handler', 'NDDS_Frame'],
     BasicHandler['NDDS_Frame_Handler', 'NDDS_Frame']
@@ -83,7 +174,18 @@ class NDDS_Frame_Handler(
             logger.error(f'Found the following duplicate image filenames in {self.__class__.__name__}:\n{duplicate_img_filename_list}')
             raise Exception
 
-    def save_to_dir(self, json_save_dir: str, src_img_dir: str, overwrite: bool=False, dst_img_dir: str=None, show_pbar: bool=True):
+    def save_to_dir(self, json_save_dir: str, src_img_dir: str, dst_img_dir: str=None, overwrite: bool=False, show_pbar: bool=False):
+        """Saves NDDS_Frame_Handler object to a directory path.
+
+        Arguments:
+            json_save_dir {str} -- [Path to directory where you want to save the NDDS annotation json files.]
+            src_img_dir {str} -- [Path to directory where the original NDDS images are saved.]
+
+        Keyword Arguments:
+            dst_img_dir {str} -- [Path to directory where you want to copy the original NDDS images.] (default: {None})
+            overwrite {bool} -- [Whether or not you would like to overwrite existing files/directories.] (default: {False})
+            show_pbar {bool} -- [Whether or not you would like to show the progress bar.] (default: {False})
+        """
         self._check_paths_valid(src_img_dir=src_img_dir)
         make_dir_if_not_exists(json_save_dir)
         delete_all_files_in_dir(json_save_dir, ask_permission=not overwrite)

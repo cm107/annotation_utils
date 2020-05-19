@@ -20,10 +20,10 @@ from common_utils.cv_drawing_utils import \
     cv_simple_image_viewer, SimpleVideoViewer, \
     draw_bbox, draw_keypoints, draw_segmentation, draw_skeleton, \
     draw_text_rows_at_point
-from common_utils.common_types.point import Point2D_List
+from common_utils.common_types.point import Point2D, Point2D_List, Point3D, Point3D_List
 from common_utils.common_types.segmentation import Polygon, Segmentation
 from common_utils.common_types.bbox import BBox
-from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List
+from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
 from common_utils.time_utils import get_ctime
 from common_utils.image_utils import scale_to_max, pad_to_max
 
@@ -31,12 +31,13 @@ from .objects import COCO_Info
 from .handlers import COCO_License_Handler, COCO_Image_Handler, \
     COCO_Annotation_Handler, COCO_Category_Handler, \
     COCO_License, COCO_Image, COCO_Annotation, COCO_Category
+from ..camera import Camera
 
 from .misc import KeypointGroup
 from ...labelme.structs import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ..util import COCO_Mapper_Handler
 from ...dataset.config import DatasetConfigCollectionHandler
-# from ...ndds.structs import NDDS_Frame_Handler
+from ...ndds.structs import NDDS_Dataset, CameraConfig
 
 class COCO_Dataset:
     """
@@ -577,62 +578,290 @@ class COCO_Dataset:
 
         return dataset
 
-    # def to_ndds(self) -> NDDS_Frame_Handler:
-    #     raise NotImplementedError
+    def to_ndds(self) -> NDDS_Frame_Handler:
+        raise NotImplementedError
 
-    # @classmethod
-    # def from_ndds(
-    #     cls, ndds_frame_handler: NDDS_Frame_Handler, categories: COCO_Category_Handler,
-    #     keypoint_map_dict: dict={},
-    #     license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
-    #     license_name: str='MIT License'
-    # ) -> COCO_Dataset:
-    #     dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Frame_Handler')
-    #     dataset.categories = categories.copy()
-    #     cat_names = [cat.name for cat in dataset.categories]
-    #     cat_keypoints_list = [cat.keypoints for cat in dataset.categories]
+    @classmethod
+    def from_ndds(
+        cls, ndds_dataset: NDDS_Dataset, categories: COCO_Category_Handler,
+        naming_rule: str='type_object_instance_contained', delimiter: str='_',
+        license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
+        license_name: str='MIT License',
+        ignore_unspecified_categories: bool=False,
+        bbox_area_threshold: float=10,
+        min_visibile_kpts: int=None,
+        color_interval: int=1,
+        camera_idx: int=0,
+        exclude_invalid_polygons: bool=True,
+        show_pbar: bool=False
+    ) -> COCO_Dataset:
+        """Creates a COCO_Dataset object from an NDDS_Dataset object.
+        The conversion is based on the naming convention of the labels in the NDDS Dataset, so it is important
+        to fix the labels in the NDDS_Dataset object before conversion when necessary.
+        Note that it is also necessary to define the categories that you want to use in your COCO_Dataset by
+        providing a COCO_Category_Handler object. Refer to the COCO_Category_Handler class for usage information.
 
-    #     # Add a license to COCO Dataset
-    #     dataset.licenses.append(
-    #         COCO_License(
-    #             url=license_url,
-    #             name=license_name,
-    #             id=0
-    #         )
-    #     )
+        Arguments:
+            ndds_dataset {NDDS_Dataset} -- [NDDS_Dataset object]
+            categories {COCO_Category_Handler} -- [Category Handler that you would like to use for your converted COCO dataset.]
 
-    #     for frame in ndds_frame_handler:
-    #         # Load Image Handler
-    #         check_file_exists(frame.img_path)
-    #         img = cv2.imread(frame.img_path)
-    #         img_h, img_w = img.shape[:2]
-    #         image_id = len(images)
-    #         dataset.images.append(
-    #             COCO_Image(
-    #                 license_id=0,
-    #                 file_name=get_filename(frame.img_path),
-    #                 coco_url=frame.img_path,
-    #                 height=img_h,
-    #                 width=img_w,
-    #                 date_captured=get_ctime(frame.img_path),
-    #                 flickr_url=None,
-    #                 id=image_id
-    #             )
-    #         )
+        Keyword Arguments:
+            naming_rule {str} -- [
+                The naming rule that you would like when converting the NDDS Dataset to a COCO Dataset.
+                The category name is separated from the instance name and other strings included in the NDDS annotation label
+                based on the naming rule, so it is important that you choose the correct naming rule for your use case.
+                Right now only the 'type_object_instance_contained' pattern is available.
+            ] (default: {'type_object_instance_contained'})
+            delimiter {str} -- [
+                The delimiter string that you would like to use when parsing information from the NDDS annotation label.
+                Example: If you use delimiter='_', the NDDS annotation label should look something like 'objtype_objname_instancename'
+            ] (default: {'_'})
+            license_url {str} -- [
+                The license url that you would like to associate with all of the images in your converted COCO dataset.
+            ] (default: {'https://github.com/cm107/annotation_utils/blob/master/LICENSE'})
+            license_name {str} -- [The technical name of your dataset's images' license.] (default: {'MIT License'})
+            ignore_unspecified_categories {bool} -- [
+                If True, all of the object names in your NDDS dataset (after parsing from the label) that do not match up with
+                what is defined in the provided COCO_Category_Handler object will be ignored.
+                Otherwise, an error will be thrown if an undefined object name is encountered.
+            ] (default: {False})
+            bbox_area_threshold {float} -- [
+                The threshold that determines when to exclude a segmentation/bbox annotation from the dataset conversion.
+                Example: bbox_area_threshold=10 means that any bbox annotation that has an area less than 10 pixels will be excluded.
+            ] (default: {10})
+            min_visibile_kpts {int} -- [
+                The threshold that determines when to exclude an annotation from a keypoint dataset conversion.
+                Example: min_visible_kpts=3 means that any bbox/segmentation annotation that contains less than 3 keypoints will
+                         be excluded from the conversion.
+            ] (default: {None})
+            color_interval {int} -- [
+                The color interval that is used when calculating the segmentations from the mask images saved in the NDDS dataset directory.
+                The a unique bgr color is assigned to each object instance in the frame based on instance_id, and each mask image represents that relationship.
+                Unless there is something wrong with the mask images, the default color_interval=1 should always work.
+                Change this value only when debugging.
+            ] (default: {1})
+            camera_idx {int} -- [
+                There is a json file in the NDDS dataset directory called _camera_settings.json.
+                camera_idx is the index of the camera in _camera_settings.json that you used when making your NDDS dataset.
+                Since there is usually only one camera defined, the default camera_idx=0 should usually work.
+            ] (default: {0})
+            exclude_invalid_polygons {bool} -- [
+                If True, polygons that are composed of less than 3 points will be ignored.
+                This can be useful in order to get rid of polygons that result from image artifacts,
+                but it can also result in the masks of small objects being ignored unintentionally.
+                Change this to False if there are valid small objects being ignored.
+            ] (default: {True})
+            show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
 
-    #         for ndds_obj in frame.ndds_ann.objects:
-    #             cat_found = False
-    #             if ndds_obj.class_name in keypoint_map_dict.keys() and keypoint_map_dict[ndds_obj.class_name] in cat_names:
-    #                 # Keypoint
-    #                 raise NotImplementedError
-    #             elif ndds_obj.class_name in cat_names:
-    #                 # Object
-    #                 raise NotImplementedError
-    #             else:
-    #                 logger.error(f'Invalid ndds_obj.class_name: {ndds_obj.class_name}')
-    #                 logger.error(f'Valid Object class names: {cat_names}')
-    #                 logger.error(f'Valid Keypoint class names: {keypoint_map_dict.keys()}')
-    #                 raise Exception
+        Returns:
+            COCO_Dataset -- [The converted COCO Dataset object.]
+
+        Usage:
+            ```python
+            from logger import logger
+            from annotation_utils.ndds.structs import NDDS_Dataset
+            from annotation_utils.coco.structs import COCO_Dataset, COCO_Category_Handler
+
+            # Load NDDS Dataset
+            ndds_dataset = NDDS_Dataset.load_from_dir(
+                json_dir='/path/to/ndds/dir',
+                show_pbar=True
+            )
+
+            # Fix NDDS Dataset naming so that it follows convention. (This is not necessary if the NDDS dataset already follows the naming convention.)
+            for frame in ndds_dataset.frames:
+                # Fix Naming Convention
+                for ann_obj in frame.ndds_ann.objects:
+                    if ann_obj.class_name == 'objname1':
+                        obj_type, obj_name, instance_name = 'seg', 'objname', '1'
+                        ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}'
+                    elif ann_obj.class_name.startswith('point'):
+                        obj_type, obj_name = 'kpt', 'objname'
+                        temp = ann_obj.class_name.replace('point', '')
+                        instance_name, contained_name = temp[1], temp[0]
+                        ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}_{contained_name}'
+                    elif ...:
+                        ...
+                    else:
+                        logger.error(f'ann_obj.class_name: {ann_obj.class_name}')
+                        raise Exception
+                
+                # Delete Duplicate Objects
+                frame.ndds_ann.objects.delete_duplicates(verbose=True, verbose_ref=frame.img_path)
+
+            # Convert To COCO Dataset
+            dataset = COCO_Dataset.from_ndds(
+                ndds_dataset=ndds_dataset,
+                categories=COCO_Category_Handler.load_from_path('/path/to/categories.json'),
+                naming_rule='type_object_instance_contained',
+                show_pbar=True,
+                bbox_area_threshold=50
+            )
+
+            dataset.save_to_path('ndds2coco_test.json', overwrite=True)
+            dataset.display_preview(show_details=True)
+            ```
+        """
+        # Start constructing COCO Dataset
+        dataset = COCO_Dataset.new(description='COCO_Dataset converted from NDDS_Dataset')
+        dataset.categories = categories.copy()
+        cat_names = [cat.name for cat in dataset.categories]
+        cat_keypoints_list = [cat.keypoints for cat in dataset.categories]
+
+
+        # Get Camera's Settings
+        camera_settings = ndds_dataset.camera_config.camera_settings[camera_idx]
+
+        # Add a license to COCO Dataset
+        dataset.licenses.append(
+            COCO_License(
+                url=license_url,
+                name=license_name,
+                id=0
+            )
+        )
+
+        if show_pbar:
+            frame_pbar = tqdm(total=len(ndds_dataset.frames), unit='frame(s)', leave=True)
+            frame_pbar.set_description('Converting Frames')
+        for frame in ndds_dataset.frames:
+            # Define Camera
+            camera = Camera(
+                f=[camera_settings.intrinsic_settings.fx, camera_settings.intrinsic_settings.fy],
+                c=[camera_settings.intrinsic_settings.cx, camera_settings.intrinsic_settings.cy],
+                T=frame.ndds_ann.camera_data.location_worldframe.to_list()
+            )
+            
+            # Load Image Handler
+            check_file_exists(frame.img_path)
+            img = cv2.imread(frame.img_path)
+            img_h, img_w = img.shape[:2]
+            if img.shape != camera_settings.captured_image_size.shape():
+                logger.error(f'img.shape == {img.shape} != {camera_settings.captured_image_size.shape()} == camera_settings.captured_image_size.shape()')
+                logger.error(f'frame.img_path: {frame.img_path}')
+                raise Exception
+            image_id = len(dataset.images)
+            dataset.images.append(
+                COCO_Image(
+                    license_id=0,
+                    file_name=get_filename(frame.img_path),
+                    coco_url=frame.img_path,
+                    height=img_h,
+                    width=img_w,
+                    date_captured=get_ctime(frame.img_path),
+                    flickr_url=None,
+                    id=image_id
+                )
+            )
+
+            # Load Other Images
+            check_file_exists(frame.is_img_path)
+            instance_img = cv2.imread(frame.is_img_path)
+
+            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, show_pbar=show_pbar)
+            for labeled_obj in organized_handler:
+                specified_category_names = [cat.name for cat in categories]
+                if labeled_obj.obj_name not in specified_category_names:
+                    if ignore_unspecified_categories:
+                        continue
+                    else:
+                        logger.error(f'Found an NDDS Object name ({labeled_obj.obj_name}) that does not exist in the specified categories.')
+                        logger.error(f'specified_category_names: {specified_category_names}')
+                        logger.error(f'frame.img_path: {frame.img_path}')
+                        logger.error(f'Hint: Use ignore_unspecified_categories=True to bypass this check.')
+                        raise Exception
+                coco_cat = categories.get_unique_category_from_name(labeled_obj.obj_name)
+                
+                partitioned_coco_instances = {}
+                for instance in labeled_obj.instances:
+                    if instance.instance_type == 'seg':
+                        # Get Segmentation, BBox, and Keypoints
+                        seg = instance.get_segmentation(
+                            instance_img=instance_img, color_interval=color_interval,
+                            is_img_path=frame.is_img_path,
+                            exclude_invalid_polygons=exclude_invalid_polygons
+                        )
+                        if len(seg) == 0:
+                            continue
+                        seg_bbox = seg.to_bbox()
+                        if seg_bbox.area() < bbox_area_threshold:
+                            continue
+                        kpts_2d, kpts_3d = instance.get_keypoints(kpt_labels=coco_cat.keypoints)
+                        visible_kpt_count = sum([kpt.visibility == 2 for kpt in kpts_2d])
+                        if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
+                            continue
+
+                        # Construct COCO Annotation
+                        coco_ann = COCO_Annotation(
+                            id=len(dataset.annotations),
+                            category_id=coco_cat.id,
+                            image_id=image_id,
+                            segmentation=seg,
+                            bbox=seg_bbox,
+                            area=seg_bbox.area(),
+                            keypoints=kpts_2d,
+                            num_keypoints=len(kpts_2d),
+                            iscrowd=0,
+                            keypoints_3d=kpts_3d,
+                            camera=camera
+                        )
+                        if instance.part_num is None:
+                            dataset.annotations.append(coco_ann)
+                        else:
+                            if instance.instance_name not in partitioned_coco_instances:
+                                partitioned_coco_instances[instance.instance_name] = [{'coco_ann': coco_ann, 'part_num': instance.part_num}]
+                            else:
+                                existing_part_numbers = [item['part_num'] for item in partitioned_coco_instances[instance.instance_name]]
+                                if instance.part_num not in existing_part_numbers:
+                                    partitioned_coco_instances[instance.instance_name].append({'coco_ann': coco_ann, 'part_num': instance.part_num})
+                                else:
+                                    logger.error(f'instance.part_num already exists in existing_part_numbers for instance.instance_name={instance.instance_name}')
+                                    logger.error(f'instance.part_num: {instance.part_num}')
+                                    logger.error(f'existing_part_numbers: {existing_part_numbers}')
+                                    logger.error(f"Please check your NDDS annotation json to make sure that you don't have any duplicate part_num!=None instances.")
+                                    raise Exception
+
+                    elif instance.instance_type == 'bbox':
+                        raise NotImplementedError
+                    elif instance.instance_type == 'kpt':
+                        logger.error(f"'kpt' can only be used as a contained instance and not as a container instance")
+                        logger.error(f'instance:\n{instance}')
+                        raise Exception
+                    else:
+                        logger.error(f'Invalid instance.instance_type: {instance.instance_type}')
+                        logger.error(f'instance:\n{instance}')
+                        raise Exception
+            for instance_name, partitioned_items in partitioned_coco_instances.items():
+                working_seg = Segmentation()
+                working_bbox = None
+                first_coco_ann = partitioned_items[0]['coco_ann']
+                first_coco_ann = COCO_Annotation.buffer(first_coco_ann)
+                for partitioned_item in partitioned_items:
+                    coco_ann = partitioned_item['coco_ann']
+                    coco_ann = COCO_Annotation.buffer(coco_ann)
+                    working_seg = working_seg + coco_ann.segmentation
+                    if working_bbox is None:
+                        working_bbox = coco_ann.bbox
+                    else:
+                        working_bbox = working_bbox + coco_ann.bbox
+                dataset.annotations.append(
+                    COCO_Annotation(
+                        id=len(dataset.annotations),
+                        category_id=coco_cat.id,
+                        image_id=image_id,
+                        segmentation=working_seg,
+                        bbox=working_bbox,
+                        area=working_bbox.area(),
+                        keypoints=first_coco_ann.keypoints,
+                        num_keypoints=first_coco_ann.num_keypoints,
+                        iscrowd=first_coco_ann.iscrowd,
+                        keypoints_3d=first_coco_ann.keypoints_3d,
+                        camera=first_coco_ann.camera
+                    )
+                )
+            if show_pbar:
+                frame_pbar.update()
+        return dataset
 
     def update_img_dir(self, new_img_dir: str, check_paths: bool=True):
         """
@@ -1020,11 +1249,13 @@ class COCO_Dataset:
         self, img: np.ndarray, ann_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1045,8 +1276,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1057,6 +1291,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1090,7 +1325,8 @@ class COCO_Dataset:
                 if show_bbox:
                     result = draw_bbox(
                         img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                        label_thickness=bbox_label_thickness, label_only=bbox_label_only
+                        label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+                        label_orientation=bbox_label_orientation
                     )
             elif draw_target.lower() == 'seg':
                 if show_seg:
@@ -1103,7 +1339,7 @@ class COCO_Dataset:
                         img=result, keypoints=vis_keypoints_arr,
                         radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
                         show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
-                        label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+                        label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
                     )
             elif draw_target.lower() == 'skeleton':
                 if show_skeleton:
@@ -1122,11 +1358,13 @@ class COCO_Dataset:
         self, image_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1147,8 +1385,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1159,6 +1400,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1188,11 +1430,13 @@ class COCO_Dataset:
                 img=img, ann_id=coco_ann.id,
                 draw_order=draw_order,
                 bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                 bbox_label_only=bbox_label_only,
                 seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                 kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_color=kpt_label_color,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
                 skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
@@ -1229,11 +1473,13 @@ class COCO_Dataset:
         start_idx: int=0, end_idx: int=None, preview_width: int=1000,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1242,7 +1488,8 @@ class COCO_Dataset:
         details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
         show_skeleton: bool=True, show_seg: bool=True,
-        show_details: bool=False
+        show_details: bool=False,
+        window_name: str='COCO Visualization'
     ):
         """
         Displays a preview of the dataset in a popup window.
@@ -1259,8 +1506,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1271,6 +1521,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1292,6 +1543,7 @@ class COCO_Dataset:
         show_skeleton: If False, the keypoint skeleton will not be drawn at all.
         show_seg: If False, the segmentation will not be drawn at all.
         show_details: If True, the filename of the current frame and other information will be written to the screen.
+        window_name: The title displayed at the top of the preview window.
         """
         last_idx = len(self.images) if end_idx is None else end_idx
         for coco_image in self.images[start_idx:last_idx]:
@@ -1299,11 +1551,13 @@ class COCO_Dataset:
                 image_id=coco_image.id,
                 draw_order=draw_order,
                 bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                 bbox_label_only=bbox_label_only,
                 seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                 kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                 show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_color=kpt_label_color,
                 kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                 kpt_idx_offset=kpt_idx_offset,
                 details_corner_pos_ratio=details_corner_pos_ratio,
@@ -1315,7 +1569,7 @@ class COCO_Dataset:
                 show_skeleton=show_skeleton, show_seg=show_seg,
                 show_details=show_details
             )
-            quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width)
+            quit_flag = cv_simple_image_viewer(img=img, preview_width=preview_width, window_name=window_name)
             if quit_flag:
                 break
 
@@ -1325,11 +1579,13 @@ class COCO_Dataset:
         start_idx: int=0, end_idx: int=None, preview_width: int=1000,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1364,8 +1620,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1376,6 +1635,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1420,11 +1680,13 @@ class COCO_Dataset:
                     image_id=coco_image.id,
                     draw_order=draw_order,
                     bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                    bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                    show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                    bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                     bbox_label_only=bbox_label_only,
                     seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                     kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                     show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                    kpt_label_color=kpt_label_color,
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
                     skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
@@ -1463,11 +1725,13 @@ class COCO_Dataset:
         start_idx: int=0, end_idx: int=None, preview_width: int=1000,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
-        bbox_show_label: bool=True, bbox_label_thickness: int=None,
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
         seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
         kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
         show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
         kpt_label_only: bool=False, ignore_kpt_idx: list=[],
         kpt_idx_offset: int=0,
         skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
@@ -1504,8 +1768,11 @@ class COCO_Dataset:
                     drawn after the segmentation is drawn.
         bbox_color: The color of the bbox that is to be drawn.
         bbox_thickness: The thickness of the bbox that is to be drawn.
-        bbox_show_label: If True, the label of the bbox will be drawn directly above it.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
         bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
         bbox_label_only: If you would rather not draw the bounding box and only show the label,
                          set this to True.
         seg_color: The color of the segmentation that is to be drawn.
@@ -1516,6 +1783,7 @@ class COCO_Dataset:
         show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
                          keypoint.
         kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
         kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
                         be drawn.
         ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
@@ -1560,11 +1828,13 @@ class COCO_Dataset:
                     image_id=coco_image.id,
                     draw_order=draw_order,
                     bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
-                    bbox_show_label=bbox_show_label, bbox_label_thickness=bbox_label_thickness,
+                    show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                    bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
                     bbox_label_only=bbox_label_only,
                     seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
                     kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
                     show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                    kpt_label_color=kpt_label_color,
                     kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
                     kpt_idx_offset=kpt_idx_offset,
                     skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
