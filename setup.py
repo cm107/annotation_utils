@@ -36,8 +36,8 @@ setup(
         'labelme>=3.16.7',
         'PyYAML>=5.1.2',
         'pyqt5>=5.14.1',
-        'pyclay-common_utils @ https://github.com/cm107/common_utils/archive/master.zip',
-        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip'
+        'pyclay-common_utils==0.2.1',
+        'pyclay-logger==0.2'
     ],
     python_requires='>=3.7'
 )
