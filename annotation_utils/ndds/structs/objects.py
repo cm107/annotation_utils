@@ -119,21 +119,21 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         color_instance_rgb = [pixel_b,pixel_g,pixel_r]
         return color_instance_rgb
 
-    def get_instance_segmentation(self, img: np.ndarray, target_bgr: List[int]=None, interval: int=1):
+    def get_instance_segmentation(self, img: np.ndarray, target_bgr: List[int]=None, interval: int=1, exclude_invalid_polygons: bool=True):
         target_bgr = target_bgr if target_bgr is not None else self.get_color_from_id()
         check_list_length(target_bgr, correct_length=3)
         lower_bgr = [val - interval if val - interval >= 0 else 0 for val in target_bgr]
         upper_bgr = [val + interval if val + interval <= 255 else 255 for val in target_bgr]
         color_mask = cv2.inRange(src=img, lowerb=tuple(lower_bgr), upperb=tuple(upper_bgr))
         color_contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        seg = Segmentation.from_contour(contour_list=color_contours, exclude_invalid_polygons=True)
+        seg = Segmentation.from_contour(contour_list=color_contours, exclude_invalid_polygons=exclude_invalid_polygons)
         return seg
 
     def is_in_frame(self, frame_shape: List[int]) -> bool:
         frame_h, frame_w = frame_shape[:2]
         frame_bbox = BBox(xmin=0, ymin=0, xmax=frame_w, ymax=frame_h)
         return self.bounding_box.within(frame_bbox)
-
+    
 class CameraData(BasicLoadableObject['CameraData']):
     def __init__(self, location_worldframe: Point3D, quaternion_xyzw_worldframe: Quaternion):
         super().__init__()

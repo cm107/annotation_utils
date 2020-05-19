@@ -1,10 +1,10 @@
 from annotation_utils.ndds.structs import NDDS_Dataset
 from annotation_utils.coco.structs import COCO_Category_Handler
-from lib.measure_dataset import Measure_COCO_Dataset
+from annotation_utils.coco.dataset_specific import Measure_COCO_Dataset
 
 # Load NDDS Dataset
 ndds_dataset = NDDS_Dataset.load_from_dir(
-    json_dir='/home/clayton/workspace/prj/data_keep/data/ndds/mv_500',
+    json_dir='/home/clayton/workspace/prj/data_keep/data/ndds/measure_5',
     show_pbar=True
 )
 

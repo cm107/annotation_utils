@@ -592,6 +592,7 @@ class COCO_Dataset:
         min_visibile_kpts: int=None,
         color_interval: int=1,
         camera_idx: int=0,
+        exclude_invalid_polygons: bool=True,
         show_pbar: bool=False
     ) -> COCO_Dataset:
         """Creates a COCO_Dataset object from an NDDS_Dataset object.
@@ -644,6 +645,12 @@ class COCO_Dataset:
                 camera_idx is the index of the camera in _camera_settings.json that you used when making your NDDS dataset.
                 Since there is usually only one camera defined, the default camera_idx=0 should usually work.
             ] (default: {0})
+            exclude_invalid_polygons {bool} -- [
+                If True, polygons that are composed of less than 3 points will be ignored.
+                This can be useful in order to get rid of polygons that result from image artifacts,
+                but it can also result in the masks of small objects being ignored unintentionally.
+                Change this to False if there are valid small objects being ignored.
+            ] (default: {True})
             show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
 
         Returns:
@@ -771,7 +778,8 @@ class COCO_Dataset:
                         # Get Segmentation, BBox, and Keypoints
                         seg = instance.get_segmentation(
                             instance_img=instance_img, color_interval=color_interval,
-                            is_img_path=frame.is_img_path
+                            is_img_path=frame.is_img_path,
+                            exclude_invalid_polygons=exclude_invalid_polygons
                         )
                         if len(seg) == 0:
                             continue

@@ -7,6 +7,8 @@ annotation_utils/base/structs.py
 annotation_utils/coco/__init__.py
 annotation_utils/coco/camera/__init__.py
 annotation_utils/coco/camera/camera.py
+annotation_utils/coco/dataset_specific/__init__.py
+annotation_utils/coco/dataset_specific/measure_dataset.py
 annotation_utils/coco/structs/__init__.py
 annotation_utils/coco/structs/dataset.py
 annotation_utils/coco/structs/handlers.py

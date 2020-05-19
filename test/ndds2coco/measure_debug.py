@@ -91,7 +91,8 @@ if not file_exists(result_json):
         naming_rule='type_object_instance_contained', delimiter='_',
         ignore_unspecified_categories=True,
         show_pbar=True,
-        bbox_area_threshold=1
+        bbox_area_threshold=1,
+        exclude_invalid_polygons=True
     )
     dataset.save_to_path(result_json)
 else:

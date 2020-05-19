@@ -3,6 +3,7 @@ from typing import List
 import numpy as np
 
 from logger import logger
+from common_utils.path_utils import get_filename
 from common_utils.check_utils import check_value, check_type
 from common_utils.common_types.segmentation import Segmentation
 from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
@@ -108,9 +109,12 @@ class ObjectInstance(BasicObject['ObjectInstance']):
         
         self.contained_instance_list.append(new_contained_instance)
     
-    def get_segmentation(self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None) -> Segmentation:
+    def get_segmentation(self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None, exclude_invalid_polygons: bool=True, strict: bool=True) -> Segmentation:
         instance_color = self.ndds_ann_obj.get_color_from_id()
-        seg = self.ndds_ann_obj.get_instance_segmentation(img=instance_img, target_bgr=instance_color, interval=color_interval)
+        seg = self.ndds_ann_obj.get_instance_segmentation(
+            img=instance_img, target_bgr=instance_color, interval=color_interval,
+            exclude_invalid_polygons=exclude_invalid_polygons
+        )
         if len(seg) == 0 and self.ndds_ann_obj.visibility > 0.0 and self.ndds_ann_obj.is_in_frame(instance_img.shape):
             logger.error(f'=================================================================')
             logger.error(f'Failed to find segmentation using instance_color={instance_color}')
@@ -122,7 +126,8 @@ class ObjectInstance(BasicObject['ObjectInstance']):
             logger.error(f'self.ndds_ann_obj.bounding_box: {self.ndds_ann_obj.bounding_box}')
             if is_img_path is not None:
                 logger.error(f'is_img_path: {is_img_path}')
-            # raise Exception
+            if strict:
+                raise Exception
         return seg
 
     def get_keypoints(self, kpt_labels: List[str]) -> (Keypoint2D_List, Keypoint3D_List):

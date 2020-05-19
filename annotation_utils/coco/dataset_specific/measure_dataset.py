@@ -3,7 +3,7 @@ from typing import List
 import cv2
 import numpy as np
 from logger import logger
-from annotation_utils.coco.structs import COCO_Dataset, \
+from ..structs import COCO_Dataset, \
     COCO_License_Handler, COCO_Image_Handler, COCO_Annotation_Handler, COCO_Category_Handler, \
     COCO_Info, COCO_Category, COCO_License, COCO_Image, COCO_Annotation
 from common_utils.file_utils import delete_all_files_in_dir, make_dir_if_not_exists, file_exists
