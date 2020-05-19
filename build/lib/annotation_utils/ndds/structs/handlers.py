@@ -1,13 +1,9 @@
 from __future__ import annotations
-import json
 from typing import List
-# from tqdm import tqdm
 
 from logger import logger
-from common_utils.check_utils import check_file_exists
 from ...base.basic import BasicLoadableHandler, BasicHandler
 from .objects import NDDS_Annotation_Object
-# from .instance import LabeledObjectHandler, LabeledObject, ObjectInstance
 
 class NDDS_Annotation_Object_Handler(
     BasicLoadableHandler['NDDS_Annotation_Object_Handler', 'NDDS_Annotation_Object'],

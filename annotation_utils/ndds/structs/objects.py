@@ -2,14 +2,11 @@ from __future__ import annotations
 from typing import List
 import numpy as np
 import cv2
-import json
 from logger import logger
 from common_utils.common_types.bbox import BBox
 from common_utils.common_types.segmentation import Segmentation
-from common_utils.check_utils import check_file_exists, check_required_keys, \
-    check_value, check_list_length
+from common_utils.check_utils import check_required_keys, check_list_length
 
-# from ..common.point import Point2D, Point3D
 from common_utils.common_types.point import Point2D, Point3D
 from ..common.cuboid import Cuboid2D, Cuboid3D
 from ..common.angle import Quaternion
