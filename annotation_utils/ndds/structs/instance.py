@@ -109,7 +109,10 @@ class ObjectInstance(BasicObject['ObjectInstance']):
         
         self.contained_instance_list.append(new_contained_instance)
     
-    def get_segmentation(self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None, exclude_invalid_polygons: bool=True, strict: bool=True) -> Segmentation:
+    def get_segmentation(
+        self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None, exclude_invalid_polygons: bool=True,
+        allow_unfound_seg: bool=False
+    ) -> Segmentation:
         instance_color = self.ndds_ann_obj.get_color_from_id()
         seg = self.ndds_ann_obj.get_instance_segmentation(
             img=instance_img, target_bgr=instance_color, interval=color_interval,
@@ -126,7 +129,7 @@ class ObjectInstance(BasicObject['ObjectInstance']):
             logger.error(f'self.ndds_ann_obj.bounding_box: {self.ndds_ann_obj.bounding_box}')
             if is_img_path is not None:
                 logger.error(f'is_img_path: {is_img_path}')
-            if strict:
+            if not allow_unfound_seg:
                 raise Exception
         return seg
 

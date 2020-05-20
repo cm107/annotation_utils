@@ -92,7 +92,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
                 )
             )
 
-    def _get_measure_annotations(self, frame_anns: List[COCO_Annotation], orig_image: COCO_Image) -> List[COCO_Annotation]:
+    def _get_measure_annotations(self, frame_anns: List[COCO_Annotation], orig_image: COCO_Image, allow_no_measures: bool=False) -> List[COCO_Annotation]:
         measure_ann_list = []
         for coco_ann in frame_anns:
             coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
@@ -108,7 +108,8 @@ class Measure_COCO_Dataset(COCO_Dataset):
                 continue
         if len(measure_ann_list) == 0:
             logger.error(f"Couldn't find any measure annotations in {orig_image.coco_url}")
-            raise Exception
+            if not allow_no_measures:
+                raise Exception
 
         return measure_ann_list
     
@@ -132,7 +133,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
             self.whole_number_dataset.images.append(whole_number_coco_image)
         return whole_number_coco_image_list
 
-    def _get_number_anns_list(self, frame_anns: List[COCO_Annotation], measure_ann_list: List[COCO_Annotation], orig_image: COCO_Image, supercategory: str) -> List[COCO_Annotation]:
+    def _get_number_anns_list(self, frame_anns: List[COCO_Annotation], measure_ann_list: List[COCO_Annotation], orig_image: COCO_Image, supercategory: str, allow_no_measures: bool=False) -> List[COCO_Annotation]:
         anns_list = [[]]*len(measure_ann_list)
         for coco_ann in frame_anns:
             coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
@@ -148,7 +149,10 @@ class Measure_COCO_Dataset(COCO_Dataset):
                     logger.error(f"coco_ann:\n{coco_ann}")
                     logger.error(f"coco_cat:\n{coco_cat}")
                     logger.error(f"orig_image:\n{orig_image}")
-                    raise Exception
+                    if not allow_no_measures:
+                        raise Exception
+                    else:
+                        continue
         return anns_list
     
     def _process_single_digit_ann(self, frame_img: np.ndarray, whole_number_coco_image: COCO_Image, whole_ann: COCO_Annotation, measure_ann: COCO_Annotation, whole_number_count: int, digit_dir: str):
@@ -271,7 +275,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
             )
             self.digit_dataset.annotations.append(digit_coco_ann)
 
-    def _convert_frame(self, orig_image: COCO_Image, whole_number_dir: str, digit_dir: str):
+    def _convert_frame(self, orig_image: COCO_Image, whole_number_dir: str, digit_dir: str, allow_no_measures: bool=False, allow_missing_parts: bool=False):
         whole_number_cat = self.whole_number_dataset.categories.get_unique_category_from_name('whole_number')
 
         # Get Frame Data
@@ -281,7 +285,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
 
         # Process Images and Annotations For Measure Dataset
         self.measure_dataset.images.append(orig_image)
-        measure_ann_list = self._get_measure_annotations(frame_anns=frame_anns, orig_image=orig_image)
+        measure_ann_list = self._get_measure_annotations(frame_anns=frame_anns, orig_image=orig_image, allow_no_measures=allow_no_measures)
         self._load_measure_annotations(measure_ann_list=measure_ann_list)
 
         # Process Whole Number Images
@@ -289,7 +293,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
 
         # Process Single Digit Cases
         whole_number_count = 0
-        whole_anns_list = self._get_number_anns_list(frame_anns=frame_anns, measure_ann_list=measure_ann_list, orig_image=orig_image, supercategory='whole_number')
+        whole_anns_list = self._get_number_anns_list(frame_anns=frame_anns, measure_ann_list=measure_ann_list, orig_image=orig_image, supercategory='whole_number', allow_no_measures=allow_no_measures)
         
         for whole_anns, measure_ann, whole_number_coco_image in zip(whole_anns_list, measure_ann_list, whole_number_coco_image_list):
             for whole_ann in whole_anns:
@@ -301,7 +305,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
                 whole_number_count += 1
         
         # Process Multiple Digit Cases
-        part_anns_list = self._get_number_anns_list(frame_anns=frame_anns, measure_ann_list=measure_ann_list, orig_image=orig_image, supercategory='part_number')
+        part_anns_list = self._get_number_anns_list(frame_anns=frame_anns, measure_ann_list=measure_ann_list, orig_image=orig_image, supercategory='part_number', allow_no_measures=allow_no_measures)
         
         for part_anns, measure_ann, whole_number_coco_image in zip(part_anns_list, measure_ann_list, whole_number_coco_image_list):
             organized_parts = self._get_organized_parts(part_anns=part_anns)
@@ -309,7 +313,13 @@ class Measure_COCO_Dataset(COCO_Dataset):
             for organized_part in organized_parts:
                 if len(organized_part['anns']) == 1:
                     logger.error(f"Found only 1 part for {organized_part['whole_name']}: {organized_part['part_names']}")
-                    raise Exception
+                    remaining_part = COCO_Annotation.buffer(organized_part['anns'][0])
+                    corresponding_coco_image = self.images.get_obj_from_id(remaining_part.image_id)
+                    logger.error(f'corresponding_coco_image.file_name: {corresponding_coco_image.file_name}')
+                    if not allow_missing_parts:
+                        raise Exception
+                    else:
+                        continue
                 self._process_organized_part(
                     organized_part=organized_part,
                     frame_img=frame_img, whole_number_coco_image=whole_number_coco_image,
@@ -318,13 +328,13 @@ class Measure_COCO_Dataset(COCO_Dataset):
                 )
                 whole_number_count += 1
 
-    def _convert(self, measure_dir: str, whole_number_dir: str, digit_dir: str):
+    def _convert(self, measure_dir: str, whole_number_dir: str, digit_dir: str, allow_no_measures: bool=False, allow_missing_parts: bool=False):
         for coco_image in self.images:
-            self._convert_frame(orig_image=coco_image, whole_number_dir=whole_number_dir, digit_dir=digit_dir)
+            self._convert_frame(orig_image=coco_image, whole_number_dir=whole_number_dir, digit_dir=digit_dir, allow_no_measures=allow_no_measures, allow_missing_parts=allow_missing_parts)
         self.measure_dataset.move_images(dst_img_dir=measure_dir, preserve_filenames=True, overwrite=True, show_pbar=True, update_img_paths=True)
 
     def split_measure_dataset(
-        self, measure_dir: str='measure', whole_number_dir: str='whole_number', digit_dir: str='digit'
+        self, measure_dir: str='measure', whole_number_dir: str='whole_number', digit_dir: str='digit', allow_no_measures: bool=False, allow_missing_parts: bool=False
     ) -> (COCO_Dataset, COCO_Dataset, COCO_Dataset):
         self._prep_output_dir(measure_dir=measure_dir, whole_number_dir=whole_number_dir, digit_dir=digit_dir)
         self._load_licenses()
@@ -332,6 +342,8 @@ class Measure_COCO_Dataset(COCO_Dataset):
         self._convert(
             measure_dir=measure_dir,
             whole_number_dir=whole_number_dir,
-            digit_dir=digit_dir
+            digit_dir=digit_dir,
+            allow_no_measures=allow_no_measures,
+            allow_missing_parts=allow_missing_parts
         )
         return self.measure_dataset, self.whole_number_dataset, self.digit_dataset

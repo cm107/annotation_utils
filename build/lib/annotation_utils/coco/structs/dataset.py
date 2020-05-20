@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Dict
 import json
 import cv2
 import numpy as np
@@ -589,10 +589,13 @@ class COCO_Dataset:
         license_name: str='MIT License',
         ignore_unspecified_categories: bool=False,
         bbox_area_threshold: float=10,
+        default_visibility_threshold: float=0.10,
+        visibility_threshold_dict: Dict[str, float]={},
         min_visibile_kpts: int=None,
         color_interval: int=1,
         camera_idx: int=0,
         exclude_invalid_polygons: bool=True,
+        allow_unfound_seg: bool=False,
         show_pbar: bool=False
     ) -> COCO_Dataset:
         """Creates a COCO_Dataset object from an NDDS_Dataset object.
@@ -629,6 +632,15 @@ class COCO_Dataset:
                 The threshold that determines when to exclude a segmentation/bbox annotation from the dataset conversion.
                 Example: bbox_area_threshold=10 means that any bbox annotation that has an area less than 10 pixels will be excluded.
             ] (default: {10})
+            default_visibility_threshold {float} -- [
+                The default threshold that determines when to exclude an object that is partially covered by another object.
+                This visibility refers to the percentage of the object that is visible to the camera.
+                Use visibility_threshold_dict instead to specify the visibility threshold for specific objects.
+            ] (default: {0.10})
+            visibility_threshold_dict {Dict[str, float]} -- [
+                This is a visibility threshold dictionary that can be used to specify the visibility threshold for specific object names.
+                If not specified here, unspecified objects will use the default_visibility_threshold.
+            ] (default: {{}})
             min_visibile_kpts {int} -- [
                 The threshold that determines when to exclude an annotation from a keypoint dataset conversion.
                 Example: min_visible_kpts=3 means that any bbox/segmentation annotation that contains less than 3 keypoints will
@@ -651,6 +663,10 @@ class COCO_Dataset:
                 but it can also result in the masks of small objects being ignored unintentionally.
                 Change this to False if there are valid small objects being ignored.
             ] (default: {True})
+            allow_unfound_seg {bool} -- [
+                There may be times when the segmentation can't be parsed from the mask because the object's mask is too thin to create a valid polygon.
+                If True, these cases will be skipped without raising an error.
+            ] (default: {False})
             show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
 
         Returns:
@@ -776,10 +792,17 @@ class COCO_Dataset:
                 for instance in labeled_obj.instances:
                     if instance.instance_type == 'seg':
                         # Get Segmentation, BBox, and Keypoints
+                        if labeled_obj.obj_name in visibility_threshold_dict.keys():
+                            if instance.ndds_ann_obj.visibility < visibility_threshold_dict[labeled_obj.obj_name]:
+                                continue
+                        else:
+                            if instance.ndds_ann_obj.visibility < default_visibility_threshold:
+                                continue
                         seg = instance.get_segmentation(
                             instance_img=instance_img, color_interval=color_interval,
                             is_img_path=frame.is_img_path,
-                            exclude_invalid_polygons=exclude_invalid_polygons
+                            exclude_invalid_polygons=exclude_invalid_polygons,
+                            allow_unfound_seg=allow_unfound_seg
                         )
                         if len(seg) == 0:
                             continue

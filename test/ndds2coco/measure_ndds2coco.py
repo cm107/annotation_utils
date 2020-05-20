@@ -4,7 +4,7 @@ from annotation_utils.coco.dataset_specific import Measure_COCO_Dataset
 
 # Load NDDS Dataset
 ndds_dataset = NDDS_Dataset.load_from_dir(
-    json_dir='/home/clayton/workspace/prj/data_keep/data/ndds/measure_5',
+    json_dir='/home/clayton/workspace/prj/data_keep/data/ndds/m1_200',
     show_pbar=True
 )
 
@@ -88,7 +88,10 @@ dataset = Measure_COCO_Dataset.from_ndds(
     naming_rule='type_object_instance_contained', delimiter='_',
     ignore_unspecified_categories=True,
     show_pbar=True,
-    bbox_area_threshold=1
+    bbox_area_threshold=1,
+    default_visibility_threshold=0.10,
+    visibility_threshold_dict={'measure': 0.01},
+    allow_unfound_seg=True
 )
 
 # Output Directories
@@ -100,7 +103,9 @@ json_output_filename = 'output.json'
 measure_dataset, whole_number_dataset, digit_dataset = dataset.split_measure_dataset(
     measure_dir=measure_dir,
     whole_number_dir=whole_number_dir,
-    digit_dir=digit_dir
+    digit_dir=digit_dir,
+    allow_no_measures=True,
+    allow_missing_parts=True
 )
 
 measure_dataset.display_preview(show_details=True, window_name='Measure Dataset Preview')
