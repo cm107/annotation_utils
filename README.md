@@ -4,7 +4,11 @@ Utilities that are used for assisting with making annotated data.
 ## Installation
 ### Install From Github
 ```console
-pip install https://github.com/cm107/annotation_utils/archive/master.zip
+# For installing from the master branch (stable)
+pip install --upgrade --force-reinstall https://github.com/cm107/annotation_utils/archive/master.zip
+
+# For installing from the development (latest)
+pip install --upgrade --force-reinstall https://github.com/cm107/annotation_utils/archive/development.zip
 ```
 
 ### Install From Pypi

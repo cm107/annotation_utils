@@ -790,14 +790,15 @@ class COCO_Dataset:
                 
                 partitioned_coco_instances = {}
                 for instance in labeled_obj.instances:
+                    # Get Segmentation, BBox, and Keypoints
+                    if labeled_obj.obj_name in visibility_threshold_dict.keys():
+                        if instance.ndds_ann_obj.visibility < visibility_threshold_dict[labeled_obj.obj_name]:
+                            continue
+                    else:
+                        if instance.ndds_ann_obj.visibility < default_visibility_threshold:
+                            continue
+                    
                     if instance.instance_type == 'seg':
-                        # Get Segmentation, BBox, and Keypoints
-                        if labeled_obj.obj_name in visibility_threshold_dict.keys():
-                            if instance.ndds_ann_obj.visibility < visibility_threshold_dict[labeled_obj.obj_name]:
-                                continue
-                        else:
-                            if instance.ndds_ann_obj.visibility < default_visibility_threshold:
-                                continue
                         seg = instance.get_segmentation(
                             instance_img=instance_img, color_interval=color_interval,
                             is_img_path=frame.is_img_path,
@@ -806,46 +807,12 @@ class COCO_Dataset:
                         )
                         if len(seg) == 0:
                             continue
-                        seg_bbox = seg.to_bbox()
-                        if seg_bbox.area() < bbox_area_threshold:
-                            continue
-                        kpts_2d, kpts_3d = instance.get_keypoints(kpt_labels=coco_cat.keypoints)
-                        visible_kpt_count = sum([kpt.visibility == 2 for kpt in kpts_2d])
-                        if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
-                            continue
-
-                        # Construct COCO Annotation
-                        coco_ann = COCO_Annotation(
-                            id=len(dataset.annotations),
-                            category_id=coco_cat.id,
-                            image_id=image_id,
-                            segmentation=seg,
-                            bbox=seg_bbox,
-                            area=seg_bbox.area(),
-                            keypoints=kpts_2d,
-                            num_keypoints=len(kpts_2d),
-                            iscrowd=0,
-                            keypoints_3d=kpts_3d,
-                            camera=camera
-                        )
-                        if instance.part_num is None:
-                            dataset.annotations.append(coco_ann)
-                        else:
-                            if instance.instance_name not in partitioned_coco_instances:
-                                partitioned_coco_instances[instance.instance_name] = [{'coco_ann': coco_ann, 'part_num': instance.part_num}]
-                            else:
-                                existing_part_numbers = [item['part_num'] for item in partitioned_coco_instances[instance.instance_name]]
-                                if instance.part_num not in existing_part_numbers:
-                                    partitioned_coco_instances[instance.instance_name].append({'coco_ann': coco_ann, 'part_num': instance.part_num})
-                                else:
-                                    logger.error(f'instance.part_num already exists in existing_part_numbers for instance.instance_name={instance.instance_name}')
-                                    logger.error(f'instance.part_num: {instance.part_num}')
-                                    logger.error(f'existing_part_numbers: {existing_part_numbers}')
-                                    logger.error(f"Please check your NDDS annotation json to make sure that you don't have any duplicate part_num!=None instances.")
-                                    raise Exception
-
+                        bbox = seg.to_bbox()
                     elif instance.instance_type == 'bbox':
-                        raise NotImplementedError
+                        seg = Segmentation()
+                        bbox = instance.ndds_ann_obj.bounding_box.copy()
+                        bbox = bbox.clip_at_bounds(frame_shape=img.shape[:2])
+                        bbox.check_bbox_in_frame(frame_shape=img.shape[:2])
                     elif instance.instance_type == 'kpt':
                         logger.error(f"'kpt' can only be used as a contained instance and not as a container instance")
                         logger.error(f'instance:\n{instance}')
@@ -854,6 +821,45 @@ class COCO_Dataset:
                         logger.error(f'Invalid instance.instance_type: {instance.instance_type}')
                         logger.error(f'instance:\n{instance}')
                         raise Exception
+
+                    if bbox.area() < bbox_area_threshold:
+                        continue
+
+                    kpts_2d, kpts_3d = instance.get_keypoints(kpt_labels=coco_cat.keypoints)
+                    visible_kpt_count = sum([kpt.visibility == 2 for kpt in kpts_2d])
+                    if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
+                        continue
+
+                    # Construct COCO Annotation
+                    coco_ann = COCO_Annotation(
+                        id=len(dataset.annotations),
+                        category_id=coco_cat.id,
+                        image_id=image_id,
+                        segmentation=seg,
+                        bbox=bbox,
+                        area=bbox.area(),
+                        keypoints=kpts_2d,
+                        num_keypoints=len(kpts_2d),
+                        iscrowd=0,
+                        keypoints_3d=kpts_3d,
+                        camera=camera
+                    )
+                    if instance.part_num is None:
+                        dataset.annotations.append(coco_ann)
+                    else:
+                        if instance.instance_name not in partitioned_coco_instances:
+                            partitioned_coco_instances[instance.instance_name] = [{'coco_ann': coco_ann, 'part_num': instance.part_num}]
+                        else:
+                            existing_part_numbers = [item['part_num'] for item in partitioned_coco_instances[instance.instance_name]]
+                            if instance.part_num not in existing_part_numbers:
+                                partitioned_coco_instances[instance.instance_name].append({'coco_ann': coco_ann, 'part_num': instance.part_num})
+                            else:
+                                logger.error(f'instance.part_num already exists in existing_part_numbers for instance.instance_name={instance.instance_name}')
+                                logger.error(f'instance.part_num: {instance.part_num}')
+                                logger.error(f'existing_part_numbers: {existing_part_numbers}')
+                                logger.error(f"Please check your NDDS annotation json to make sure that you don't have any duplicate part_num!=None instances.")
+                                raise Exception
+
             for instance_name, partitioned_items in partitioned_coco_instances.items():
                 working_seg = Segmentation()
                 working_bbox = None

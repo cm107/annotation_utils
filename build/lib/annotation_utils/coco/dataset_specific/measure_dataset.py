@@ -10,6 +10,7 @@ from common_utils.file_utils import delete_all_files_in_dir, make_dir_if_not_exi
 from common_utils.path_utils import get_rootname_from_filename, get_extension_from_filename
 from common_utils.check_utils import check_file_exists
 from common_utils.common_types.point import Point2D
+from common_utils.common_types.segmentation import Segmentation
 
 class Measure_COCO_Dataset(COCO_Dataset):
     def __init__(self, info: COCO_Info, licenses: COCO_License_Handler, images: COCO_Image_Handler, annotations: COCO_Annotation_Handler, categories: COCO_Category_Handler):
@@ -160,7 +161,12 @@ class Measure_COCO_Dataset(COCO_Dataset):
         whole_number_cat = self.whole_number_dataset.categories.get_unique_category_from_name('whole_number')
 
         # Update Digit Image Handler
-        orig_bbox = whole_ann.bbox.to_int()
+        orig_bbox = whole_ann.bbox.to_rounded_int(special=True)
+        if orig_bbox.area() == 0:
+            logger.error(f'Encountered orig_bbox.area() == 0')
+            logger.error(f'orig_bbox: {orig_bbox}')
+            logger.error(f'whole_ann.bbox: {whole_ann.bbox}')
+            raise Exception
         whole_number_bbox_region = frame_img[orig_bbox.ymin:orig_bbox.ymax, orig_bbox.xmin:orig_bbox.xmax, :]
         whole_number_img_save_path = f'{digit_dir}/{get_rootname_from_filename(whole_number_coco_image.file_name)}_{whole_number_count}.{get_extension_from_filename(whole_number_coco_image.file_name)}'
         self._save_image(img=whole_number_bbox_region, save_path=whole_number_img_save_path)
@@ -174,8 +180,13 @@ class Measure_COCO_Dataset(COCO_Dataset):
         # Update Whole Number Annotation Handler
         measure_bbox = measure_ann.bbox
         measure_bbox_ref_point = Point2D(x=measure_bbox.xmin, y=measure_bbox.ymin)
-        whole_number_seg = whole_ann.segmentation-measure_bbox_ref_point
-        whole_number_bbox = whole_number_seg.to_bbox()
+        if len(whole_ann.segmentation) != 0: # Segmentation Based
+            whole_number_seg = whole_ann.segmentation-measure_bbox_ref_point
+            whole_number_bbox = whole_number_seg.to_bbox()
+        else: # BBox Based (No Segmentation)
+            whole_number_seg = whole_ann.segmentation.copy()
+            whole_number_bbox = whole_ann.bbox-measure_bbox_ref_point
+
         whole_number_coco_ann = COCO_Annotation(
             id=len(self.whole_number_dataset.annotations),
             category_id=whole_number_cat.id,
@@ -189,8 +200,13 @@ class Measure_COCO_Dataset(COCO_Dataset):
         # Update Digit Annotation Handler
         digit_cat = self.digit_dataset.categories.get_unique_category_from_name(coco_cat.name)
         whole_number_bbox_ref_point = measure_bbox_ref_point + Point2D(x=whole_number_bbox.xmin, y=whole_number_bbox.ymin)
-        digit_seg = whole_ann.segmentation-whole_number_bbox_ref_point
-        digit_bbox = digit_seg.to_bbox()
+        if len(whole_ann.segmentation) != 0: # Segmentation Based
+            digit_seg = whole_ann.segmentation-whole_number_bbox_ref_point
+            digit_bbox = digit_seg.to_bbox()
+        else: # BBox Based (No Segmentation)
+            digit_seg = whole_ann.segmentation.copy()
+            digit_bbox = whole_ann.bbox-whole_number_bbox_ref_point
+        
         digit_coco_ann = COCO_Annotation(
             id=len(self.digit_dataset.annotations),
             category_id=digit_cat.id,
@@ -229,10 +245,33 @@ class Measure_COCO_Dataset(COCO_Dataset):
     def _process_organized_part(self, organized_part: dict, frame_img: np.ndarray, whole_number_coco_image: COCO_Image, measure_ann: COCO_Annotation, whole_number_count: int, digit_dir: str):
         whole_number_cat = self.whole_number_dataset.categories.get_unique_category_from_name('whole_number')
         whole_number_seg = None
-        for part_ann in organized_part['anns']:
-            whole_number_seg = whole_number_seg + part_ann.segmentation if whole_number_seg is not None else part_ann.segmentation
+        whole_number_abs_bbox = None
+
+        seg_len_list = [len(part_ann.segmentation) for part_ann in organized_part['anns']]
+        if all([seg_len > 0 for seg_len in seg_len_list]):
+            target = 'seg'
+        elif all([seg_len == 0 for seg_len in seg_len_list]):
+            target = 'bbox'
+        else:
+            logger.warning(f"There are empty segmentations among organized_part['anns'].")
+            logger.warning(f"Cannot determine whether to merge segmentations or bounding boxes.")
+            logger.warning(f"[len(part_ann.segmentation) for part_ann in organized_part['anns']]: {[len(part_ann.segmentation) for part_ann in organized_part['anns']]}")
+            logger.warning(f"organized_part['whole_names']: {organized_part['whole_names']}")
+            logger.warning(f"organized_part['part_names']: {organized_part['part_names']}")
+            logger.warning(f"Assuming target = 'bbox'")
+            target = 'bbox'
         
-        whole_number_abs_bbox = whole_number_seg.to_bbox().to_int()
+        if target == 'seg':
+            for part_ann in organized_part['anns']:
+                whole_number_seg = whole_number_seg + part_ann.segmentation if whole_number_seg is not None else part_ann.segmentation
+            whole_number_abs_bbox = whole_number_seg.to_bbox().to_int()
+        elif target == 'bbox':
+            whole_number_seg = Segmentation()
+            for part_ann in organized_part['anns']:
+                whole_number_abs_bbox = whole_number_abs_bbox + part_ann.bbox if whole_number_abs_bbox is not None else part_ann.bbox
+            whole_number_abs_bbox = whole_number_abs_bbox.to_int()
+        else:
+            raise Exception
 
         whole_number_bbox_region = frame_img[whole_number_abs_bbox.ymin:whole_number_abs_bbox.ymax, whole_number_abs_bbox.xmin:whole_number_abs_bbox.xmax, :]
         whole_number_img_save_path = f'{digit_dir}/{get_rootname_from_filename(whole_number_coco_image.file_name)}_{whole_number_count}.{get_extension_from_filename(whole_number_coco_image.file_name)}'
@@ -245,8 +284,15 @@ class Measure_COCO_Dataset(COCO_Dataset):
         self.digit_dataset.images.append(digit_coco_image)
 
         measure_bbox_ref_point = Point2D(x=measure_ann.bbox.xmin, y=measure_ann.bbox.ymin)
-        whole_number_seg = whole_number_seg - measure_bbox_ref_point # relative to measure bbox
-        whole_number_bbox = whole_number_seg.to_bbox() # relative to measure bbox
+        
+        if target == 'seg':
+            whole_number_seg = whole_number_seg - measure_bbox_ref_point # relative to measure bbox
+            whole_number_bbox = whole_number_seg.to_bbox() # relative to measure bbox
+        elif target == 'bbox':
+            whole_number_seg = Segmentation() # Empty
+            whole_number_bbox = whole_number_abs_bbox - measure_bbox_ref_point # relative to measure bbox
+        else:
+            raise Exception
 
         whole_number_coco_ann = COCO_Annotation(
             id=len(self.whole_number_dataset.annotations),
@@ -263,8 +309,15 @@ class Measure_COCO_Dataset(COCO_Dataset):
             coco_cat = self.categories.get_obj_from_id(part_ann.category_id)
             digit_cat = self.digit_dataset.categories.get_unique_category_from_name(coco_cat.name.split('part')[-1])
             whole_number_bbox_ref_point = measure_bbox_ref_point + Point2D(x=whole_number_bbox.xmin, y=whole_number_bbox.ymin)
-            digit_seg = part_ann.segmentation - whole_number_bbox_ref_point
-            digit_bbox = digit_seg.to_bbox()
+            
+            if target == 'seg':
+                digit_seg = part_ann.segmentation - whole_number_bbox_ref_point
+                digit_bbox = digit_seg.to_bbox()
+            elif target == 'bbox':
+                digit_seg = Segmentation()
+                digit_bbox = part_ann.bbox - whole_number_bbox_ref_point
+            else:
+                raise Exception
             digit_coco_ann = COCO_Annotation(
                 id=len(self.digit_dataset.annotations),
                 category_id=digit_cat.id,
