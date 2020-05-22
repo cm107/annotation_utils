@@ -40,6 +40,10 @@ class Measure_COCO_Dataset(COCO_Dataset):
     def from_ndds(self, *args, **kwargs) -> Measure_COCO_Dataset:
         return Measure_COCO_Dataset._from_base(super().from_ndds(*args, **kwargs))
 
+    @classmethod
+    def load_from_path(self, *args, **kwargs) -> Measure_COCO_Dataset:
+        return Measure_COCO_Dataset._from_base(super().load_from_path(*args, **kwargs))
+
     def _prep_output_dir(self, measure_dir: str, whole_number_dir: str, digit_dir: str):
         for output_dir in [measure_dir, whole_number_dir, digit_dir]:
             make_dir_if_not_exists(output_dir)
@@ -97,7 +101,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
         measure_ann_list = []
         for coco_ann in frame_anns:
             coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
-            if coco_cat.name == 'measure':
+            if coco_cat.supercategory == 'measure' and coco_cat.name == 'measure':
                 # Measure Annotation Update
                 new_ann = coco_ann.copy()
                 new_ann.id = len(self.measure_dataset.annotations)
@@ -111,6 +115,28 @@ class Measure_COCO_Dataset(COCO_Dataset):
             logger.error(f"Couldn't find any measure annotations in {orig_image.coco_url}")
             if not allow_no_measures:
                 raise Exception
+        else:
+            for coco_ann in frame_anns:
+                coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
+                if coco_cat.supercategory == 'measure' and coco_cat.name != 'measure':
+                    found_match = False
+                    for measure_ann in measure_ann_list:
+                        # Warning: This probably won't work if there are multiple measures in one frame.
+                        # Warning: This also won't work for measure constituents that aren't enclosed in the main measure object.
+                        if coco_ann.segmentation.within(measure_ann.bbox):
+                            measure_ann.segmentation += coco_ann.segmentation
+                            measure_ann.bbox = measure_ann.segmentation.to_bbox().to_int()
+                            found_match = True
+                            break
+                    if not found_match:
+                        if len(measure_ann_list) == 1:
+                            # Assume that the only measure in the frame is a match.
+                            measure_ann_list[0].segmentation += coco_ann.segmentation
+                            measure_ann_list[0].bbox = measure_ann_list[0].segmentation.to_bbox().to_int()
+                        else:
+                            logger.error(f"Couldn't find matching measure annotation for measure constituent: {coco_cat.name}")
+                            logger.error(f'orig_image.coco_url: {orig_image.coco_url}')
+                            raise Exception
 
         return measure_ann_list
     
