@@ -1268,6 +1268,14 @@ class COCO_Dataset:
             verbose=verbose
         )
 
+    def remove_all_categories_except(self, target_category_names: List[str], verbose: bool=False):
+        category_names = [category.name for category in self.categories]
+        check_value_from_list(target_category_names, valid_value_list=category_names)
+        self.remove_categories_by_name(
+            category_names=[name for name in category_names if name not in target_category_names],
+            verbose=verbose
+        )
+
     def print_handler_lengths(self):
         logger.info(f'len(licenses): {len(self.licenses)}')
         logger.info(f'len(images): {len(self.images)}')

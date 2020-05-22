@@ -333,19 +333,21 @@ class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Cat
         ```python
         # Keypoint Example
         categories = COCO_Category_Handler(
-            COCO_Category(
-                id=0,
-                supercategory='pet',
-                name='dog',
-                keypoints=[ # The keypoint labels are defined here
-                    'left_eye', 'right_eye', # 0, 1
-                    'mouth_left', 'mouth_center', 'mouth_right' # 2, 3, 4
-                ],
-                skeleton=[ # The connections between keypoints are defined with indecies here
-                    [0, 1],
-                    [2, 3], [3,4]
-                ]
-            )
+            [
+                COCO_Category(
+                    id=0,
+                    supercategory='pet',
+                    name='dog',
+                    keypoints=[ # The keypoint labels are defined here
+                        'left_eye', 'right_eye', # 0, 1
+                        'mouth_left', 'mouth_center', 'mouth_right' # 2, 3, 4
+                    ],
+                    skeleton=[ # The connections between keypoints are defined with indecies here
+                        [0, 1],
+                        [2, 3], [3,4]
+                    ]
+                )
+            ]
         )
         categories.save_to_path('dog.json')
         ```
@@ -355,15 +357,17 @@ class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Cat
         ```python
         # Simple Keypoint Example
         categories = COCO_Category_Handler(
-            COCO_Category.from_label_skeleton(
-                id=0,
-                supercategory='pet',
-                name='dog',
-                label_skeleton=[
-                    ['left_eye', 'right_eye'],
-                    ['mouth_left', 'mouth_center'], ['mouth_center', 'mouth_right']
-                ]
-            )
+            [
+                COCO_Category.from_label_skeleton(
+                    id=0,
+                    supercategory='pet',
+                    name='dog',
+                    label_skeleton=[
+                        ['left_eye', 'right_eye'],
+                        ['mouth_left', 'mouth_center'], ['mouth_center', 'mouth_right']
+                    ]
+                )
+            ]
         )
         categories.save_to_path('dog.json')
         ```
