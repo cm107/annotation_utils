@@ -113,8 +113,8 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         pixel_b =  RGBint & 255
         pixel_g = (RGBint >> 8) & 255
         pixel_r =   (RGBint >> 16) & 255
-        color_instance_rgb = [pixel_b,pixel_g,pixel_r]
-        return color_instance_rgb
+        color_instance_bgr = [pixel_b,pixel_g,pixel_r]
+        return color_instance_bgr
 
     def get_instance_segmentation(self, img: np.ndarray, target_bgr: List[int]=None, interval: int=1, exclude_invalid_polygons: bool=True):
         target_bgr = target_bgr if target_bgr is not None else self.get_color_from_id()

@@ -1,7 +1,9 @@
 from __future__ import annotations
 import sys
 import traceback
-from typing import List
+import numpy as np
+import cv2
+from typing import List, Dict
 from tqdm import tqdm
 from logger import logger
 from common_utils.check_utils import check_file_exists, check_required_keys, \
@@ -53,7 +55,7 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
             is_img_path=item_dict['is_img_path'] if 'is_img_path' in item_dict else None
         )
 
-    def to_labeled_obj_handler(self, naming_rule: str='type_object_instance_contained', delimiter: str='_', show_pbar: bool=False) -> LabeledObjectHandler:
+    def to_labeled_obj_handler(self, naming_rule: str='type_object_instance_contained', delimiter: str='_', exclude_classes: List[str]=None, show_pbar: bool=False) -> LabeledObjectHandler:
         def process_non_contained(handler: LabeledObjectHandler, ann_obj: NDDS_Annotation_Object):
             obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
             if obj_name not in handler.get_obj_names(): # New Object
@@ -120,6 +122,10 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                 non_contained_pbar = tqdm(total=len(self.ndds_ann.objects), unit='ann_obj', leave=False)
                 non_contained_pbar.set_description('Processing Containers')
             for ann_obj in self.ndds_ann.objects:
+                if exclude_classes is not None and ann_obj.class_name in exclude_classes:
+                    if show_pbar:
+                        non_contained_pbar.update()
+                    continue
                 obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
                 if contained_name is None: # Non-contained Object
                     process_non_contained(handler=handler, ann_obj=ann_obj)
@@ -131,6 +137,10 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                 contained_pbar = tqdm(total=len(self.ndds_ann.objects), unit='ann_obj', leave=False)
                 contained_pbar.set_description('Processing Containables')
             for ann_obj in self.ndds_ann.objects:
+                if exclude_classes is not None and ann_obj.class_name in exclude_classes:
+                    if show_pbar:
+                        contained_pbar.update()
+                    continue
                 obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
                 if contained_name is not None: # Contained Object
                     process_contained(handler=handler, ann_obj=ann_obj)
@@ -139,6 +149,53 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
             return handler
         else:
             raise NotImplementedError
+
+    def __replace_color(self, img: np.ndarray, src_bgr: List[int], dst_bgr: List[int]) -> np.ndarray:
+        result = img.copy()
+        result[np.where((img==src_bgr).all(axis=2))] = dst_bgr
+        return result
+
+    def get_merged_is_img(self, class_merge_map: Dict[str, str]):
+        check_file_exists(self.is_img_path)
+        is_img_orig = cv2.imread(self.is_img_path)
+        working_is_img = is_img_orig.copy()
+        for src_class, dst_class in class_merge_map.items():
+            # Get Color Map
+            src_bgr, dst_bgr = None, None
+            for ann_obj in self.ndds_ann.objects:
+                if ann_obj.class_name == src_class:
+                    if src_bgr is not None:
+                        raise Exception
+                    src_bgr = ann_obj.get_color_from_id()
+                    continue
+                if ann_obj.class_name == dst_class:
+                    if dst_bgr is not None:
+                        raise Exception
+                    dst_bgr = ann_obj.get_color_from_id()
+                    continue
+                if src_bgr is not None and dst_bgr is not None:
+                    break
+
+            obj_class_names = []
+            for ann_obj in self.ndds_ann.objects:
+                if ann_obj.class_name not in obj_class_names:
+                    obj_class_names.append(ann_obj.class_name)
+
+            if src_bgr is None or dst_bgr is None:
+                continue
+
+            working_is_img = self.__replace_color(img=working_is_img, src_bgr=src_bgr, dst_bgr=dst_bgr)
+        
+        # # Debug
+        # logger.yellow(f'self.is_img_path: {self.is_img_path}')
+        # is_img_compare = cv2.hconcat([is_img_orig, working_is_img])
+        # from common_utils.cv_drawing_utils import cv_simple_image_viewer
+        # quit_flag = cv_simple_image_viewer(img=is_img_compare, preview_width=1000, window_name=f'Class Map Merge')
+        # if quit_flag:
+        #     import sys
+        #     sys.exit()
+
+        return working_is_img
 
 class NDDS_Frame_Handler(
     BasicLoadableHandler['NDDS_Frame_Handler', 'NDDS_Frame'],

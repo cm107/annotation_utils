@@ -596,6 +596,7 @@ class COCO_Dataset:
         camera_idx: int=0,
         exclude_invalid_polygons: bool=True,
         allow_unfound_seg: bool=False,
+        class_merge_map: Dict[str, str]=None,
         show_pbar: bool=False
     ) -> COCO_Dataset:
         """Creates a COCO_Dataset object from an NDDS_Dataset object.
@@ -667,6 +668,7 @@ class COCO_Dataset:
                 There may be times when the segmentation can't be parsed from the mask because the object's mask is too thin to create a valid polygon.
                 If True, these cases will be skipped without raising an error.
             ] (default: {False})
+            class_merge_map {Dict[str, str]} -- [TODO] (default: None)
             show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
 
         Returns:
@@ -770,11 +772,16 @@ class COCO_Dataset:
                 )
             )
 
-            # Load Other Images
-            check_file_exists(frame.is_img_path)
-            instance_img = cv2.imread(frame.is_img_path)
+            # Load Instance Image
+            if class_merge_map is None:
+                check_file_exists(frame.is_img_path)
+                instance_img = cv2.imread(frame.is_img_path)
+                exclude_classes = []
+            else:
+                instance_img = frame.get_merged_is_img(class_merge_map=class_merge_map)
+                exclude_classes = list(class_merge_map.keys())
 
-            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, show_pbar=show_pbar)
+            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, exclude_classes=exclude_classes, show_pbar=show_pbar)
             for labeled_obj in organized_handler:
                 specified_category_names = [cat.name for cat in categories]
                 if labeled_obj.obj_name not in specified_category_names:
@@ -1265,6 +1272,14 @@ class COCO_Dataset:
             ann_handler=self.annotations,
             img_handler=self.images,
             license_handler=self.licenses,
+            verbose=verbose
+        )
+
+    def remove_all_categories_except(self, target_category_names: List[str], verbose: bool=False):
+        category_names = [category.name for category in self.categories]
+        check_value_from_list(target_category_names, valid_value_list=category_names)
+        self.remove_categories_by_name(
+            category_names=[name for name in category_names if name not in target_category_names],
             verbose=verbose
         )
 
