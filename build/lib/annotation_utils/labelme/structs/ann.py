@@ -64,12 +64,12 @@ class LabelmeShape:
 
     @classmethod
     def from_dict(cls, shape_dict: dict) -> LabelmeShape:
-        check_required_keys(shape_dict, required_keys=['label', 'points', 'group_id', 'shape_type', 'flags'])
+        check_required_keys(shape_dict, required_keys=['label', 'points', 'shape_type', 'flags'])
         return LabelmeShape(
             label=shape_dict['label'],
             points=Point2D_List.from_list(value_list=shape_dict['points'], demarcation=True),
             shape_type=shape_dict['shape_type'],
-            group_id=shape_dict['group_id'],
+            group_id=shape_dict['group_id'] if 'group_id' in shape_dict else 0,
             flags=shape_dict['flags']
         )
 
