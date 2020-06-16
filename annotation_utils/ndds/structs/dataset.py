@@ -3,10 +3,10 @@ from tqdm import tqdm
 from typing import Dict
 from common_utils.check_utils import check_dir_exists, check_file_exists, check_required_keys
 from common_utils.path_utils import get_dirpath_from_filepath
+from common_utils.base.basic import BasicLoadableObject
 from logger import logger
 from .frame import NDDS_Frame_Handler
 from .settings import CameraConfig, ObjectSettings
-from ...base.basic import BasicLoadableObject
 
 class NDDS_Dataset(BasicLoadableObject['NDDS_Dataset']):
     """Class object that represents all of the data in an NDDS dataset.

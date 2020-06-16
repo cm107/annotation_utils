@@ -9,7 +9,7 @@ from common_utils.common_types.segmentation import Segmentation
 from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
 from common_utils.common_types.point import Point2D, Point3D
 
-from ...base.basic import BasicObject, BasicHandler
+from common_utils.base.basic import BasicObject, BasicHandler
 from .objects import NDDS_Annotation_Object
 
 class ObjectInstance(BasicObject['ObjectInstance']):

@@ -12,7 +12,7 @@ from common_utils.path_utils import get_filename, get_rootname_from_path, \
     get_all_files_of_extension, get_valid_image_paths
 from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_dir, \
     copy_file
-from ...base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 from .annotation import NDDS_Annotation
 from .objects import NDDS_Annotation_Object
 from .instance import LabeledObjectHandler, LabeledObject, ObjectInstance

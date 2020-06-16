@@ -3,7 +3,7 @@ from typing import List, Tuple
 import numpy as np
 from logger import logger
 from common_utils.check_utils import check_required_keys, check_type, check_type_from_list
-from ...base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 
 class IntrinsicSettings(BasicLoadableObject['IntrinsicSettings']):
     def __init__(self, resX: int, resY: int, fx: float, fy: float, cx: float, cy: float, s: int):

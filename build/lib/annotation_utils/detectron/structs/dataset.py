@@ -7,7 +7,7 @@ from common_utils.common_types.keypoint import Keypoint2D_List
 from common_utils.check_utils import check_required_keys
 from logger import logger
 
-from ...base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 
 try:
     from detectron2.structures.boxes import BoxMode

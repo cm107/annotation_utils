@@ -10,7 +10,7 @@ from common_utils.check_utils import check_required_keys, check_list_length
 from common_utils.common_types.point import Point2D, Point3D
 from ..common.cuboid import Cuboid2D, Cuboid3D
 from ..common.angle import Quaternion
-from ...base.basic import BasicLoadableObject
+from common_utils.base.basic import BasicLoadableObject
 
 class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
     def __init__(
