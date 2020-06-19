@@ -182,6 +182,11 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                     obj_class_names.append(ann_obj.class_name)
 
             if src_bgr is None or dst_bgr is None:
+                logger.warning(f"Couldn't find either src_bgr or dst_bgr.")
+                class_name_list = [ann_obj.class_name for ann_obj in self.ndds_ann.objects]
+                logger.warning(f'Available class_name list: {class_name_list}')
+                logger.warning(f'src_class: {src_class}, dst_class: {dst_class}')
+                logger.warning(f"src_bgr: {src_bgr}, dst_bgr: {dst_bgr}")
                 continue
 
             working_is_img = self.__replace_color(img=working_is_img, src_bgr=src_bgr, dst_bgr=dst_bgr)

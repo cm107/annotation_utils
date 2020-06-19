@@ -794,7 +794,7 @@ class COCO_Dataset:
                         logger.error(f'Hint: Use ignore_unspecified_categories=True to bypass this check.')
                         raise Exception
                 coco_cat = categories.get_unique_category_from_name(labeled_obj.obj_name)
-                
+
                 partitioned_coco_instances = {}
                 for instance in labeled_obj.instances:
                     # Get Segmentation, BBox, and Keypoints
@@ -867,34 +867,34 @@ class COCO_Dataset:
                                 logger.error(f"Please check your NDDS annotation json to make sure that you don't have any duplicate part_num!=None instances.")
                                 raise Exception
 
-            for instance_name, partitioned_items in partitioned_coco_instances.items():
-                working_seg = Segmentation()
-                working_bbox = None
-                first_coco_ann = partitioned_items[0]['coco_ann']
-                first_coco_ann = COCO_Annotation.buffer(first_coco_ann)
-                for partitioned_item in partitioned_items:
-                    coco_ann = partitioned_item['coco_ann']
-                    coco_ann = COCO_Annotation.buffer(coco_ann)
-                    working_seg = working_seg + coco_ann.segmentation
-                    if working_bbox is None:
-                        working_bbox = coco_ann.bbox
-                    else:
-                        working_bbox = working_bbox + coco_ann.bbox
-                dataset.annotations.append(
-                    COCO_Annotation(
-                        id=len(dataset.annotations),
-                        category_id=coco_cat.id,
-                        image_id=image_id,
-                        segmentation=working_seg,
-                        bbox=working_bbox,
-                        area=working_bbox.area(),
-                        keypoints=first_coco_ann.keypoints,
-                        num_keypoints=first_coco_ann.num_keypoints,
-                        iscrowd=first_coco_ann.iscrowd,
-                        keypoints_3d=first_coco_ann.keypoints_3d,
-                        camera=first_coco_ann.camera
+                for instance_name, partitioned_items in partitioned_coco_instances.items():
+                    working_seg = Segmentation()
+                    working_bbox = None
+                    first_coco_ann = partitioned_items[0]['coco_ann']
+                    first_coco_ann = COCO_Annotation.buffer(first_coco_ann)
+                    for partitioned_item in partitioned_items:
+                        coco_ann = partitioned_item['coco_ann']
+                        coco_ann = COCO_Annotation.buffer(coco_ann)
+                        working_seg = working_seg + coco_ann.segmentation
+                        if working_bbox is None:
+                            working_bbox = coco_ann.bbox
+                        else:
+                            working_bbox = working_bbox + coco_ann.bbox
+                    dataset.annotations.append(
+                        COCO_Annotation(
+                            id=len(dataset.annotations),
+                            category_id=coco_cat.id,
+                            image_id=image_id,
+                            segmentation=working_seg,
+                            bbox=working_bbox,
+                            area=working_bbox.area(),
+                            keypoints=first_coco_ann.keypoints,
+                            num_keypoints=first_coco_ann.num_keypoints,
+                            iscrowd=first_coco_ann.iscrowd,
+                            keypoints_3d=first_coco_ann.keypoints_3d,
+                            camera=first_coco_ann.camera
+                        )
                     )
-                )
             if show_pbar:
                 frame_pbar.update()
         return dataset
