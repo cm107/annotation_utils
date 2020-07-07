@@ -331,3 +331,15 @@ class NDDS_Frame_Handler(
             if show_pbar:
                 pbar.update()
         return handler
+    
+    def get_frame_from_img_filename(self, img_filename: str) -> NDDS_Frame:
+        possible_filenames = []
+        for frame in self:
+            frame_filenames = [get_filename(path) for path in [frame.img_path, frame.is_img_path, frame.cs_img_path, frame.depth_img_path]]
+            if img_filename in frame_filenames:
+                return frame
+            else:
+                possible_filenames.extend(frame_filenames)
+        logger.error(f'Unable to find any image filename by the name of {img_filename} in NDDS_Frame_Handler.')
+        logger.error(f'Possible filenames:\n{possible_filenames}')
+        raise Exception
