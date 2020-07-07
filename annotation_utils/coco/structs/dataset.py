@@ -406,6 +406,11 @@ class COCO_Dataset:
             logger.error(f'Need to provide at least one COCO_Category for conversion to COCO format.')
             raise Exception
         category_names = [category.name for category in categories]
+        keypoint_names = []
+        for coco_category in categories:
+            for kpt_label in coco_category.keypoints:
+                if kpt_label not in keypoint_names:
+                    keypoint_names.append(kpt_label)
 
         # Add categories to COCO Dataset
         dataset.categories = categories
@@ -472,12 +477,21 @@ class COCO_Dataset:
             # Gather all keypoints
             for shape in labelme_ann.shapes:
                 if shape.shape_type == 'point':
+                    if shape.label not in keypoint_names:
+                        if ignore_unspecified_categories:
+                            continue
+                        else:
+                            logger.error(f'shape.label={shape.label} does not exist in provided category keypoints.')
+                            logger.error(f'keypoint_names: {keypoint_names}')
+                            raise Exception
                     if shape.label not in kpt_label2points_list:
                         kpt_label2points_list[shape.label] = [shape.points[0]]
                     else:
                         kpt_label2points_list[shape.label].append(shape.points[0])
 
             # Group keypoints inside of polygon bounds
+            postponed_kpts = []
+            postponed_labels = []
             for poly, poly_label in zip(poly_list, poly_label_list):
                 coco_cat = dataset.categories.get_unique_category_from_name(poly_label)
                 bound_group = KeypointGroup(bound_obj=poly, coco_cat=coco_cat)
@@ -486,11 +500,17 @@ class COCO_Dataset:
                 for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
                         if kpt.within(poly):
-                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label)
+                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label, strict=False)
                             del kpt_label2points_list[label][i]
                             if len(kpt_label2points_list[label]) == 0:
                                 del kpt_label2points_list[label]
+                            if kpt in postponed_kpts:
+                                postponed_idx = postponed_kpts.index(kpt)
+                                del postponed_kpts[postponed_idx]
+                                del postponed_labels[postponed_idx]
                             break
+                postponed_kpts.extend(bound_group.postponed_kpt_list)
+                postponed_labels.extend(bound_group.postponed_kpt_label_list)
                 bound_group_list.append(bound_group)
             # Group keypoints inside of bbox bounds
             for bbox, bbox_label in zip(bbox_list, bbox_label_list):
@@ -501,12 +521,23 @@ class COCO_Dataset:
                 for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
                         if kpt.within(bbox):
-                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label)
+                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label, strict=False)
                             del kpt_label2points_list[label][i]
                             if len(kpt_label2points_list[label]) == 0:
                                 del kpt_label2points_list[label]
+                            if kpt in postponed_kpts:
+                                postponed_idx = postponed_kpts.index(kpt)
+                                del postponed_kpts[postponed_idx]
+                                del postponed_labels[postponed_idx]
                             break
+                postponed_kpts.extend(bound_group.postponed_kpt_list)
+                postponed_labels.extend(bound_group.postponed_kpt_label_list)
                 bound_group_list.append(bound_group)
+
+            if len(postponed_kpts) > 0 and ensure_no_unbounded_kpts:
+                logger.error(f'Unresolved postponed_kpts: {postponed_kpts}')
+                logger.error(f'Unresolved postponed_labels: {postponed_labels}')
+                raise Exception
 
             if ensure_no_unbounded_kpts:
                 # Ensure that there are no leftover keypoints that are unbounded.

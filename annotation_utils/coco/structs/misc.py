@@ -50,7 +50,7 @@ class KeypointGroup:
             raise Exception
         if label not in self.coco_cat.keypoints:
             if not strict:
-                raise NotImplementedError
+                # raise NotImplementedError
                 self.postponed_kpt_list.append(kpt)
                 self.postponed_kpt_label_list.append(label)
             else:
