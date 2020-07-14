@@ -2,14 +2,16 @@ from __future__ import annotations
 import numpy as np
 from logger import logger
 from common_utils.check_utils import check_required_keys, check_type_from_list, check_type
+from common_utils.base.basic import BasicObject
 
 class Transforms:
     @classmethod
     def pad_to_4d(self, points: np.ndarray) -> np.ndarray:
         return np.c_[points, np.ones(points.shape[0])]
 
-class Camera:
+class Camera(BasicObject['Camera']):
     def __init__(self, f: list, c: list, T: list):
+        super().__init__()
         self.f = f
         self.c = c
         self.T = T
