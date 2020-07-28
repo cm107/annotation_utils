@@ -443,6 +443,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided categories.')
                             logger.error(f'category_names: {category_names}')
+                            logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     poly_list.append(
                         Polygon.from_point2d_list(shape.points)
@@ -457,6 +458,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided categories.')
                             logger.error(f'category_names: {category_names}')
+                            logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     bbox_list.append(
                         BBox.from_point2d_list(shape.points)
@@ -483,6 +485,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided category keypoints.')
                             logger.error(f'keypoint_names: {keypoint_names}')
+                            logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     if shape.label not in kpt_label2points_list:
                         kpt_label2points_list[shape.label] = [shape.points[0]]
@@ -499,7 +502,7 @@ class COCO_Dataset:
                 temp_dict = kpt_label2points_list.copy()
                 for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
-                        if kpt.within(poly):
+                        if kpt.within(poly) and label in coco_cat.keypoints:
                             bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label, strict=False)
                             del kpt_label2points_list[label][i]
                             if len(kpt_label2points_list[label]) == 0:
@@ -520,7 +523,7 @@ class COCO_Dataset:
                 temp_dict = kpt_label2points_list.copy()
                 for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
-                        if kpt.within(bbox):
+                        if kpt.within(bbox) and label in coco_cat.keypoints:
                             bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label, strict=False)
                             del kpt_label2points_list[label][i]
                             if len(kpt_label2points_list[label]) == 0:
@@ -537,6 +540,7 @@ class COCO_Dataset:
             if len(postponed_kpts) > 0 and ensure_no_unbounded_kpts:
                 logger.error(f'Unresolved postponed_kpts: {postponed_kpts}')
                 logger.error(f'Unresolved postponed_labels: {postponed_labels}')
+                logger.error(f'Image filename: {img_filename}')
                 raise Exception
 
             if ensure_no_unbounded_kpts:
