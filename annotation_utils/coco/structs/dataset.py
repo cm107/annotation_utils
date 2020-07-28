@@ -1132,7 +1132,7 @@ class COCO_Dataset:
         """
 
         # Checks
-        check_type_from_list([split_dirname_list, ratio, coco_filename_list], valid_type_list=[list])
+        check_type_from_list([split_dirname_list, ratio, coco_filename_list], valid_type_list=[list, type(None)])
         if len(split_dirname_list) != len(ratio):
             logger.error(f'len(split_dirname_list) == {len(split_dirname_list)} != {len(ratio)} == len(ratio)')
             raise Exception
@@ -1398,11 +1398,16 @@ class COCO_Dataset:
         for draw_target in draw_order:
             if draw_target.lower() == 'bbox':
                 if show_bbox:
-                    result = draw_bbox(
-                        img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                        label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
-                        label_orientation=bbox_label_orientation
-                    )
+                    if show_bbox_label:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
+                            label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+                            label_orientation=bbox_label_orientation
+                        )
+                    else:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
+                        )
             elif draw_target.lower() == 'seg':
                 if show_seg:
                     result = draw_segmentation(
