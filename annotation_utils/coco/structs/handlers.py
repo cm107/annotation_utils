@@ -142,11 +142,21 @@ class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
                 extension_list.append(extension)
         return extension_list
 
-    def get_images_from_imgIds(self, imgIds: list) -> List[COCO_Image]:		
-	        return [x for x in self if x.id in imgIds]
+    def get_images_from_imgIds(self, imgIds: list) -> List[COCO_Image]:	
+        if type(imgIds) is list:
+            return [x for x in self if x.id in imgIds]
+        elif type(imgIds) is int:
+            return [x for x in self if x.id in [imgIds]]
+        else:
+            raise TypeError
 
     def get_images_from_licenseIds(self, licenseIds: List[int]) -> List[COCO_Image]:
-        return [x for x in self if x.license_id in licenseIds]
+        if type(licenseIds) is list:
+            return [x for x in self if x.license_id in licenseIds]
+        elif type(licenseIds) is int:
+            return [x for x in self if x.license_id in [licenseIds]]
+        else:
+            raise TypeError
 
     @classmethod
     def from_dict_list(cls, dict_list: List[dict]) -> COCO_Image_Handler:
@@ -212,13 +222,28 @@ class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO
         self.annotation_list = self.obj_list
 
     def get_annotations_from_annIds(self, annIds: list) -> List[COCO_Annotation]:		
-        return [ann for ann in self if ann.id in annIds]		
+        if type(annIds) is list:
+            return [ann for ann in self if ann.id in annIds]
+        elif type(annIds) is int:
+            return [ann for ann in self if ann.id in [annIds]]
+        else:
+            raise TypeError
         
     def get_annotations_from_imgIds(self, imgIds: list) -> List[COCO_Annotation]:		
-        return [ann for ann in self if ann.image_id in imgIds]
+        if type(imgIds) is list:
+            return [ann for ann in self if ann.image_id in imgIds]
+        elif type(imgIds) is int:
+            return [ann for ann in self if ann.image_id in [imgIds]]
+        else:
+            raise TypeError
     
     def get_annotations_from_catIds(self, catIds: list) -> List[COCO_Annotation]:
-        return [ann for ann in self if ann.category_id in catIds]
+        if type(catIds) is list:
+            return [ann for ann in self if ann.category_id in catIds]
+        elif type(catIds) is int:
+            return [ann for ann in self if ann.category_id in [catIds]]
+        else:
+            raise TypeError
 
     def to_dict_list(self, strict: bool=True) -> List[dict]:
         return [item.to_dict(strict=strict) for item in self]

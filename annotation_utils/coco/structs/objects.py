@@ -21,7 +21,7 @@ from ...base import BaseStructObject
 class COCO_Info(BaseStructObject['COCO_Info']):
     def __init__(
         self,
-        description: str,
+        description: str="Dataset Created Using annotation_utils",
         url: str="https://github.com/cm107/annotation_utils",
         version: str="1.0",
         year: str=get_present_year(),
