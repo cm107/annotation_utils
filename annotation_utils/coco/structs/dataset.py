@@ -966,7 +966,7 @@ class COCO_Dataset:
                 raise Exception
             update_img_pbar = tqdm(total=len(img_dir_list), unit='dataset(s)') if show_pbar else None
             if update_img_pbar is not None:
-                pbar.set_description(f'Updating Image Paths...')
+                update_img_pbar.set_description(f'Updating Image Paths...')
             for img_dir, dataset in zip(img_dir_list, dataset_list):
                 dataset = COCO_Dataset.buffer(dataset)
                 dataset.update_img_dir(new_img_dir=img_dir, check_paths=True)
