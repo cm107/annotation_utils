@@ -12,9 +12,13 @@ from common_utils.path_utils import get_extension_from_filename
 from common_utils.file_utils import file_exists
 
 from .objects import COCO_License, COCO_Image, COCO_Annotation, COCO_Category
-from ...base import BaseStructHandler
+# from ...base import BaseStructHandler
+from common_utils.base.basic import BasicLoadableIdHandler, BasicHandler
 
-class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_License']):
+class COCO_License_Handler(
+    BasicLoadableIdHandler['COCO_License_Handler', 'COCO_License'],
+    BasicHandler['COCO_License_Handler', 'COCO_License']
+):
     """A handler class that is used to manage/manipulate COCO_License objects.
     """
     def __init__(self, license_list: List[COCO_License]=None):
@@ -59,7 +63,10 @@ class COCO_License_Handler(BaseStructHandler['COCO_License_Handler', 'COCO_Licen
                     rm_license_id_list.append(license_id)
         self.remove(rm_license_id_list, verbose=verbose)
 
-class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
+class COCO_Image_Handler(
+    BasicLoadableIdHandler['COCO_Image_Handler', 'COCO_Image'],
+    BasicHandler['COCO_Image_Handler', 'COCO_Image']
+):
     """A handler class that is used to manage/manipulate COCO_Image objects.
 
     In order to construct and load a COCO_Image_Handler, you can load up the handler
@@ -214,7 +221,10 @@ class COCO_Image_Handler(BaseStructHandler['COCO_Image_Handler', 'COCO_Image']):
             pending_license_id_list = [license.id for license in license_handler]
             license_handler.remove_if_no_imgs(img_handler=self, id_list=pending_license_id_list, verbose=verbose)
 
-class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO_Annotation']):
+class COCO_Annotation_Handler(
+    BasicLoadableIdHandler['COCO_Annotation_Handler', 'COCO_Annotation'],
+    BasicHandler['COCO_Annotation_Handler', 'COCO_Annotation']
+):
     """A handler class that is used to manage/manipulate COCO_Annotation objects.
     """
     def __init__(self, annotation_list: List[COCO_Annotation]=None):
@@ -303,7 +313,10 @@ class COCO_Annotation_Handler(BaseStructHandler['COCO_Annotation_Handler', 'COCO
         if img_handler is not None:
             img_handler.remove_if_no_anns(ann_handler=self, license_handler=license_handler, id_list=pending_img_id_list, verbose=verbose)
 
-class COCO_Category_Handler(BaseStructHandler['COCO_Category_Handler', 'COCO_Category']):
+class COCO_Category_Handler(
+    BasicLoadableIdHandler['COCO_Category_Handler', 'COCO_Category'],
+    BasicHandler['COCO_Category_Handler', 'COCO_Category']
+):
     """A handler class that is used to manage/manipulate COCO_Category objects.
 
     Save Examples:

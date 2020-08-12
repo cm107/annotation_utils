@@ -16,9 +16,10 @@ from common_utils.common_types.bbox import BBox
 from common_utils.common_types.segmentation import Segmentation
 
 from ..camera import Camera
-from ...base import BaseStructObject
+# from ...base import BaseStructObject
+from common_utils.base.basic import BasicLoadableIdObject, BasicLoadableObject
 
-class COCO_Info(BaseStructObject['COCO_Info']):
+class COCO_Info(BasicLoadableObject['COCO_Info']):
     def __init__(
         self,
         description: str="Dataset Created Using annotation_utils",
@@ -67,10 +68,10 @@ class COCO_Info(BaseStructObject['COCO_Info']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Info.from_dict(json_dict)
 
-class COCO_License(BaseStructObject['COCO_License']):
+class COCO_License(BasicLoadableIdObject['COCO_License']):
     def __init__(self, url: str, id: int, name: str):
+        super().__init__(id=id)
         self.url = url
-        self.id = id
         self.name = name
 
     def __str__(self):
@@ -102,11 +103,12 @@ class COCO_License(BaseStructObject['COCO_License']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_License.from_dict(json_dict)
 
-class COCO_Image(BaseStructObject['COCO_Image']):
+class COCO_Image(BasicLoadableIdObject['COCO_Image']):
     def __init__(
         self, license_id: int, file_name: str, coco_url: str,
         height: int, width: int, date_captured: str, flickr_url: str, id: int
     ):
+        super().__init__(id=id)
         self.license_id = license_id
         self.file_name = file_name
         self.coco_url = coco_url
@@ -114,7 +116,6 @@ class COCO_Image(BaseStructObject['COCO_Image']):
         self.width = width
         self.date_captured = date_captured
         self.flickr_url = flickr_url
-        self.id = id
 
     def __str__(self):
         print_str = "========================\n"
@@ -200,7 +201,7 @@ class COCO_Image(BaseStructObject['COCO_Image']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Image.from_dict(json_dict)
 
-class COCO_Annotation(BaseStructObject['COCO_Annotation']):
+class COCO_Annotation(BasicLoadableIdObject['COCO_Annotation']):
     def __init__(
         self,
         id: int, category_id: int, image_id: int, # Standard Required
@@ -210,8 +211,8 @@ class COCO_Annotation(BaseStructObject['COCO_Annotation']):
         iscrowd: int=0,
         keypoints_3d: Keypoint3D_List=None, camera: Camera=None # Custom Optional
     ):
+        super().__init__(id=id)
         # Standard Required
-        self.id = id
         self.category_id = category_id
         self.image_id = image_id
 
@@ -359,12 +360,11 @@ class COCO_Annotation(BaseStructObject['COCO_Annotation']):
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Annotation.from_dict(ann_dict=json_dict, strict=strict)
 
-class COCO_Category(BaseStructObject['COCO_Category']):
+class COCO_Category(BasicLoadableIdObject['COCO_Category']):
     def __init__(
         self, id: int, supercategory: str=None, name: str=None, keypoints: List[str]=None, skeleton: List[list]=None
     ):
-        # Standard Required
-        self.id = id
+        super().__init__(id=id)
 
         # Standard Optional
         if supercategory is None and name is None:

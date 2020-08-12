@@ -3,6 +3,7 @@ from typing import List
 import labelme
 import json
 from tqdm import tqdm
+import operator
 
 from logger import logger
 from common_utils.common_types.point import Point2D_List
@@ -11,6 +12,8 @@ from common_utils.check_utils import check_required_keys, check_type, check_file
 from common_utils.path_utils import get_all_files_of_extension, get_rootname_from_path, get_filename, \
     get_dirpath_from_filepath
 from common_utils.file_utils import delete_all_files_in_dir, make_dir_if_not_exists, file_exists, copy_file
+
+# TODO: Inherit from basic
 
 class LabelmeShape:
     def __init__(
@@ -260,3 +263,18 @@ class LabelmeAnnotationHandler:
         check_dir_exists(load_dir)
         json_path_list = get_all_files_of_extension(dir_path=load_dir, extension='json')
         return cls.load_from_pathlist(json_path_list)
+
+    def sort(self, attr_name: str, reverse: bool=False):
+        if len(self) > 0:
+            attr_list = list(self.labelme_ann_list[0].__dict__.keys())    
+            if attr_name not in attr_list:
+                logger.error(f"{LabelmeAnnotation.__name__} class has not attribute: '{attr_name}'")
+                logger.error(f'Possible attribute names:')
+                for name in attr_list:
+                    logger.error(f'\t{name}')
+                raise Exception
+
+            self.labelme_ann_list.sort(key=operator.attrgetter(attr_name), reverse=reverse)
+        else:
+            logger.error(f"Cannot sort. {type(self).__name__} is empty.")
+            raise Exception
