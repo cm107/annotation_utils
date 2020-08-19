@@ -117,17 +117,19 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
 
         handler = LabeledObjectHandler()
         if naming_rule == 'type_object_instance_contained':
+            included_obj_names = []
             # Add Non-contained Objects First
             if show_pbar:
                 non_contained_pbar = tqdm(total=len(self.ndds_ann.objects), unit='ann_obj', leave=False)
                 non_contained_pbar.set_description('Processing Containers')
             for ann_obj in self.ndds_ann.objects:
+                obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
                 if exclude_classes is not None and ann_obj.class_name in exclude_classes:
                     if show_pbar:
                         non_contained_pbar.update()
                     continue
-                obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
                 if contained_name is None: # Non-contained Object
+                    included_obj_names.append(obj_name)
                     process_non_contained(handler=handler, ann_obj=ann_obj)
                 if show_pbar:
                     non_contained_pbar.update()
@@ -137,11 +139,11 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                 contained_pbar = tqdm(total=len(self.ndds_ann.objects), unit='ann_obj', leave=False)
                 contained_pbar.set_description('Processing Containables')
             for ann_obj in self.ndds_ann.objects:
-                if exclude_classes is not None and ann_obj.class_name in exclude_classes:
+                obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
+                if (exclude_classes is not None and ann_obj.class_name in exclude_classes) or obj_name not in included_obj_names:
                     if show_pbar:
                         contained_pbar.update()
                     continue
-                obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
                 if contained_name is not None: # Contained Object
                     process_contained(handler=handler, ann_obj=ann_obj)
                 if show_pbar:
