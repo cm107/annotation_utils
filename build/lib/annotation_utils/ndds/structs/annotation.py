@@ -1,6 +1,6 @@
 from __future__ import annotations
 from common_utils.check_utils import check_required_keys
-from ...base.basic import BasicLoadableObject
+from common_utils.base.basic import BasicLoadableObject
 from .handlers import NDDS_Annotation_Object_Handler
 from .objects import CameraData
 

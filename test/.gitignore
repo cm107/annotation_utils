@@ -1,1 +1,8 @@
 *.json
+*.zip
+*.jpg
+*.png
+*.mp4
+*.avi
+*.log
+*.pth

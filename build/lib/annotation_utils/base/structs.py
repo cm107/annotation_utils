@@ -75,6 +75,18 @@ class BaseStructHandler(Generic[H, T]):
 
     def __len__(self) -> int:
         return len(self.obj_list)
+    
+    def __eq__(self, other) -> bool:
+        if isinstance(other, type(self)):
+            if len(self) != len(other):
+                return False
+            else:
+                for obj0, obj1 in zip(self, other):
+                    if obj0 != obj1:
+                        return False
+                return True
+        else:
+            return NotImplemented
 
     def __getitem__(self, idx: int) -> T:
         if type(idx) is int:

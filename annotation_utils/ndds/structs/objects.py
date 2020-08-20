@@ -10,7 +10,7 @@ from common_utils.check_utils import check_required_keys, check_list_length
 from common_utils.common_types.point import Point2D, Point3D
 from ..common.cuboid import Cuboid2D, Cuboid3D
 from ..common.angle import Quaternion
-from ...base.basic import BasicLoadableObject
+from common_utils.base.basic import BasicLoadableObject
 
 class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
     def __init__(
@@ -47,8 +47,8 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
             'cuboid_centroid': self.cuboid_centroid.to_list(),
             'projected_cuboid_centroid': self.projected_cuboid_centroid.to_list(),
             'bounding_box': {
-                'top_left': [self.bounding_box.xmin, self.bounding_box.ymin],
-                'bottom_right': [self.bounding_box.xmax, self.bounding_box.ymax]
+                'top_left': [self.bounding_box.xmin, self.bounding_box.ymin][::-1],
+                'bottom_right': [self.bounding_box.xmax, self.bounding_box.ymax][::-1]
             },
             'cuboid': self.cuboid.to_list(demarcation=True),
             'projected_cuboid': self.projected_cuboid.to_list(demarcation=True)
@@ -78,7 +78,7 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
             pose_transform=np.array(object_dict['pose_transform']),
             cuboid_centroid=Point3D.from_list(object_dict['cuboid_centroid']),
             projected_cuboid_centroid=Point2D.from_list(object_dict['projected_cuboid_centroid']),
-            bounding_box=BBox.from_list(object_dict['bounding_box']['top_left']+object_dict['bounding_box']['bottom_right'], input_format='pminpmax'),
+            bounding_box=BBox.from_list(object_dict['bounding_box']['top_left'][::-1]+object_dict['bounding_box']['bottom_right'][::-1], input_format='pminpmax'),
             cuboid=Cuboid3D.from_list(object_dict['cuboid'], demarcation=True),
             projected_cuboid=Cuboid2D.from_list(object_dict['projected_cuboid'], demarcation=True)
         )
@@ -113,8 +113,8 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         pixel_b =  RGBint & 255
         pixel_g = (RGBint >> 8) & 255
         pixel_r =   (RGBint >> 16) & 255
-        color_instance_rgb = [pixel_b,pixel_g,pixel_r]
-        return color_instance_rgb
+        color_instance_bgr = [pixel_b,pixel_g,pixel_r]
+        return color_instance_bgr
 
     def get_instance_segmentation(self, img: np.ndarray, target_bgr: List[int]=None, interval: int=1, exclude_invalid_polygons: bool=True):
         target_bgr = target_bgr if target_bgr is not None else self.get_color_from_id()

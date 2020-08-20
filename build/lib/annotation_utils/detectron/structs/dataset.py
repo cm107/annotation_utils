@@ -7,7 +7,7 @@ from common_utils.common_types.keypoint import Keypoint2D_List
 from common_utils.check_utils import check_required_keys
 from logger import logger
 
-from ...base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 
 try:
     from detectron2.structures.boxes import BoxMode
@@ -40,7 +40,7 @@ class Detectron2_Annotation(BasicLoadableObject['Detectron2_Annotation']):
         return {
             'iscrowd': self.iscrowd,
             'bbox': bbox,
-            'keypoints': self.keypoints.to_list(demarcation=False),
+            'keypoints': self.keypoints.to_list(demarcation=True),
             'category_id': self.category_id,
             'segmentation': self.segmentation.to_list(demarcation=False),
             'bbox_mode': self.bbox_mode
@@ -48,7 +48,7 @@ class Detectron2_Annotation(BasicLoadableObject['Detectron2_Annotation']):
 
     @classmethod
     def from_dict(cls, ann_dict: dict) -> Detectron2_Annotation:
-        check_required_keys(ann_dict, required_keys=['iscrowd', 'bbox', 'keypoints', 'category_id', 'bbox_mode'])
+        check_required_keys(ann_dict, required_keys=['iscrowd', 'bbox', 'category_id', 'bbox_mode'])
         
         if ann_dict['bbox_mode'] == BoxMode.XYWH_ABS:
             bbox = BBox.from_list(ann_dict['bbox'], input_format='pminsize')
@@ -56,11 +56,15 @@ class Detectron2_Annotation(BasicLoadableObject['Detectron2_Annotation']):
             bbox = BBox.from_list(ann_dict['bbox'], input_format='pminpmax')
         else:
             raise NotImplementedError
-            
+        if 'keypoints' in ann_dict:
+            keypoints = Keypoint2D_List.from_list(value_list=ann_dict['keypoints'], demarcation=False)
+        else:
+            keypoints = Keypoint2D_List()
+
         return Detectron2_Annotation(
             iscrowd=ann_dict['iscrowd'],
             bbox=bbox,
-            keypoints=Keypoint2D_List.from_list(value_list=ann_dict['keypoints'], demarcation=False),
+            keypoints=keypoints,
             category_id=ann_dict['category_id'],
             segmentation=Segmentation.from_list(points_list=ann_dict['segmentation'] if 'segmentation' in ann_dict else [], demarcation=False),
             bbox_mode=ann_dict['bbox_mode']

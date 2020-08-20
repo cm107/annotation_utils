@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Dict
 import json
 import cv2
 import numpy as np
@@ -406,6 +406,11 @@ class COCO_Dataset:
             logger.error(f'Need to provide at least one COCO_Category for conversion to COCO format.')
             raise Exception
         category_names = [category.name for category in categories]
+        keypoint_names = []
+        for coco_category in categories:
+            for kpt_label in coco_category.keypoints:
+                if kpt_label not in keypoint_names:
+                    keypoint_names.append(kpt_label)
 
         # Add categories to COCO Dataset
         dataset.categories = categories
@@ -438,6 +443,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided categories.')
                             logger.error(f'category_names: {category_names}')
+                            logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     poly_list.append(
                         Polygon.from_point2d_list(shape.points)
@@ -452,6 +458,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided categories.')
                             logger.error(f'category_names: {category_names}')
+                            logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     bbox_list.append(
                         BBox.from_point2d_list(shape.points)
@@ -472,12 +479,22 @@ class COCO_Dataset:
             # Gather all keypoints
             for shape in labelme_ann.shapes:
                 if shape.shape_type == 'point':
+                    if shape.label not in keypoint_names:
+                        if ignore_unspecified_categories:
+                            continue
+                        else:
+                            logger.error(f'shape.label={shape.label} does not exist in provided category keypoints.')
+                            logger.error(f'keypoint_names: {keypoint_names}')
+                            logger.error(f'Image filename: {img_filename}')
+                            raise Exception
                     if shape.label not in kpt_label2points_list:
                         kpt_label2points_list[shape.label] = [shape.points[0]]
                     else:
                         kpt_label2points_list[shape.label].append(shape.points[0])
 
             # Group keypoints inside of polygon bounds
+            postponed_kpts = []
+            postponed_labels = []
             for poly, poly_label in zip(poly_list, poly_label_list):
                 coco_cat = dataset.categories.get_unique_category_from_name(poly_label)
                 bound_group = KeypointGroup(bound_obj=poly, coco_cat=coco_cat)
@@ -485,12 +502,18 @@ class COCO_Dataset:
                 temp_dict = kpt_label2points_list.copy()
                 for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
-                        if kpt.within(poly):
-                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label)
+                        if kpt.within(poly) and label in coco_cat.keypoints:
+                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label, strict=False)
                             del kpt_label2points_list[label][i]
                             if len(kpt_label2points_list[label]) == 0:
                                 del kpt_label2points_list[label]
+                            if kpt in postponed_kpts:
+                                postponed_idx = postponed_kpts.index(kpt)
+                                del postponed_kpts[postponed_idx]
+                                del postponed_labels[postponed_idx]
                             break
+                postponed_kpts.extend(bound_group.postponed_kpt_list)
+                postponed_labels.extend(bound_group.postponed_kpt_label_list)
                 bound_group_list.append(bound_group)
             # Group keypoints inside of bbox bounds
             for bbox, bbox_label in zip(bbox_list, bbox_label_list):
@@ -500,13 +523,25 @@ class COCO_Dataset:
                 temp_dict = kpt_label2points_list.copy()
                 for label, kpt_list in temp_dict.items():
                     for i, kpt in enumerate(kpt_list):
-                        if kpt.within(bbox):
-                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label)
+                        if kpt.within(bbox) and label in coco_cat.keypoints:
+                            bound_group.register(kpt=Keypoint2D(point=kpt, visibility=2), label=label, strict=False)
                             del kpt_label2points_list[label][i]
                             if len(kpt_label2points_list[label]) == 0:
                                 del kpt_label2points_list[label]
+                            if kpt in postponed_kpts:
+                                postponed_idx = postponed_kpts.index(kpt)
+                                del postponed_kpts[postponed_idx]
+                                del postponed_labels[postponed_idx]
                             break
+                postponed_kpts.extend(bound_group.postponed_kpt_list)
+                postponed_labels.extend(bound_group.postponed_kpt_label_list)
                 bound_group_list.append(bound_group)
+
+            if len(postponed_kpts) > 0 and ensure_no_unbounded_kpts:
+                logger.error(f'Unresolved postponed_kpts: {postponed_kpts}')
+                logger.error(f'Unresolved postponed_labels: {postponed_labels}')
+                logger.error(f'Image filename: {img_filename}')
+                raise Exception
 
             if ensure_no_unbounded_kpts:
                 # Ensure that there are no leftover keypoints that are unbounded.
@@ -589,10 +624,14 @@ class COCO_Dataset:
         license_name: str='MIT License',
         ignore_unspecified_categories: bool=False,
         bbox_area_threshold: float=10,
+        default_visibility_threshold: float=0.10,
+        visibility_threshold_dict: Dict[str, float]={},
         min_visibile_kpts: int=None,
         color_interval: int=1,
         camera_idx: int=0,
         exclude_invalid_polygons: bool=True,
+        allow_unfound_seg: bool=False,
+        class_merge_map: Dict[str, str]=None,
         show_pbar: bool=False
     ) -> COCO_Dataset:
         """Creates a COCO_Dataset object from an NDDS_Dataset object.
@@ -629,6 +668,15 @@ class COCO_Dataset:
                 The threshold that determines when to exclude a segmentation/bbox annotation from the dataset conversion.
                 Example: bbox_area_threshold=10 means that any bbox annotation that has an area less than 10 pixels will be excluded.
             ] (default: {10})
+            default_visibility_threshold {float} -- [
+                The default threshold that determines when to exclude an object that is partially covered by another object.
+                This visibility refers to the percentage of the object that is visible to the camera.
+                Use visibility_threshold_dict instead to specify the visibility threshold for specific objects.
+            ] (default: {0.10})
+            visibility_threshold_dict {Dict[str, float]} -- [
+                This is a visibility threshold dictionary that can be used to specify the visibility threshold for specific object names.
+                If not specified here, unspecified objects will use the default_visibility_threshold.
+            ] (default: {{}})
             min_visibile_kpts {int} -- [
                 The threshold that determines when to exclude an annotation from a keypoint dataset conversion.
                 Example: min_visible_kpts=3 means that any bbox/segmentation annotation that contains less than 3 keypoints will
@@ -651,6 +699,11 @@ class COCO_Dataset:
                 but it can also result in the masks of small objects being ignored unintentionally.
                 Change this to False if there are valid small objects being ignored.
             ] (default: {True})
+            allow_unfound_seg {bool} -- [
+                There may be times when the segmentation can't be parsed from the mask because the object's mask is too thin to create a valid polygon.
+                If True, these cases will be skipped without raising an error.
+            ] (default: {False})
+            class_merge_map {Dict[str, str]} -- [TODO] (default: None)
             show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
 
         Returns:
@@ -754,11 +807,16 @@ class COCO_Dataset:
                 )
             )
 
-            # Load Other Images
-            check_file_exists(frame.is_img_path)
-            instance_img = cv2.imread(frame.is_img_path)
+            # Load Instance Image
+            if class_merge_map is None:
+                check_file_exists(frame.is_img_path)
+                instance_img = cv2.imread(frame.is_img_path)
+                exclude_classes = []
+            else:
+                instance_img = frame.get_merged_is_img(class_merge_map=class_merge_map)
+                exclude_classes = list(class_merge_map.keys())
 
-            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, show_pbar=show_pbar)
+            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, exclude_classes=exclude_classes, show_pbar=show_pbar)
             for labeled_obj in organized_handler:
                 specified_category_names = [cat.name for cat in categories]
                 if labeled_obj.obj_name not in specified_category_names:
@@ -771,58 +829,32 @@ class COCO_Dataset:
                         logger.error(f'Hint: Use ignore_unspecified_categories=True to bypass this check.')
                         raise Exception
                 coco_cat = categories.get_unique_category_from_name(labeled_obj.obj_name)
-                
+
                 partitioned_coco_instances = {}
                 for instance in labeled_obj.instances:
+                    # Get Segmentation, BBox, and Keypoints
+                    if labeled_obj.obj_name in visibility_threshold_dict.keys():
+                        if instance.ndds_ann_obj.visibility < visibility_threshold_dict[labeled_obj.obj_name]:
+                            continue
+                    else:
+                        if instance.ndds_ann_obj.visibility < default_visibility_threshold:
+                            continue
+                    
                     if instance.instance_type == 'seg':
-                        # Get Segmentation, BBox, and Keypoints
                         seg = instance.get_segmentation(
                             instance_img=instance_img, color_interval=color_interval,
                             is_img_path=frame.is_img_path,
-                            exclude_invalid_polygons=exclude_invalid_polygons
+                            exclude_invalid_polygons=exclude_invalid_polygons,
+                            allow_unfound_seg=allow_unfound_seg
                         )
                         if len(seg) == 0:
                             continue
-                        seg_bbox = seg.to_bbox()
-                        if seg_bbox.area() < bbox_area_threshold:
-                            continue
-                        kpts_2d, kpts_3d = instance.get_keypoints(kpt_labels=coco_cat.keypoints)
-                        visible_kpt_count = sum([kpt.visibility == 2 for kpt in kpts_2d])
-                        if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
-                            continue
-
-                        # Construct COCO Annotation
-                        coco_ann = COCO_Annotation(
-                            id=len(dataset.annotations),
-                            category_id=coco_cat.id,
-                            image_id=image_id,
-                            segmentation=seg,
-                            bbox=seg_bbox,
-                            area=seg_bbox.area(),
-                            keypoints=kpts_2d,
-                            num_keypoints=len(kpts_2d),
-                            iscrowd=0,
-                            keypoints_3d=kpts_3d,
-                            camera=camera
-                        )
-                        if instance.part_num is None:
-                            dataset.annotations.append(coco_ann)
-                        else:
-                            if instance.instance_name not in partitioned_coco_instances:
-                                partitioned_coco_instances[instance.instance_name] = [{'coco_ann': coco_ann, 'part_num': instance.part_num}]
-                            else:
-                                existing_part_numbers = [item['part_num'] for item in partitioned_coco_instances[instance.instance_name]]
-                                if instance.part_num not in existing_part_numbers:
-                                    partitioned_coco_instances[instance.instance_name].append({'coco_ann': coco_ann, 'part_num': instance.part_num})
-                                else:
-                                    logger.error(f'instance.part_num already exists in existing_part_numbers for instance.instance_name={instance.instance_name}')
-                                    logger.error(f'instance.part_num: {instance.part_num}')
-                                    logger.error(f'existing_part_numbers: {existing_part_numbers}')
-                                    logger.error(f"Please check your NDDS annotation json to make sure that you don't have any duplicate part_num!=None instances.")
-                                    raise Exception
-
+                        bbox = seg.to_bbox()
                     elif instance.instance_type == 'bbox':
-                        raise NotImplementedError
+                        seg = Segmentation()
+                        bbox = instance.ndds_ann_obj.bounding_box.copy()
+                        bbox = bbox.clip_at_bounds(frame_shape=img.shape[:2])
+                        bbox.check_bbox_in_frame(frame_shape=img.shape[:2])
                     elif instance.instance_type == 'kpt':
                         logger.error(f"'kpt' can only be used as a contained instance and not as a container instance")
                         logger.error(f'instance:\n{instance}')
@@ -831,34 +863,73 @@ class COCO_Dataset:
                         logger.error(f'Invalid instance.instance_type: {instance.instance_type}')
                         logger.error(f'instance:\n{instance}')
                         raise Exception
-            for instance_name, partitioned_items in partitioned_coco_instances.items():
-                working_seg = Segmentation()
-                working_bbox = None
-                first_coco_ann = partitioned_items[0]['coco_ann']
-                first_coco_ann = COCO_Annotation.buffer(first_coco_ann)
-                for partitioned_item in partitioned_items:
-                    coco_ann = partitioned_item['coco_ann']
-                    coco_ann = COCO_Annotation.buffer(coco_ann)
-                    working_seg = working_seg + coco_ann.segmentation
-                    if working_bbox is None:
-                        working_bbox = coco_ann.bbox
-                    else:
-                        working_bbox = working_bbox + coco_ann.bbox
-                dataset.annotations.append(
-                    COCO_Annotation(
+
+                    if bbox.area() < bbox_area_threshold:
+                        continue
+
+                    kpts_2d, kpts_3d = instance.get_keypoints(kpt_labels=coco_cat.keypoints)
+                    visible_kpt_count = sum([kpt.visibility == 2 for kpt in kpts_2d])
+                    if min_visibile_kpts is not None and visible_kpt_count < min_visibile_kpts:
+                        continue
+
+                    # Construct COCO Annotation
+                    coco_ann = COCO_Annotation(
                         id=len(dataset.annotations),
                         category_id=coco_cat.id,
                         image_id=image_id,
-                        segmentation=working_seg,
-                        bbox=working_bbox,
-                        area=working_bbox.area(),
-                        keypoints=first_coco_ann.keypoints,
-                        num_keypoints=first_coco_ann.num_keypoints,
-                        iscrowd=first_coco_ann.iscrowd,
-                        keypoints_3d=first_coco_ann.keypoints_3d,
-                        camera=first_coco_ann.camera
+                        segmentation=seg,
+                        bbox=bbox,
+                        area=bbox.area(),
+                        keypoints=kpts_2d,
+                        num_keypoints=len(kpts_2d),
+                        iscrowd=0,
+                        keypoints_3d=kpts_3d,
+                        camera=camera
                     )
-                )
+                    if instance.part_num is None:
+                        dataset.annotations.append(coco_ann)
+                    else:
+                        if instance.instance_name not in partitioned_coco_instances:
+                            partitioned_coco_instances[instance.instance_name] = [{'coco_ann': coco_ann, 'part_num': instance.part_num}]
+                        else:
+                            existing_part_numbers = [item['part_num'] for item in partitioned_coco_instances[instance.instance_name]]
+                            if instance.part_num not in existing_part_numbers:
+                                partitioned_coco_instances[instance.instance_name].append({'coco_ann': coco_ann, 'part_num': instance.part_num})
+                            else:
+                                logger.error(f'instance.part_num already exists in existing_part_numbers for instance.instance_name={instance.instance_name}')
+                                logger.error(f'instance.part_num: {instance.part_num}')
+                                logger.error(f'existing_part_numbers: {existing_part_numbers}')
+                                logger.error(f"Please check your NDDS annotation json to make sure that you don't have any duplicate part_num!=None instances.")
+                                raise Exception
+
+                for instance_name, partitioned_items in partitioned_coco_instances.items():
+                    working_seg = Segmentation()
+                    working_bbox = None
+                    first_coco_ann = partitioned_items[0]['coco_ann']
+                    first_coco_ann = COCO_Annotation.buffer(first_coco_ann)
+                    for partitioned_item in partitioned_items:
+                        coco_ann = partitioned_item['coco_ann']
+                        coco_ann = COCO_Annotation.buffer(coco_ann)
+                        working_seg = working_seg + coco_ann.segmentation
+                        if working_bbox is None:
+                            working_bbox = coco_ann.bbox
+                        else:
+                            working_bbox = working_bbox + coco_ann.bbox
+                    dataset.annotations.append(
+                        COCO_Annotation(
+                            id=len(dataset.annotations),
+                            category_id=coco_cat.id,
+                            image_id=image_id,
+                            segmentation=working_seg,
+                            bbox=working_bbox,
+                            area=working_bbox.area(),
+                            keypoints=first_coco_ann.keypoints,
+                            num_keypoints=first_coco_ann.num_keypoints,
+                            iscrowd=first_coco_ann.iscrowd,
+                            keypoints_3d=first_coco_ann.keypoints_3d,
+                            camera=first_coco_ann.camera
+                        )
+                    )
             if show_pbar:
                 frame_pbar.update()
         return dataset
@@ -895,7 +966,7 @@ class COCO_Dataset:
                 raise Exception
             update_img_pbar = tqdm(total=len(img_dir_list), unit='dataset(s)') if show_pbar else None
             if update_img_pbar is not None:
-                pbar.set_description(f'Updating Image Paths...')
+                update_img_pbar.set_description(f'Updating Image Paths...')
             for img_dir, dataset in zip(img_dir_list, dataset_list):
                 dataset = COCO_Dataset.buffer(dataset)
                 dataset.update_img_dir(new_img_dir=img_dir, check_paths=True)
@@ -1065,7 +1136,7 @@ class COCO_Dataset:
         """
 
         # Checks
-        check_type_from_list([split_dirname_list, ratio, coco_filename_list], valid_type_list=[list])
+        check_type_from_list([split_dirname_list, ratio, coco_filename_list], valid_type_list=[list, type(None)])
         if len(split_dirname_list) != len(ratio):
             logger.error(f'len(split_dirname_list) == {len(split_dirname_list)} != {len(ratio)} == len(ratio)')
             raise Exception
@@ -1239,6 +1310,14 @@ class COCO_Dataset:
             verbose=verbose
         )
 
+    def remove_all_categories_except(self, target_category_names: List[str], verbose: bool=False):
+        category_names = [category.name for category in self.categories]
+        check_value_from_list(target_category_names, valid_value_list=category_names)
+        self.remove_categories_by_name(
+            category_names=[name for name in category_names if name not in target_category_names],
+            verbose=verbose
+        )
+
     def print_handler_lengths(self):
         logger.info(f'len(licenses): {len(self.licenses)}')
         logger.info(f'len(images): {len(self.images)}')
@@ -1323,11 +1402,16 @@ class COCO_Dataset:
         for draw_target in draw_order:
             if draw_target.lower() == 'bbox':
                 if show_bbox:
-                    result = draw_bbox(
-                        img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                        label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
-                        label_orientation=bbox_label_orientation
-                    )
+                    if show_bbox_label:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
+                            label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+                            label_orientation=bbox_label_orientation
+                        )
+                    else:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
+                        )
             elif draw_target.lower() == 'seg':
                 if show_seg:
                     result = draw_segmentation(

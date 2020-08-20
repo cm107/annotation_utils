@@ -11,6 +11,9 @@ from common_utils.check_utils import check_required_keys, check_type_from_list, 
     check_type, check_file_exists
 from common_utils.file_utils import file_exists
 
+logger.warning('The use of annotation_utils.base.basic.py is deprecated as of pyclay-annotation_utils>=0.3.5')
+logger.warning('Please install pyclay-common_utils>=0.2.2 use common_utils.base.basic.py instead.')
+
 T = TypeVar('T')
 H = TypeVar('H')
 

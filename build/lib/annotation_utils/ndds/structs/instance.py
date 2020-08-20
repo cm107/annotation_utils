@@ -9,10 +9,10 @@ from common_utils.common_types.segmentation import Segmentation
 from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
 from common_utils.common_types.point import Point2D, Point3D
 
-from ...base.basic import BasicObject, BasicHandler
+from common_utils.base.basic import BasicObject, BasicHandler, BasicLoadableObject, BasicLoadableHandler
 from .objects import NDDS_Annotation_Object
 
-class ObjectInstance(BasicObject['ObjectInstance']):
+class ObjectInstance(BasicLoadableObject['ObjectInstance'], BasicObject['ObjectInstance']):
     def __init__(
         self, instance_type: str, ndds_ann_obj: NDDS_Annotation_Object, instance_name: str=None, contained_instance_list: List[ObjectInstance]=None
     ):
@@ -56,6 +56,23 @@ class ObjectInstance(BasicObject['ObjectInstance']):
             else:
                 param_str += f', {key}={val}'
         return f'ObjectInstance({param_str})'
+
+    def to_dict(self) -> dict:
+        return {
+            'instance_type': self.instance_type,
+            'ndds_ann_obj': self.ndds_ann_obj.to_dict(),
+            'instance_name': self.instance_name,
+            'contained_instance_list': [instance.to_dict() for instance in self.contained_instance_list]
+        }
+
+    @classmethod
+    def from_dict(self, item_dict: dict) -> ObjectInstance:
+        return ObjectInstance(
+            instance_type=item_dict['instance_type'],
+            ndds_ann_obj=NDDS_Annotation_Object.from_dict(item_dict['ndds_ann_obj']),
+            instance_name=item_dict['instance_name'],
+            contained_instance_list=[ObjectInstance.from_dict(instance_dict) for instance_dict in item_dict['contained_instance_list']]
+        )
 
     def append_contained(self, new_contained_instance: ObjectInstance):
         check_value(self.instance_type, valid_value_list=['bbox', 'seg'])
@@ -109,7 +126,10 @@ class ObjectInstance(BasicObject['ObjectInstance']):
         
         self.contained_instance_list.append(new_contained_instance)
     
-    def get_segmentation(self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None, exclude_invalid_polygons: bool=True, strict: bool=True) -> Segmentation:
+    def get_segmentation(
+        self, instance_img: np.ndarray, color_interval: int=1, is_img_path: str=None, exclude_invalid_polygons: bool=True,
+        allow_unfound_seg: bool=False
+    ) -> Segmentation:
         instance_color = self.ndds_ann_obj.get_color_from_id()
         seg = self.ndds_ann_obj.get_instance_segmentation(
             img=instance_img, target_bgr=instance_color, interval=color_interval,
@@ -126,7 +146,7 @@ class ObjectInstance(BasicObject['ObjectInstance']):
             logger.error(f'self.ndds_ann_obj.bounding_box: {self.ndds_ann_obj.bounding_box}')
             if is_img_path is not None:
                 logger.error(f'is_img_path: {is_img_path}')
-            if strict:
+            if not allow_unfound_seg:
                 raise Exception
         return seg
 
@@ -147,10 +167,17 @@ class ObjectInstance(BasicObject['ObjectInstance']):
                 kpts_3d.append(Keypoint3D.origin())
         return kpts_2d, kpts_3d
 
-class ObjectInstanceHandler(BasicHandler['ObjectInstanceHandler', 'ObjectInstance']):
+class ObjectInstanceHandler(
+    BasicLoadableHandler['ObjectInstanceHandler', 'ObjectInstance'],
+    BasicHandler['ObjectInstanceHandler', 'ObjectInstance']
+):
     def __init__(self, instance_list: List[ObjectInstance]=None):
         super().__init__(obj_type=ObjectInstance, obj_list=instance_list)
         self.instance_list = self.obj_list
+
+    @classmethod
+    def from_dict_list(cls, dict_list: List[dict]) -> ObjectInstanceHandler:
+        return ObjectInstanceHandler([ObjectInstance.from_dict(item_dict) for item_dict in dict_list])
 
     def append(self, obj_instance: ObjectInstance):
         for instance in self:
@@ -203,7 +230,7 @@ class ObjectInstanceHandler(BasicHandler['ObjectInstanceHandler', 'ObjectInstanc
         else:
             raise Exception
 
-class LabeledObject(BasicObject['LabeledObject']):
+class LabeledObject(BasicLoadableObject['LabeledObject'], BasicObject['LabeledObject']):
     def __init__(self, obj_name: str, instances: ObjectInstanceHandler=None):
         self.obj_name = obj_name
         self.instances = instances if instances is not None else ObjectInstanceHandler()
@@ -218,10 +245,30 @@ class LabeledObject(BasicObject['LabeledObject']):
                 param_str += f', {key}={val}'
         return f'LabeledObject({param_str})'
 
-class LabeledObjectHandler(BasicHandler['LabeledObjectHandler', 'LabeledObject']):
+    def to_dict(self) -> dict:
+        return {
+            'obj_name': self.obj_name,
+            'instances': self.instances.to_dict_list()
+        }
+    
+    @classmethod
+    def from_dict(self, item_dict: dict) -> LabeledObject:
+        return LabeledObject(
+            obj_name=item_dict['obj_name'],
+            instances=ObjectInstanceHandler.from_dict_list(item_dict['instances'])
+        )
+
+class LabeledObjectHandler(
+    BasicLoadableHandler['LabeledObjectHandler', 'LabeledObject'],
+    BasicHandler['LabeledObjectHandler', 'LabeledObject']
+):
     def __init__(self, labeled_obj_list: List[LabeledObject]=None):
         super().__init__(obj_type=LabeledObject, obj_list=labeled_obj_list)
         self.labeled_obj_list = self.obj_list
+
+    @classmethod
+    def from_dict_list(cls, dict_list: List[dict]) -> LabeledObjectHandler:
+        return LabeledObjectHandler([LabeledObject.from_dict(item_dict) for item_dict in dict_list])
 
     def append(self, labeled_obj: LabeledObject):
         for obj in self:

@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List
 
 from logger import logger
-from ...base.basic import BasicLoadableHandler, BasicHandler
+from common_utils.base.basic import BasicLoadableHandler, BasicHandler
 from .objects import NDDS_Annotation_Object
 
 class NDDS_Annotation_Object_Handler(
