@@ -1108,6 +1108,27 @@ class COCO_Dataset:
             pbar.close()
         return COCO_Dataset.combine(dataset_list, show_pbar=show_pbar)
 
+    def split_into_parts(self, ratio: List[int], shuffle: bool=True) -> List[COCO_Dataset]:
+        dataset_parts = []
+
+        image_handlers = self.images.split(ratio=ratio, shuffle=shuffle)
+        for image_handler in image_handlers:
+            image_handler = COCO_Image_Handler.buffer(image_handler)
+            relevant_img_ids = image_handler.ids
+            relevant_license_ids = [coco_image.license_id for coco_image in image_handler]
+            ann_handler = COCO_Annotation_Handler([coco_ann for coco_ann in self.annotations if coco_ann.image_id in relevant_img_ids])
+            license_handler = COCO_License_Handler([coco_license for coco_license in self.licenses if coco_license.id in relevant_license_ids])
+            relevant_category_ids = [coco_ann.category_id for coco_ann in ann_handler]
+            category_handler = COCO_Category_Handler([coco_category for coco_category in self.categories if coco_category.id in relevant_category_ids])
+            info = self.info.copy()
+            dataset_part = COCO_Dataset(info=info, licenses=license_handler, images=image_handler, annotations=ann_handler, categories=category_handler)
+            dataset_parts.append(dataset_part)
+        
+        print(f'{[len(part.images) for part in dataset_parts]} ?= {len(self.images)}')
+        assert sum([len(part.images) for part in dataset_parts]) == len(self.images), 'Failed to split images correctly.'
+        assert sum([len(part.annotations) for part in dataset_parts]) == len(self.annotations), 'Failed to split annotations correctly.'
+        return dataset_parts
+
     def split(
         self, dest_dir: str,
         split_dirname_list: List[str]=['train', 'test', 'val'], ratio: list=[2, 1, 0], coco_filename_list: List[str]=None,
@@ -1170,18 +1191,19 @@ class COCO_Dataset:
             
 
         # Split COCO Images Into Samples
-        locations = np.cumsum([val*int(len(self.images)/sum(ratio)) for val in ratio]) - 1
-        start_location = None
-        end_location = 0
-        count = 0
-        coco_image_samples = []
-        if shuffle:
-            self.images.shuffle()
-        while count < len(locations):
-            start_location = end_location
-            end_location = locations[count]
-            count += 1
-            coco_image_samples.append(self.images[start_location:end_location].copy())
+        # locations = np.cumsum([val*int(len(self.images)/sum(ratio)) for val in ratio]) - 1
+        # start_location = None
+        # end_location = 0
+        # count = 0
+        # coco_image_samples = []
+        # if shuffle:
+        #     self.images.shuffle()
+        # while count < len(locations):
+        #     start_location = end_location
+        #     end_location = locations[count]
+        #     count += 1
+        #     coco_image_samples.append(self.images[start_location:end_location].copy())
+        coco_image_samples = self.images.split(ratio=ratio, shuffle=shuffle)
 
         # Construct New Datasets
         dataset_list = []

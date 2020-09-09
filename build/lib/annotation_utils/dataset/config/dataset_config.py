@@ -339,9 +339,9 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
         return [collection.to_dict() for collection in self]
 
     @classmethod
-    def from_dict_list(cls, collection_dict_list: List[dict]) -> DatasetConfigCollectionHandler:
+    def from_dict_list(cls, collection_dict_list: List[dict], check_paths: bool=True) -> DatasetConfigCollectionHandler:
         return DatasetConfigCollectionHandler(
-            collection_list=[DatasetConfigCollection.from_dict(collection_dict) for collection_dict in collection_dict_list]
+            collection_list=[DatasetConfigCollection.from_dict(collection_dict, check_paths=check_paths) for collection_dict in collection_dict_list]
         )
 
     def save_to_path(self, save_path: str, overwrite: bool=False):
@@ -361,7 +361,7 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
             raise Exception
 
     @classmethod
-    def load_from_path(cls, path: str) -> DatasetConfigCollectionHandler:
+    def load_from_path(cls, path: str, check_paths: bool=True) -> DatasetConfigCollectionHandler:
         check_file_exists(path)
         extension = get_extension_from_path(path)
         if extension == 'json':
@@ -372,7 +372,7 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
             logger.error(f'Invalid file extension encountered: {extension}')
             logger.error(f'Path specified: {path}')
             raise Exception
-        return DatasetConfigCollectionHandler.from_dict_list(collection_dict_list)
+        return DatasetConfigCollectionHandler.from_dict_list(collection_dict_list, check_paths=check_paths)
 
     def filter_by_collection_tag(self, tags: List[str]=None) -> DatasetConfigCollectionHandler:
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags

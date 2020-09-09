@@ -3,6 +3,7 @@ from typing import List
 from logger import logger
 from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 from common_utils.common_types.keypoint import Keypoint2D_List
+from common_utils.common_types.bbox import BBox
 from common_utils.check_utils import check_required_keys
 
 class KeypointResult(BasicLoadableObject):
@@ -59,4 +60,47 @@ class KeypointResultHandler(
     def from_dict_list(self, dict_list: List[dict]) -> KeypointResultHandler:
         return KeypointResultHandler(
             kpt_results=[KeypointResult.from_dict(item_dict) for item_dict in dict_list]
+        )
+
+class BBoxKeypointResult(BasicLoadableObject):
+    def __init__(self, image_id: int, category_id: int, bbox: BBox, keypoints: Keypoint2D_List, score: float):
+        super().__init__()
+        self.image_id = image_id
+        self.category_id = category_id
+        self.bbox = bbox
+        self.keypoints = keypoints
+        self.score = score
+
+    def to_dict(self) -> dict:
+        result_dict =  {
+            'image_id': self.image_id,
+            'category_id': self.category_id,
+            'bbox': self.bbox.to_list(output_format='pminsize'),
+            'keypoints': self.keypoints.to_list(demarcation=False),
+            'score': self.score
+        }
+        return result_dict
+
+    @classmethod
+    def from_dict(self, item_dict: dict) -> BBoxKeypointResult:
+        return BBoxKeypointResult(
+            image_id=item_dict['image_id'],
+            category_id=item_dict['category_id'],
+            keypoints=Keypoint2D_List.from_list(item_dict['keypoints'], demarcation=False),
+            bbox=BBox.from_list(item_dict['bbox'], input_format='pminsize'),
+            score=item_dict['score']
+        )
+
+class BBoxKeypointResultHandler(
+    BasicLoadableHandler['BBoxKeypointResultHandler', 'BBoxKeypointResult'],
+    BasicHandler['BBoxKeypointResultHandler', 'BBoxKeypointResult']
+):
+    def __init__(self, kpt_results: List[BBoxKeypointResult]=None):
+        super().__init__(obj_type=BBoxKeypointResult, obj_list=kpt_results)
+        self.kpt_results = self.obj_list
+    
+    @classmethod
+    def from_dict_list(self, dict_list: List[dict]) -> BBoxKeypointResultHandler:
+        return BBoxKeypointResultHandler(
+            kpt_results=[BBoxKeypointResult.from_dict(item_dict) for item_dict in dict_list]
         )
