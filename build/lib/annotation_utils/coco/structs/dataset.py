@@ -242,7 +242,8 @@ class COCO_Dataset:
                 raise Exception
 
         pbar = tqdm(total=len(self.images), unit='image(s)') if show_pbar else None
-        pbar.set_description(f'Moving Images...')
+        if pbar is not None:
+            pbar.set_description(f'Moving Images...')
         for coco_image in self.images:
             if not preserve_filenames:
                 img_extension = get_extension_from_path(coco_image.coco_url)
