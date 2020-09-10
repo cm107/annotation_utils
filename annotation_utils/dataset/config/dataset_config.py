@@ -381,3 +381,21 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
     def filter_by_dataset_tag(self, tags: List[str]=None) -> DatasetConfigCollectionHandler:
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
         return DatasetConfigCollectionHandler([collection.filter_by_tag(tags=target_tags) for collection in self])
+    
+    def get_configs_by_dataset_tag(self, tags: List[str]=None) -> List[DatasetConfig]:
+        if isinstance(tags, type(None)):
+            target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
+        elif isinstance(tags, str):
+            target_tags = [tags]
+        elif isinstance(tags, (tuple, list)):
+            for tag in tags:
+                assert isinstance(tag, str)
+            target_tags = list(tags)
+        else:
+            raise TypeError
+        configs = []
+        for collection in self:
+            for config in collection:
+                if config.tag in target_tags:
+                    configs.append(config)
+        return configs
