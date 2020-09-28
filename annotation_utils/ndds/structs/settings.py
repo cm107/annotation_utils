@@ -44,7 +44,7 @@ class CameraSettings(BasicLoadableObject['CameraSettings']):
         super().__init__()
         check_type(name, valid_type_list=[str])
         self.name = name
-        check_type(horizontal_fov, valid_type_list=[int])
+        check_type(horizontal_fov, valid_type_list=[int, float])
         self.horizontal_fov = horizontal_fov
         check_type(intrinsic_settings, valid_type_list=[IntrinsicSettings])
         self.intrinsic_settings = intrinsic_settings
