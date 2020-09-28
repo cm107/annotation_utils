@@ -43,8 +43,7 @@ for target in targets:
                 ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}'
             elif ann_obj.class_name.lower() in list('abcdefghijkl'):
                 obj_type, obj_name = 'kpt', 'hsr'
-                temp = ann_obj.class_name.replace('point', '')
-                instance_name, contained_name = temp[1], temp[0]
+                instance_name, contained_name = '0', ann_obj.class_name
                 ann_obj.class_name = f'{obj_type}_{obj_name}_{instance_name}_{contained_name}'
             else:
                 logger.error(f'Unknown ann_obj.class_name: {ann_obj.class_name}')
@@ -56,7 +55,9 @@ for target in targets:
             categories=hsr_categories,
             naming_rule='type_object_instance_contained',
             show_pbar=True,
-            bbox_area_threshold=1
+            bbox_area_threshold=1,
+            allow_same_instance_for_contained=True,
+            color_interval=5
         )
         dataset.move_images(
             dst_target_dir,

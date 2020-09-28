@@ -632,6 +632,7 @@ class COCO_Dataset:
         camera_idx: int=0,
         exclude_invalid_polygons: bool=True,
         allow_unfound_seg: bool=False,
+        allow_same_instance_for_contained: bool=False,
         class_merge_map: Dict[str, str]=None,
         show_pbar: bool=False
     ) -> COCO_Dataset:
@@ -703,6 +704,10 @@ class COCO_Dataset:
             allow_unfound_seg {bool} -- [
                 There may be times when the segmentation can't be parsed from the mask because the object's mask is too thin to create a valid polygon.
                 If True, these cases will be skipped without raising an error.
+            ] (default: {False})
+            allow_same_instance_for_contained {bool} -- [
+                If the objects are created incorrectly in NDDS, sometimes the keypoints might end up with the same instance_id.
+                In that case, you should set this parameter to True.
             ] (default: {False})
             class_merge_map {Dict[str, str]} -- [TODO] (default: None)
             show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
@@ -817,7 +822,10 @@ class COCO_Dataset:
                 instance_img = frame.get_merged_is_img(class_merge_map=class_merge_map)
                 exclude_classes = list(class_merge_map.keys())
 
-            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, exclude_classes=exclude_classes, show_pbar=show_pbar)
+            organized_handler = frame.to_labeled_obj_handler(
+                naming_rule=naming_rule, delimiter=delimiter, exclude_classes=exclude_classes,
+                allow_same_instance_for_contained=allow_same_instance_for_contained, show_pbar=show_pbar
+            )
             for labeled_obj in organized_handler:
                 specified_category_names = [cat.name for cat in categories]
                 if labeled_obj.obj_name not in specified_category_names:
