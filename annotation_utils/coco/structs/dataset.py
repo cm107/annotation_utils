@@ -1133,7 +1133,6 @@ class COCO_Dataset:
             dataset_part = COCO_Dataset(info=info, licenses=license_handler, images=image_handler, annotations=ann_handler, categories=category_handler)
             dataset_parts.append(dataset_part)
         
-        print(f'{[len(part.images) for part in dataset_parts]} ?= {len(self.images)}')
         assert sum([len(part.images) for part in dataset_parts]) == len(self.images), 'Failed to split images correctly.'
         assert sum([len(part.annotations) for part in dataset_parts]) == len(self.annotations), 'Failed to split annotations correctly.'
         return dataset_parts
