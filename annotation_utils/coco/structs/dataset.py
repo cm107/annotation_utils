@@ -1936,8 +1936,10 @@ class COCO_Dataset:
             viewer = SimpleVideoViewer(preview_width=1000, window_name='Annotation Visualization')
 
         last_idx = len(self.images) if end_idx is None else end_idx
-        total_iter = len(self.images[start_idx:last_idx])
-        for coco_image in tqdm(self.images[start_idx:last_idx], total=total_iter, leave=False):
+        relevant_images = self.images[start_idx:last_idx]
+        pbar = tqdm(total=len(relevant_images), unit='frame(s)')
+        pbar.set_description('Writing Video...')
+        for coco_image in relevant_images:
             if show_annotations:
                 img = self.get_preview(
                     image_id=coco_image.id,
@@ -1968,9 +1970,11 @@ class COCO_Dataset:
                 img = scale_to_max(img=img, target_shape=[max_h, max_w])
             img = pad_to_max(img=img, target_shape=[max_h, max_w])
             recorder.write(img)
+            pbar.update()
 
             if show_preview:
                 quit_flag = viewer.show(img)
                 if quit_flag:
                     break
+        pbar.close()
         recorder.close()
