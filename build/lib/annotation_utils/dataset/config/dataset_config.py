@@ -10,10 +10,10 @@ from common_utils.check_utils import check_required_keys, check_type, \
     check_type_from_list, check_list_length, check_file_exists, \
     check_dir_exists
 
-from ...base import BaseStructObject, BaseStructHandler
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 from .path import Path
 
-class DatasetConfig(BaseStructObject['DatasetConfig']):
+class DatasetConfig(BasicLoadableObject['DatasetConfig']):
     def __init__(self, img_dir: str, ann_path: str, ann_format: str='coco', tag: str=None):
         super().__init__()
         self.img_dir = img_dir
@@ -24,7 +24,10 @@ class DatasetConfig(BaseStructObject['DatasetConfig']):
     def __str__(self) -> str:
         return str(self.__dict__)
 
-class DatasetConfigCollection(BaseStructHandler['DatasetConfigCollection', 'DatasetConfig']):
+class DatasetConfigCollection(
+    BasicLoadableHandler['DatasetConfigCollection', 'DatasetConfig'],
+    BasicHandler['DatasetConfigCollection', 'DatasetConfig']
+):
     def __init__(self, dataset_config_list: List[DatasetConfig]=None, tag: str=None):
         super().__init__(obj_type=DatasetConfig, obj_list=dataset_config_list)
         self.dataset_config_list = self.obj_list
@@ -329,7 +332,10 @@ class DatasetConfigCollection(BaseStructHandler['DatasetConfigCollection', 'Data
             tag=collection_tag
         )
 
-class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionHandler', 'DatasetConfigCollection']):
+class DatasetConfigCollectionHandler(
+    BasicLoadableHandler['DatasetConfigCollectionHandler', 'DatasetConfigCollection'],
+    BasicHandler['DatasetConfigCollectionHandler', 'DatasetConfigCollection']
+):
     def __init__(self, collection_list: List[DatasetConfigCollection]=None):
         collection_list0 = [collection for collection in collection_list if len(collection) > 0] if collection_list is not None else None
         super().__init__(obj_type=DatasetConfigCollection, obj_list=collection_list0)

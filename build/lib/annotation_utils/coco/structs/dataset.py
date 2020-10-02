@@ -1078,20 +1078,30 @@ class COCO_Dataset:
         return result_dataset
 
     @classmethod
-    def combine_from_config(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
+    def combine_from_config(cls, config: DatasetConfigCollectionHandler, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
         """
         This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
         Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
         ase well as their corresponding image directories.
         For more information about how to make this dataset configuration file, please refer to the DatasetConfigCollectionHandler class.
 
-        config_path: The path to your dataset configuration file.
+        config: DatasetConfigCollectionHandler object. Also works with a single DatasetConfigCollection object.
         img_sort_attr_name: The attribute name that you would like to sort the dataset images by before the datasets are combined.
                             (Example: img_sort_attr_name='file_name')
         show_pbar: If True, a progress bar will be shown while the images and annotations are loaded into the dataset.
         """
 
-        dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        # dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        if isinstance(config, DatasetConfigCollectionHandler):
+            dataset_path_config = config
+        elif isinstance(config, DatasetConfigCollection):
+            dataset_path_config = DatasetConfigCollectionHandler([config])
+        elif isinstance(config, (list, tuple)) and all([isinstance(part, DatasetConfigCollection) for part in config]):
+            dataset_path_config = DatasetConfigCollectionHandler(list(config))
+        elif isinstance(config, (list, tuple)) and all([isinstance(part, DatasetConfig) for part in config]):
+            dataset_path_config = DatasetConfigCollectionHandler([DatasetConfigCollection(list(config))])
+        else:
+            raise TypeError(f'Cannot use COCO_Dataset.combine_from_config on {type(config).__name__} object.')
         config_list = []
         for collection in dataset_path_config:
             for config in collection:
@@ -1116,6 +1126,22 @@ class COCO_Dataset:
         if pbar is not None:
             pbar.close()
         return COCO_Dataset.combine(dataset_list, show_pbar=show_pbar)
+
+    @classmethod
+    def combine_from_config_path(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
+        """
+        This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
+        Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
+        ase well as their corresponding image directories.
+        For more information about how to make this dataset configuration file, please refer to the DatasetConfigCollectionHandler class.
+
+        config_path: The path to your dataset configuration file.
+        img_sort_attr_name: The attribute name that you would like to sort the dataset images by before the datasets are combined.
+                            (Example: img_sort_attr_name='file_name')
+        show_pbar: If True, a progress bar will be shown while the images and annotations are loaded into the dataset.
+        """
+        dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        return COCO_Dataset.combine_from_config(config=dataset_path_config, img_sort_attr_name=img_sort_attr_name, show_pbar=show_pbar)
 
     def split_into_parts(self, ratio: List[int], shuffle: bool=True) -> List[COCO_Dataset]:
         dataset_parts = []
