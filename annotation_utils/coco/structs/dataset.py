@@ -36,7 +36,7 @@ from ..camera import Camera
 from .misc import KeypointGroup
 from ...labelme.structs import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ..util import COCO_Mapper_Handler
-from ...dataset.config import DatasetConfigCollectionHandler
+from ...dataset.config import DatasetConfigCollectionHandler, DatasetConfigCollection, DatasetConfig
 from ...ndds.structs import NDDS_Dataset, CameraConfig
 
 class COCO_Dataset:
