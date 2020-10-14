@@ -1380,6 +1380,119 @@ class COCO_Dataset:
         logger.info(f'len(annotations): {len(self.annotations)}')
         logger.info(f'len(categories): {len(self.categories)}')
 
+    @staticmethod
+    def draw_ann(
+        img: np.ndarray, coco_ann: COCO_Annotation, coco_cat: COCO_Category=None,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
+        bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
+        bbox_label_only: bool=False,
+        seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
+        kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
+        show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
+        kpt_label_only: bool=False, ignore_kpt_idx: list=[],
+        kpt_idx_offset: int=0,
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
+    ) -> np.ndarray:
+        """
+        Draws the annotation corresponding to ann_id on a given image.
+
+        img: The image array that you would like to draw the annotation on.
+        coco_ann: The coco annotation object that you would like to draw.
+        coco_cat: The coco category object that you would like to use as reference when drawing.
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
+        result = img.copy()
+
+        if len(coco_ann.keypoints) > 0:
+            vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
+            kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
+            base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
+            ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        else:
+            vis_keypoints_arr = np.array([])
+            kpt_visibility = np.array([])
+            ignore_kpt_idx_list = []
+        for draw_target in draw_order:
+            if draw_target.lower() == 'bbox':
+                if show_bbox:
+                    if show_bbox_label:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name if coco_cat is not None else None,
+                            label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+                            label_orientation=bbox_label_orientation
+                        )
+                    else:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
+                        )
+            elif draw_target.lower() == 'seg':
+                if show_seg:
+                    result = draw_segmentation(
+                        img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
+                    )
+            elif draw_target.lower() == 'kpt':
+                if show_kpt:
+                    result = draw_keypoints(
+                        img=result, keypoints=vis_keypoints_arr,
+                        radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints if coco_cat is not None else None,
+                        show_keypoints_labels=show_kpt_labels if coco_cat is not None else False, label_thickness=kpt_label_thickness,
+                        label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+                    )
+            elif draw_target.lower() == 'skeleton':
+                if show_skeleton and coco_cat is not None:
+                    result = draw_skeleton(
+                        img=result, keypoints=vis_keypoints_arr,
+                        keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
+                        thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
+                    )
+            else:
+                logger.error(f'Invalid target: {draw_target}')
+                logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
+                raise Exception
+        return result
+
     def draw_annotation(
         self, img: np.ndarray, ann_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
@@ -1398,8 +1511,7 @@ class COCO_Dataset:
         details_leeway: float=0.4, details_color: list=[255, 0, 255],
         details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True,
-        show_details: bool=False
+        show_skeleton: bool=True, show_seg: bool=True
     ) -> np.ndarray:
         """
         Draws the annotation corresponding to ann_id on a given image.
@@ -1443,56 +1555,77 @@ class COCO_Dataset:
         show_seg: If False, the segmentation will not be drawn at all.
         """
         coco_ann = self.annotations.get_obj_from_id(ann_id)
-        result = img.copy()
+        # result = img.copy()
 
-        if len(coco_ann.keypoints) > 0:
-            vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
-            kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
-            base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
-            ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
-        else:
-            vis_keypoints_arr = np.array([])
-            kpt_visibility = np.array([])
-            ignore_kpt_idx_list = []
+        # if len(coco_ann.keypoints) > 0:
+        #     vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
+        #     kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
+        #     base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
+        #     ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        # else:
+        #     vis_keypoints_arr = np.array([])
+        #     kpt_visibility = np.array([])
+        #     ignore_kpt_idx_list = []
         coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
-        for draw_target in draw_order:
-            if draw_target.lower() == 'bbox':
-                if show_bbox:
-                    if show_bbox_label:
-                        result = draw_bbox(
-                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                            label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
-                            label_orientation=bbox_label_orientation
-                        )
-                    else:
-                        result = draw_bbox(
-                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
-                        )
-            elif draw_target.lower() == 'seg':
-                if show_seg:
-                    result = draw_segmentation(
-                        img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
-                    )
-            elif draw_target.lower() == 'kpt':
-                if show_kpt:
-                    result = draw_keypoints(
-                        img=result, keypoints=vis_keypoints_arr,
-                        radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
-                        show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
-                        label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
-                    )
-            elif draw_target.lower() == 'skeleton':
-                if show_skeleton:
-                    result = draw_skeleton(
-                        img=result, keypoints=vis_keypoints_arr,
-                        keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
-                        thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
-                    )
-            else:
-                logger.error(f'Invalid target: {draw_target}')
-                logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
-                raise Exception
-        return result
+        # for draw_target in draw_order:
+        #     if draw_target.lower() == 'bbox':
+        #         if show_bbox:
+        #             if show_bbox_label:
+        #                 result = draw_bbox(
+        #                     img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
+        #                     label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+        #                     label_orientation=bbox_label_orientation
+        #                 )
+        #             else:
+        #                 result = draw_bbox(
+        #                     img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
+        #                 )
+        #     elif draw_target.lower() == 'seg':
+        #         if show_seg:
+        #             result = draw_segmentation(
+        #                 img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
+        #             )
+        #     elif draw_target.lower() == 'kpt':
+        #         if show_kpt:
+        #             result = draw_keypoints(
+        #                 img=result, keypoints=vis_keypoints_arr,
+        #                 radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
+        #                 show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
+        #                 label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+        #             )
+        #     elif draw_target.lower() == 'skeleton':
+        #         if show_skeleton:
+        #             result = draw_skeleton(
+        #                 img=result, keypoints=vis_keypoints_arr,
+        #                 keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
+        #                 thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
+        #             )
+        #     else:
+        #         logger.error(f'Invalid target: {draw_target}')
+        #         logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
+        #         raise Exception
+        # return result
+        return COCO_Dataset.draw_ann(
+                img=img, coco_ann=coco_ann, coco_cat=coco_cat,
+                draw_order=draw_order,
+                bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
+                show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
+                bbox_label_only=bbox_label_only,
+                seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
+                kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
+                show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_color=kpt_label_color,
+                kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
+                kpt_idx_offset=kpt_idx_offset,
+                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                details_corner_pos_ratio=details_corner_pos_ratio,
+                details_height_ratio=details_height_ratio,
+                details_leeway=details_leeway, details_color=details_color,
+                details_thickness=details_thickness,
+                show_bbox=show_bbox, show_kpt=show_kpt,
+                show_skeleton=show_skeleton, show_seg=show_seg
+        )
 
     def get_preview(
         self, image_id: int,
@@ -1585,8 +1718,7 @@ class COCO_Dataset:
                 details_leeway=details_leeway, details_color=details_color,
                 details_thickness=details_thickness,
                 show_bbox=show_bbox, show_kpt=show_kpt,
-                show_skeleton=show_skeleton, show_seg=show_seg,
-                show_details=show_details
+                show_skeleton=show_skeleton, show_seg=show_seg
             )
         if show_details:
             img_h, img_w = img.shape[:2]
