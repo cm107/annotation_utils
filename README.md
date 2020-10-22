@@ -54,3 +54,7 @@ There is not any official documentation about usage yet, but for usage examples 
 * [Dataset Utility Usage Examples](test/dataset)
 * [NDDS Utility Usage Examples](test/ndds)
 * [NDDS to COCO Conversion Examples](test/ndds2coco)
+
+## Documents
+The following documents have been written for further explanation.
+* [Praparing Datasets For Training/Validation](docs/dataset_prep.md)
