@@ -33,6 +33,10 @@ class DatasetConfigCollection(
         self.dataset_config_list = self.obj_list
         self.tag = tag
 
+    @property
+    def all_configs(self) -> List[DatasetConfig]:
+        return [config for config in self]
+
     def to_dict0(self) -> dict:
         # TODO: Work In Progress
         img_dir_list = [Path(config.img_dir).abs() for config in self.dataset_config_list]
@@ -340,6 +344,16 @@ class DatasetConfigCollectionHandler(
         collection_list0 = [collection for collection in collection_list if len(collection) > 0] if collection_list is not None else None
         super().__init__(obj_type=DatasetConfigCollection, obj_list=collection_list0)
         self.collection_list = self.obj_list
+
+    @property
+    def all_configs(self) -> List[DatasetConfig]:
+        result = []
+        for collection in self:
+            result.extend(collection.all_configs)
+        return result
+
+    def to_flat_collection(self, tag: str=None) -> DatasetConfigCollection:
+        return DatasetConfigCollection(self.all_configs, tag=tag)
 
     def to_dict_list(self) -> List[dict]:
         return [collection.to_dict() for collection in self]
