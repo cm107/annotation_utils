@@ -1496,7 +1496,7 @@ class COCO_Dataset:
     def draw_annotation(
         self, img: np.ndarray, ann_id: int,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
-        bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
+        bbox_color: list=[0, 255, 255], bbox_thickness: int=2, # BBox
         show_bbox_label: bool=True, bbox_label_thickness: int=None,
         bbox_label_color: list=None, bbox_label_orientation: str='top',
         bbox_label_only: bool=False,
