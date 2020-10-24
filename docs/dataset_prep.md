@@ -15,8 +15,14 @@ This document proposes to approaches for doing so:
     * This approach is more flexible, but it is necessary to maintain/update an excel sheet in addition to your datasets.
 
 ## annotation_utils Installation
-Refer to [README.md](../README.md)
 This walkthrough assumes that you already have annotation_utils installed to your virtual environment.
+The functionality discussed in this document is accurate as of version 0.3.6.
+
+```bash
+pip install pyclay-annotation_utils==0.3.6
+```
+
+Refer to [README.md](../README.md) for other installation options.
 
 ## Source Datasets Explanation
 Suppose that we have collections of datasets that we need to merge into scenarios and split into train/val datasets.

@@ -28,16 +28,20 @@ pip install pyclay-annotation_utils
 
 Note: The github package is updated more often than the pypi package.
 
+## Install From Source
+This package can also be installed locally.
+
+```console
+git clone https://github.com/cm107/annotation_utils.git
+cd annotation_utils
+pip install -e .
+```
+
 ## Update Build
 If you change the code and want to re-build the package, do the following.
 
 ```console
 ./build_package.sh
-```
-
-The package can then be installed locally.
-```console
-pip install -e .
 ```
 
 ## Important Note
