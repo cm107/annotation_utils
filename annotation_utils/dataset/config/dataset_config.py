@@ -10,10 +10,10 @@ from common_utils.check_utils import check_required_keys, check_type, \
     check_type_from_list, check_list_length, check_file_exists, \
     check_dir_exists
 
-from ...base import BaseStructObject, BaseStructHandler
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 from .path import Path
 
-class DatasetConfig(BaseStructObject['DatasetConfig']):
+class DatasetConfig(BasicLoadableObject['DatasetConfig']):
     def __init__(self, img_dir: str, ann_path: str, ann_format: str='coco', tag: str=None):
         super().__init__()
         self.img_dir = img_dir
@@ -24,11 +24,18 @@ class DatasetConfig(BaseStructObject['DatasetConfig']):
     def __str__(self) -> str:
         return str(self.__dict__)
 
-class DatasetConfigCollection(BaseStructHandler['DatasetConfigCollection', 'DatasetConfig']):
+class DatasetConfigCollection(
+    BasicLoadableHandler['DatasetConfigCollection', 'DatasetConfig'],
+    BasicHandler['DatasetConfigCollection', 'DatasetConfig']
+):
     def __init__(self, dataset_config_list: List[DatasetConfig]=None, tag: str=None):
         super().__init__(obj_type=DatasetConfig, obj_list=dataset_config_list)
         self.dataset_config_list = self.obj_list
         self.tag = tag
+
+    @property
+    def all_configs(self) -> List[DatasetConfig]:
+        return [config for config in self]
 
     def to_dict0(self) -> dict:
         # TODO: Work In Progress
@@ -329,19 +336,32 @@ class DatasetConfigCollection(BaseStructHandler['DatasetConfigCollection', 'Data
             tag=collection_tag
         )
 
-class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionHandler', 'DatasetConfigCollection']):
+class DatasetConfigCollectionHandler(
+    BasicLoadableHandler['DatasetConfigCollectionHandler', 'DatasetConfigCollection'],
+    BasicHandler['DatasetConfigCollectionHandler', 'DatasetConfigCollection']
+):
     def __init__(self, collection_list: List[DatasetConfigCollection]=None):
         collection_list0 = [collection for collection in collection_list if len(collection) > 0] if collection_list is not None else None
         super().__init__(obj_type=DatasetConfigCollection, obj_list=collection_list0)
         self.collection_list = self.obj_list
 
+    @property
+    def all_configs(self) -> List[DatasetConfig]:
+        result = []
+        for collection in self:
+            result.extend(collection.all_configs)
+        return result
+
+    def to_flat_collection(self, tag: str=None) -> DatasetConfigCollection:
+        return DatasetConfigCollection(self.all_configs, tag=tag)
+
     def to_dict_list(self) -> List[dict]:
         return [collection.to_dict() for collection in self]
 
     @classmethod
-    def from_dict_list(cls, collection_dict_list: List[dict]) -> DatasetConfigCollectionHandler:
+    def from_dict_list(cls, collection_dict_list: List[dict], check_paths: bool=True) -> DatasetConfigCollectionHandler:
         return DatasetConfigCollectionHandler(
-            collection_list=[DatasetConfigCollection.from_dict(collection_dict) for collection_dict in collection_dict_list]
+            collection_list=[DatasetConfigCollection.from_dict(collection_dict, check_paths=check_paths) for collection_dict in collection_dict_list]
         )
 
     def save_to_path(self, save_path: str, overwrite: bool=False):
@@ -361,7 +381,7 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
             raise Exception
 
     @classmethod
-    def load_from_path(cls, path: str) -> DatasetConfigCollectionHandler:
+    def load_from_path(cls, path: str, check_paths: bool=True) -> DatasetConfigCollectionHandler:
         check_file_exists(path)
         extension = get_extension_from_path(path)
         if extension == 'json':
@@ -372,7 +392,7 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
             logger.error(f'Invalid file extension encountered: {extension}')
             logger.error(f'Path specified: {path}')
             raise Exception
-        return DatasetConfigCollectionHandler.from_dict_list(collection_dict_list)
+        return DatasetConfigCollectionHandler.from_dict_list(collection_dict_list, check_paths=check_paths)
 
     def filter_by_collection_tag(self, tags: List[str]=None) -> DatasetConfigCollectionHandler:
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
@@ -381,3 +401,21 @@ class DatasetConfigCollectionHandler(BaseStructHandler['DatasetConfigCollectionH
     def filter_by_dataset_tag(self, tags: List[str]=None) -> DatasetConfigCollectionHandler:
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
         return DatasetConfigCollectionHandler([collection.filter_by_tag(tags=target_tags) for collection in self])
+    
+    def get_configs_by_dataset_tag(self, tags: List[str]=None) -> List[DatasetConfig]:
+        if isinstance(tags, type(None)):
+            target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
+        elif isinstance(tags, str):
+            target_tags = [tags]
+        elif isinstance(tags, (tuple, list)):
+            for tag in tags:
+                assert isinstance(tag, str)
+            target_tags = list(tags)
+        else:
+            raise TypeError
+        configs = []
+        for collection in self:
+            for config in collection:
+                if config.tag in target_tags:
+                    configs.append(config)
+        return configs

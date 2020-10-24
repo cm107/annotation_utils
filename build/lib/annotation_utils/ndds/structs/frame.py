@@ -55,7 +55,7 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
             is_img_path=item_dict['is_img_path'] if 'is_img_path' in item_dict else None
         )
 
-    def to_labeled_obj_handler(self, naming_rule: str='type_object_instance_contained', delimiter: str='_', exclude_classes: List[str]=None, show_pbar: bool=False) -> LabeledObjectHandler:
+    def to_labeled_obj_handler(self, naming_rule: str='type_object_instance_contained', delimiter: str='_', exclude_classes: List[str]=None, allow_same_instance_for_contained: bool=False, show_pbar: bool=False) -> LabeledObjectHandler:
         def process_non_contained(handler: LabeledObjectHandler, ann_obj: NDDS_Annotation_Object):
             obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
             if obj_name not in handler.get_obj_names(): # New Object
@@ -84,7 +84,7 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                     logger.error(f"Failed to add instance to {obj_type}_{obj_name}")
                     raise Exception
 
-        def process_contained(handler: LabeledObjectHandler, ann_obj: NDDS_Annotation_Object):
+        def process_contained(handler: LabeledObjectHandler, ann_obj: NDDS_Annotation_Object, allow_same_instance_for_contained: bool=False):
             obj_type, obj_name, instance_name, contained_name = ann_obj.parse_obj_info(naming_rule=naming_rule, delimiter=delimiter)
             if obj_name not in handler.get_obj_names():
                 logger.error(
@@ -106,7 +106,8 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                         instance_type=obj_type,
                         ndds_ann_obj=ann_obj,
                         instance_name=contained_name
-                    )
+                    ),
+                    allow_same_instance_for_contained=allow_same_instance_for_contained
                 )
             except:
                 etype, evalue, tb = sys.exc_info()
@@ -145,7 +146,7 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
                         contained_pbar.update()
                     continue
                 if contained_name is not None: # Contained Object
-                    process_contained(handler=handler, ann_obj=ann_obj)
+                    process_contained(handler=handler, ann_obj=ann_obj, allow_same_instance_for_contained=allow_same_instance_for_contained)
                 if show_pbar:
                     contained_pbar.update()
             return handler

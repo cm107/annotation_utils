@@ -36,7 +36,7 @@ from ..camera import Camera
 from .misc import KeypointGroup
 from ...labelme.structs import LabelmeAnnotationHandler, LabelmeAnnotation, LabelmeShapeHandler, LabelmeShape
 from ..util import COCO_Mapper_Handler
-from ...dataset.config import DatasetConfigCollectionHandler
+from ...dataset.config import DatasetConfigCollectionHandler, DatasetConfigCollection, DatasetConfig
 from ...ndds.structs import NDDS_Dataset, CameraConfig
 
 class COCO_Dataset:
@@ -242,7 +242,8 @@ class COCO_Dataset:
                 raise Exception
 
         pbar = tqdm(total=len(self.images), unit='image(s)') if show_pbar else None
-        pbar.set_description(f'Moving Images...')
+        if pbar is not None:
+            pbar.set_description(f'Moving Images...')
         for coco_image in self.images:
             if not preserve_filenames:
                 img_extension = get_extension_from_path(coco_image.coco_url)
@@ -631,6 +632,7 @@ class COCO_Dataset:
         camera_idx: int=0,
         exclude_invalid_polygons: bool=True,
         allow_unfound_seg: bool=False,
+        allow_same_instance_for_contained: bool=False,
         class_merge_map: Dict[str, str]=None,
         show_pbar: bool=False
     ) -> COCO_Dataset:
@@ -702,6 +704,10 @@ class COCO_Dataset:
             allow_unfound_seg {bool} -- [
                 There may be times when the segmentation can't be parsed from the mask because the object's mask is too thin to create a valid polygon.
                 If True, these cases will be skipped without raising an error.
+            ] (default: {False})
+            allow_same_instance_for_contained {bool} -- [
+                If the objects are created incorrectly in NDDS, sometimes the keypoints might end up with the same instance_id.
+                In that case, you should set this parameter to True.
             ] (default: {False})
             class_merge_map {Dict[str, str]} -- [TODO] (default: None)
             show_pbar {bool} -- [Whether or not you would like to display a progress bar in your terminal during conversion.] (default: {False})
@@ -816,7 +822,10 @@ class COCO_Dataset:
                 instance_img = frame.get_merged_is_img(class_merge_map=class_merge_map)
                 exclude_classes = list(class_merge_map.keys())
 
-            organized_handler = frame.to_labeled_obj_handler(naming_rule=naming_rule, delimiter=delimiter, exclude_classes=exclude_classes, show_pbar=show_pbar)
+            organized_handler = frame.to_labeled_obj_handler(
+                naming_rule=naming_rule, delimiter=delimiter, exclude_classes=exclude_classes,
+                allow_same_instance_for_contained=allow_same_instance_for_contained, show_pbar=show_pbar
+            )
             for labeled_obj in organized_handler:
                 specified_category_names = [cat.name for cat in categories]
                 if labeled_obj.obj_name not in specified_category_names:
@@ -1069,20 +1078,30 @@ class COCO_Dataset:
         return result_dataset
 
     @classmethod
-    def combine_from_config(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
+    def combine_from_config(cls, config: DatasetConfigCollectionHandler, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
         """
         This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
         Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
         ase well as their corresponding image directories.
         For more information about how to make this dataset configuration file, please refer to the DatasetConfigCollectionHandler class.
 
-        config_path: The path to your dataset configuration file.
+        config: DatasetConfigCollectionHandler object. Also works with a single DatasetConfigCollection object.
         img_sort_attr_name: The attribute name that you would like to sort the dataset images by before the datasets are combined.
                             (Example: img_sort_attr_name='file_name')
         show_pbar: If True, a progress bar will be shown while the images and annotations are loaded into the dataset.
         """
 
-        dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        # dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        if isinstance(config, DatasetConfigCollectionHandler):
+            dataset_path_config = config
+        elif isinstance(config, DatasetConfigCollection):
+            dataset_path_config = DatasetConfigCollectionHandler([config])
+        elif isinstance(config, (list, tuple)) and all([isinstance(part, DatasetConfigCollection) for part in config]):
+            dataset_path_config = DatasetConfigCollectionHandler(list(config))
+        elif isinstance(config, (list, tuple)) and all([isinstance(part, DatasetConfig) for part in config]):
+            dataset_path_config = DatasetConfigCollectionHandler([DatasetConfigCollection(list(config))])
+        else:
+            raise TypeError(f'Cannot use COCO_Dataset.combine_from_config on {type(config).__name__} object.')
         config_list = []
         for collection in dataset_path_config:
             for config in collection:
@@ -1107,6 +1126,42 @@ class COCO_Dataset:
         if pbar is not None:
             pbar.close()
         return COCO_Dataset.combine(dataset_list, show_pbar=show_pbar)
+
+    @classmethod
+    def combine_from_config_path(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
+        """
+        This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
+        Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
+        ase well as their corresponding image directories.
+        For more information about how to make this dataset configuration file, please refer to the DatasetConfigCollectionHandler class.
+
+        config_path: The path to your dataset configuration file.
+        img_sort_attr_name: The attribute name that you would like to sort the dataset images by before the datasets are combined.
+                            (Example: img_sort_attr_name='file_name')
+        show_pbar: If True, a progress bar will be shown while the images and annotations are loaded into the dataset.
+        """
+        dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
+        return COCO_Dataset.combine_from_config(config=dataset_path_config, img_sort_attr_name=img_sort_attr_name, show_pbar=show_pbar)
+
+    def split_into_parts(self, ratio: List[int], shuffle: bool=True) -> List[COCO_Dataset]:
+        dataset_parts = []
+
+        image_handlers = self.images.split(ratio=ratio, shuffle=shuffle)
+        for image_handler in image_handlers:
+            image_handler = COCO_Image_Handler.buffer(image_handler)
+            relevant_img_ids = image_handler.ids
+            relevant_license_ids = [coco_image.license_id for coco_image in image_handler]
+            ann_handler = COCO_Annotation_Handler([coco_ann for coco_ann in self.annotations if coco_ann.image_id in relevant_img_ids])
+            license_handler = COCO_License_Handler([coco_license for coco_license in self.licenses if coco_license.id in relevant_license_ids])
+            relevant_category_ids = [coco_ann.category_id for coco_ann in ann_handler]
+            category_handler = COCO_Category_Handler([coco_category for coco_category in self.categories if coco_category.id in relevant_category_ids])
+            info = self.info.copy()
+            dataset_part = COCO_Dataset(info=info, licenses=license_handler, images=image_handler, annotations=ann_handler, categories=category_handler)
+            dataset_parts.append(dataset_part)
+        
+        assert sum([len(part.images) for part in dataset_parts]) == len(self.images), 'Failed to split images correctly.'
+        assert sum([len(part.annotations) for part in dataset_parts]) == len(self.annotations), 'Failed to split annotations correctly.'
+        return dataset_parts
 
     def split(
         self, dest_dir: str,
@@ -1170,18 +1225,19 @@ class COCO_Dataset:
             
 
         # Split COCO Images Into Samples
-        locations = np.cumsum([val*int(len(self.images)/sum(ratio)) for val in ratio]) - 1
-        start_location = None
-        end_location = 0
-        count = 0
-        coco_image_samples = []
-        if shuffle:
-            self.images.shuffle()
-        while count < len(locations):
-            start_location = end_location
-            end_location = locations[count]
-            count += 1
-            coco_image_samples.append(self.images[start_location:end_location].copy())
+        # locations = np.cumsum([val*int(len(self.images)/sum(ratio)) for val in ratio]) - 1
+        # start_location = None
+        # end_location = 0
+        # count = 0
+        # coco_image_samples = []
+        # if shuffle:
+        #     self.images.shuffle()
+        # while count < len(locations):
+        #     start_location = end_location
+        #     end_location = locations[count]
+        #     count += 1
+        #     coco_image_samples.append(self.images[start_location:end_location].copy())
+        coco_image_samples = self.images.split(ratio=ratio, shuffle=shuffle)
 
         # Construct New Datasets
         dataset_list = []
@@ -1324,8 +1380,9 @@ class COCO_Dataset:
         logger.info(f'len(annotations): {len(self.annotations)}')
         logger.info(f'len(categories): {len(self.categories)}')
 
-    def draw_annotation(
-        self, img: np.ndarray, ann_id: int,
+    @staticmethod
+    def draw_ann(
+        img: np.ndarray, coco_ann: COCO_Annotation, coco_cat: COCO_Category=None,
         draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
         bbox_color: list=[0, 255, 255], bbox_thickness: list=2, # BBox
         show_bbox_label: bool=True, bbox_label_thickness: int=None,
@@ -1342,8 +1399,119 @@ class COCO_Dataset:
         details_leeway: float=0.4, details_color: list=[255, 0, 255],
         details_thickness: int=2,
         show_bbox: bool=True, show_kpt: bool=True, # Show Flags
-        show_skeleton: bool=True, show_seg: bool=True,
-        show_details: bool=False
+        show_skeleton: bool=True, show_seg: bool=True
+    ) -> np.ndarray:
+        """
+        Draws the annotation corresponding to ann_id on a given image.
+
+        img: The image array that you would like to draw the annotation on.
+        coco_ann: The coco annotation object that you would like to draw.
+        coco_cat: The coco category object that you would like to use as reference when drawing.
+        draw_order: The order in which you would like to draw (render) the annotations.
+                    Example: If you specify 'bbox' after 'seg', the bounding box will be
+                    drawn after the segmentation is drawn.
+        bbox_color: The color of the bbox that is to be drawn.
+        bbox_thickness: The thickness of the bbox that is to be drawn.
+        show_bbox_label: If True, the label of the bbox will be drawn directly above it.
+        bbox_label_thickness: The thickness of the bbox label in the event that it is drawn.
+        bbox_label_color: The color of the bbox label
+        bbox_label_orientation: The orientation of the label around the bbox.
+                                Example: 'top', 'bottom', 'left', 'right'
+        bbox_label_only: If you would rather not draw the bounding box and only show the label,
+                         set this to True.
+        seg_color: The color of the segmentation that is to be drawn.
+        seg_transparent: If True, the segmentation that is drawn will be transparent.
+                         If False, the segmentation will be a solid color.
+        kpt_radius: The radius of the keypoints that are to be drawn.
+        kpt_color: The color of the keypoints that are to be drawn.
+        show_kpt_labels: If True, the labels of the keypoints will be drawn directly above each
+                         keypoint.
+        kpt_label_thickness: The thickness of the keypoint labels in the event that they are drawn.
+        kpt_label_color: The color of the keypoint labels
+        kpt_label_only: If True, the keypoints will not be drawn and only the keypoint labels will
+                        be drawn.
+        ignore_kpt_idx: A list of the keypoint indecies that you would like to skip when drawing
+                        the keypoints. The skeleton segments connected to ignored keypoints will
+                        also be excluded.
+        kpt_idx_offset: If your keypoint skeleton indecies do not start at 0, you need to set an
+                        offset so that the index will start at 0.
+                        Example: If your keypoint index starts at 1, use kpt_idx_offset=-1.
+        skeleton_thickness: The thickness of the skeleton segments that are to be drawn.
+        skeleton_color: The color of the skeleton segments that are to be drawn.
+        show_bbox: If False, the bbox will not be drawn at all.
+        show_kpt: If False, the keypoints will not be drawn at all.
+        show_skeleton: If False, the keypoint skeleton will not be drawn at all.
+        show_seg: If False, the segmentation will not be drawn at all.
+        """
+        result = img.copy()
+
+        if len(coco_ann.keypoints) > 0:
+            vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
+            kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
+            base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
+            ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        else:
+            vis_keypoints_arr = np.array([])
+            kpt_visibility = np.array([])
+            ignore_kpt_idx_list = []
+        for draw_target in draw_order:
+            if draw_target.lower() == 'bbox':
+                if show_bbox:
+                    if show_bbox_label:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name if coco_cat is not None else None,
+                            label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+                            label_orientation=bbox_label_orientation
+                        )
+                    else:
+                        result = draw_bbox(
+                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
+                        )
+            elif draw_target.lower() == 'seg':
+                if show_seg:
+                    result = draw_segmentation(
+                        img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
+                    )
+            elif draw_target.lower() == 'kpt':
+                if show_kpt:
+                    result = draw_keypoints(
+                        img=result, keypoints=vis_keypoints_arr,
+                        radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints if coco_cat is not None else None,
+                        show_keypoints_labels=show_kpt_labels if coco_cat is not None else False, label_thickness=kpt_label_thickness,
+                        label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+                    )
+            elif draw_target.lower() == 'skeleton':
+                if show_skeleton and coco_cat is not None:
+                    result = draw_skeleton(
+                        img=result, keypoints=vis_keypoints_arr,
+                        keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
+                        thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
+                    )
+            else:
+                logger.error(f'Invalid target: {draw_target}')
+                logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
+                raise Exception
+        return result
+
+    def draw_annotation(
+        self, img: np.ndarray, ann_id: int,
+        draw_order: list=['seg', 'bbox', 'skeleton', 'kpt'],
+        bbox_color: list=[0, 255, 255], bbox_thickness: int=2, # BBox
+        show_bbox_label: bool=True, bbox_label_thickness: int=None,
+        bbox_label_color: list=None, bbox_label_orientation: str='top',
+        bbox_label_only: bool=False,
+        seg_color: list=[255, 255, 0], seg_transparent: bool=True, # Segmentation
+        kpt_radius: int=4, kpt_color: list=[0, 0, 255], # Keypoints
+        show_kpt_labels: bool=True, kpt_label_thickness: int=1,
+        kpt_label_color: list=None,
+        kpt_label_only: bool=False, ignore_kpt_idx: list=[],
+        kpt_idx_offset: int=0,
+        skeleton_thickness: int=5, skeleton_color: list=[255, 0, 0], # Skeleton
+        details_corner_pos_ratio: float=0.02, details_height_ratio: float=0.10, # Details
+        details_leeway: float=0.4, details_color: list=[255, 0, 255],
+        details_thickness: int=2,
+        show_bbox: bool=True, show_kpt: bool=True, # Show Flags
+        show_skeleton: bool=True, show_seg: bool=True
     ) -> np.ndarray:
         """
         Draws the annotation corresponding to ann_id on a given image.
@@ -1387,56 +1555,77 @@ class COCO_Dataset:
         show_seg: If False, the segmentation will not be drawn at all.
         """
         coco_ann = self.annotations.get_obj_from_id(ann_id)
-        result = img.copy()
+        # result = img.copy()
 
-        if len(coco_ann.keypoints) > 0:
-            vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
-            kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
-            base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
-            ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
-        else:
-            vis_keypoints_arr = np.array([])
-            kpt_visibility = np.array([])
-            ignore_kpt_idx_list = []
+        # if len(coco_ann.keypoints) > 0:
+        #     vis_keypoints_arr = coco_ann.keypoints.to_numpy(demarcation=True)[:, :2]
+        #     kpt_visibility = coco_ann.keypoints.to_numpy(demarcation=True)[:, 2:].reshape(-1)
+        #     base_ignore_kpt_idx = np.argwhere(np.array(kpt_visibility) == 0.0).reshape(-1).tolist()
+        #     ignore_kpt_idx_list = ignore_kpt_idx + list(set(base_ignore_kpt_idx) - set(ignore_kpt_idx))
+        # else:
+        #     vis_keypoints_arr = np.array([])
+        #     kpt_visibility = np.array([])
+        #     ignore_kpt_idx_list = []
         coco_cat = self.categories.get_obj_from_id(coco_ann.category_id)
-        for draw_target in draw_order:
-            if draw_target.lower() == 'bbox':
-                if show_bbox:
-                    if show_bbox_label:
-                        result = draw_bbox(
-                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
-                            label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
-                            label_orientation=bbox_label_orientation
-                        )
-                    else:
-                        result = draw_bbox(
-                            img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
-                        )
-            elif draw_target.lower() == 'seg':
-                if show_seg:
-                    result = draw_segmentation(
-                        img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
-                    )
-            elif draw_target.lower() == 'kpt':
-                if show_kpt:
-                    result = draw_keypoints(
-                        img=result, keypoints=vis_keypoints_arr,
-                        radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
-                        show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
-                        label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
-                    )
-            elif draw_target.lower() == 'skeleton':
-                if show_skeleton:
-                    result = draw_skeleton(
-                        img=result, keypoints=vis_keypoints_arr,
-                        keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
-                        thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
-                    )
-            else:
-                logger.error(f'Invalid target: {draw_target}')
-                logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
-                raise Exception
-        return result
+        # for draw_target in draw_order:
+        #     if draw_target.lower() == 'bbox':
+        #         if show_bbox:
+        #             if show_bbox_label:
+        #                 result = draw_bbox(
+        #                     img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness, text=coco_cat.name,
+        #                     label_thickness=bbox_label_thickness, label_color=bbox_label_color, label_only=bbox_label_only,
+        #                     label_orientation=bbox_label_orientation
+        #                 )
+        #             else:
+        #                 result = draw_bbox(
+        #                     img=result, bbox=coco_ann.bbox, color=bbox_color, thickness=bbox_thickness
+        #                 )
+        #     elif draw_target.lower() == 'seg':
+        #         if show_seg:
+        #             result = draw_segmentation(
+        #                 img=result, segmentation=coco_ann.segmentation, color=seg_color, transparent=seg_transparent
+        #             )
+        #     elif draw_target.lower() == 'kpt':
+        #         if show_kpt:
+        #             result = draw_keypoints(
+        #                 img=result, keypoints=vis_keypoints_arr,
+        #                 radius=kpt_radius, color=kpt_color, keypoint_labels=coco_cat.keypoints,
+        #                 show_keypoints_labels=show_kpt_labels, label_thickness=kpt_label_thickness,
+        #                 label_color=kpt_label_color, label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx_list
+        #             )
+        #     elif draw_target.lower() == 'skeleton':
+        #         if show_skeleton:
+        #             result = draw_skeleton(
+        #                 img=result, keypoints=vis_keypoints_arr,
+        #                 keypoint_skeleton=coco_cat.skeleton, index_offset=kpt_idx_offset,
+        #                 thickness=skeleton_thickness, color=skeleton_color, ignore_kpt_idx=ignore_kpt_idx_list
+        #             )
+        #     else:
+        #         logger.error(f'Invalid target: {draw_target}')
+        #         logger.error(f"Valid targets: {['bbox', 'seg', 'kpt', 'skeleton']}")
+        #         raise Exception
+        # return result
+        return COCO_Dataset.draw_ann(
+                img=img, coco_ann=coco_ann, coco_cat=coco_cat,
+                draw_order=draw_order,
+                bbox_color=bbox_color, bbox_thickness=bbox_thickness, # BBox
+                show_bbox_label=show_bbox_label, bbox_label_thickness=bbox_label_thickness,
+                bbox_label_color=bbox_label_color, bbox_label_orientation=bbox_label_orientation,
+                bbox_label_only=bbox_label_only,
+                seg_color=seg_color, seg_transparent=seg_transparent, # Segmentation
+                kpt_radius=kpt_radius, kpt_color=kpt_color, # Keypoints
+                show_kpt_labels=show_kpt_labels, kpt_label_thickness=kpt_label_thickness,
+                kpt_label_color=kpt_label_color,
+                kpt_label_only=kpt_label_only, ignore_kpt_idx=ignore_kpt_idx,
+                kpt_idx_offset=kpt_idx_offset,
+                skeleton_thickness=skeleton_thickness, skeleton_color=skeleton_color, # Skeleton
+                details_corner_pos_ratio=details_corner_pos_ratio,
+                details_height_ratio=details_height_ratio,
+                details_leeway=details_leeway, details_color=details_color,
+                details_thickness=details_thickness,
+                show_bbox=show_bbox, show_kpt=show_kpt,
+                show_skeleton=show_skeleton, show_seg=show_seg
+        )
 
     def get_preview(
         self, image_id: int,
@@ -1529,8 +1718,7 @@ class COCO_Dataset:
                 details_leeway=details_leeway, details_color=details_color,
                 details_thickness=details_thickness,
                 show_bbox=show_bbox, show_kpt=show_kpt,
-                show_skeleton=show_skeleton, show_seg=show_seg,
-                show_details=show_details
+                show_skeleton=show_skeleton, show_seg=show_seg
             )
         if show_details:
             img_h, img_w = img.shape[:2]
@@ -1905,8 +2093,10 @@ class COCO_Dataset:
             viewer = SimpleVideoViewer(preview_width=1000, window_name='Annotation Visualization')
 
         last_idx = len(self.images) if end_idx is None else end_idx
-        total_iter = len(self.images[start_idx:last_idx])
-        for coco_image in tqdm(self.images[start_idx:last_idx], total=total_iter, leave=False):
+        relevant_images = self.images[start_idx:last_idx]
+        pbar = tqdm(total=len(relevant_images), unit='frame(s)')
+        pbar.set_description('Writing Video...')
+        for coco_image in relevant_images:
             if show_annotations:
                 img = self.get_preview(
                     image_id=coco_image.id,
@@ -1937,9 +2127,11 @@ class COCO_Dataset:
                 img = scale_to_max(img=img, target_shape=[max_h, max_w])
             img = pad_to_max(img=img, target_shape=[max_h, max_w])
             recorder.write(img)
+            pbar.update()
 
             if show_preview:
                 quit_flag = viewer.show(img)
                 if quit_flag:
                     break
+        pbar.close()
         recorder.close()

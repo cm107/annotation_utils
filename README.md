@@ -28,16 +28,20 @@ pip install pyclay-annotation_utils
 
 Note: The github package is updated more often than the pypi package.
 
+## Install From Source
+This package can also be installed locally.
+
+```console
+git clone https://github.com/cm107/annotation_utils.git
+cd annotation_utils
+pip install -e .
+```
+
 ## Update Build
 If you change the code and want to re-build the package, do the following.
 
 ```console
 ./build_package.sh
-```
-
-The package can then be installed locally.
-```console
-pip install -e .
 ```
 
 ## Important Note
@@ -54,3 +58,7 @@ There is not any official documentation about usage yet, but for usage examples 
 * [Dataset Utility Usage Examples](test/dataset)
 * [NDDS Utility Usage Examples](test/ndds)
 * [NDDS to COCO Conversion Examples](test/ndds2coco)
+
+## Documents
+The following documents have been written for further explanation.
+* [Praparing Datasets For Training/Validation](docs/dataset_prep.md)

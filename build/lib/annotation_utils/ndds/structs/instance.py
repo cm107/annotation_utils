@@ -74,7 +74,7 @@ class ObjectInstance(BasicLoadableObject['ObjectInstance'], BasicObject['ObjectI
             contained_instance_list=[ObjectInstance.from_dict(instance_dict) for instance_dict in item_dict['contained_instance_list']]
         )
 
-    def append_contained(self, new_contained_instance: ObjectInstance):
+    def append_contained(self, new_contained_instance: ObjectInstance, allow_same_instance_for_contained: bool=False):
         check_value(self.instance_type, valid_value_list=['bbox', 'seg'])
         check_type(new_contained_instance, valid_type_list=[ObjectInstance])
         check_value(new_contained_instance.instance_type, valid_value_list=['bbox', 'seg', 'kpt'])
@@ -87,7 +87,7 @@ class ObjectInstance(BasicLoadableObject['ObjectInstance'], BasicObject['ObjectI
             raise Exception
         if new_contained_instance.ndds_ann_obj.instance_id in [
             contained_instance.ndds_ann_obj.instance_id for contained_instance in self.contained_instance_list
-        ]:
+        ] and not allow_same_instance_for_contained:
             logger.error(
                 f'new_contained_instance.ndds_ann_obj.instance_id in ' + \
                 f'[contained_instance.ndds_ann_obj.instance_id for contained_instance in self.contained_instance_list] == True'
