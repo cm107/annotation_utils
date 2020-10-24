@@ -38,8 +38,8 @@ setup(
         'pyqt5>=5.14.1',
         'pandas>=1.0.4',
         'xlrd>=1.2.0',
-        'pyclay-common_utils @ https://github.com/cm107/common_utils/archive/master.zip',
-        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip'
+        'pyclay-common_utils==0.2.3',
+        'pyclay-logger==0.2'
     ],
     python_requires='>=3.7'
 )
