@@ -32,6 +32,8 @@ annotation_utils/detectron/structs/dataset.py
 annotation_utils/labelme/__init__.py
 annotation_utils/labelme/structs/__init__.py
 annotation_utils/labelme/structs/ann.py
+annotation_utils/linemod/__init__.py
+annotation_utils/linemod/objects.py
 annotation_utils/ndds/__init__.py
 annotation_utils/ndds/base.py
 annotation_utils/ndds/coco_base.py
