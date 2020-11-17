@@ -1,8 +1,68 @@
 from __future__ import annotations
 from typing import List
+import numpy as np
+from common_utils.file_utils import file_exists
 from common_utils.base.basic import BasicLoadableIdObject, BasicLoadableObject, BasicLoadableIdHandler, BasicHandler
 from common_utils.common_types.point import Point2D, Point3D, Point2D_List, Point3D_List
 from common_utils.common_types.angle import QuaternionList
+
+class LinemodCamera(BasicLoadableObject['LinemodCamera']):
+    def __init__(self, fx: float, fy: float, cx: float, cy: float):
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
+    
+    def to_matrix(self) -> np.ndarray:
+        return np.array(
+            [
+                [self.fx, 0, self.cx],
+                [0, self.fy, self.cy],
+                [0, 0, 1]
+            ]
+        )
+    
+    @classmethod
+    def from_matrix(self, arr: np.ndarray) -> LinemodCamera:
+        assert arr.shape == (3, 3)
+        assert arr[0, 1] == 0
+        assert arr[1, 0] == 0
+        assert arr[2, 0] == 0
+        assert arr[2, 1] == 0
+        assert arr[2, 2] == 1
+        return LinemodCamera(
+            fx=arr[0,0],
+            fy=arr[1, 1],
+            cx=arr[0, 2],
+            cy=arr[1, 2]
+        )
+    
+    @classmethod
+    def from_image_shape(self, image_shape: List[int]) -> LinemodCamera:
+        height, width = image_shape[:2]
+        return LinemodCamera(
+            fx=max([width, height])/2,
+            fy=max([width, height])/2,
+            cx=width/2,
+            cy=height/2
+        )
+    
+    def save_to_txt(self, save_path: str, overwrite: bool=False):
+        if file_exists(save_path) and not overwrite:
+            raise FileExistsError(
+                f"""
+                File already exists at {save_path}
+                Hint: Use overwrite=True to save anyway.
+                """
+            )
+        np.savetxt(fname=save_path, X=self.to_matrix())
+
+    @classmethod
+    def load_from_txt(self, load_path: str) -> LinemodCamera:
+        if not file_exists(load_path):
+            raise FileNotFoundError(f"Couldn't find file at {load_path}")
+        mat = np.loadtxt(load_path)
+        return LinemodCamera.from_matrix(mat)
 
 class Linemod_Image(
     BasicLoadableIdObject['Linemod_Image'],
@@ -38,8 +98,8 @@ class Linemod_Annotation(
         corner_2d: Point2D_List, corner_3d: Point3D_List,
         center_2d: Point2D, center_3d: Point3D,
         fps_2d: Point2D_List, fps_3d: Point3D_List,
-        K: Point3D_List,
-        pose: QuaternionList,
+        K: LinemodCamera,
+        pose: QuaternionList, # Is this a list of quaternions? Not sure.
         image_id: int, category_id: int, id: int,
         depth_path: str=None
     ):
@@ -55,7 +115,7 @@ class Linemod_Annotation(
         self.center_3d = center_3d
         self.fps_2d = fps_2d
         self.fps_3d = fps_3d
-        self.K = K # Is this a camera matrix? Figure this out later.
+        self.K = K
         self.pose = pose
         self.image_id = image_id
         self.category_id = category_id
@@ -72,7 +132,7 @@ class Linemod_Annotation(
             'center_3d': self.center_3d.to_list(),
             'fps_2d': self.fps_2d.to_list(demarcation=True),
             'fps_3d': self.fps_3d.to_list(demarcation=True),
-            'K': self.K.to_list(demarcation=True),
+            'K': self.K.to_matrix().tolist(),
             'pose': self.pose.to_list(),
             'image_id': self.image_id,
             'category_id': self.category_id,
@@ -96,7 +156,7 @@ class Linemod_Annotation(
             center_3d=Point3D.from_list(item_dict['center_3d']),
             fps_2d=Point2D_List.from_list(item_dict['fps_2d'], demarcation=True),
             fps_3d=Point3D_List.from_list(item_dict['fps_3d'], demarcation=True),
-            K=Point3D_List.from_list(item_dict['K'], demarcation=True),
+            K=LinemodCamera.from_matrix(np.array(item_dict['K'])),
             pose=QuaternionList.from_list(item_dict['pose']),
             image_id=item_dict['image_id'],
             category_id=item_dict['category_id'],
@@ -139,14 +199,14 @@ class Linemod_Category_Handler(
 class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
     def __init__(
         self,
-        images: Linemod_Image_Handler,
-        annotations: Linemod_Annotation_Handler,
-        categories: Linemod_Category_Handler
+        images: Linemod_Image_Handler=None,
+        annotations: Linemod_Annotation_Handler=None,
+        categories: Linemod_Category_Handler=None
     ):
         super().__init__()
-        self.images = images
-        self.annotations = annotations
-        self.categories = categories
+        self.images = images if images is not None else Linemod_Image_Handler()
+        self.annotations = annotations if annotations is not None else Linemod_Annotation_Handler()
+        self.categories = categories if categories is not None else Linemod_Category_Handler()
     
     def to_dict(self) -> dict:
         return {
