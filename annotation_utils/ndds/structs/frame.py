@@ -300,6 +300,7 @@ class NDDS_Frame_Handler(
 
         img_pathlist = get_valid_image_paths(img_dir)
         json_path_list = [path for path in get_all_files_of_extension(dir_path=json_dir, extension='json') if not get_filename(path).startswith('_')]
+        json_path_list.sort()
         handler = NDDS_Frame_Handler()
         if show_pbar:
             pbar = tqdm(total=len(json_path_list), unit='ann(s)', leave=True)
