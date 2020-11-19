@@ -170,10 +170,25 @@ class Linemod_Annotation_Handler(
     def __init__(self, images: List[Linemod_Annotation]=None):
         super().__init__(obj_type=Linemod_Annotation, obj_list=images)
         self.images = self.obj_list
-    
+
     @classmethod
     def from_dict_list(cls, dict_list: List[dict]) -> Linemod_Annotation_Handler:
         return Linemod_Annotation_Handler([Linemod_Annotation.from_dict(item_dict) for item_dict in dict_list])
+
+    def get(
+        self, type: str=None, class_name: str=None,
+        image_id: int=None, category_id: int=None, id: int=None
+    ) -> Linemod_Annotation_Handler:
+        return Linemod_Annotation_Handler(
+            [
+                ann for ann in self \
+                    if (type is None or (type is not None and ann.type == type)) and \
+                        (class_name is None or (class_name is not None and ann.class_name == class_name)) and \
+                        (image_id is None or (image_id is not None and ann.image_id == image_id)) and \
+                        (category_id is None or (category_id is not None and ann.category_id == category_id)) and \
+                        (id is None or (id is not None and ann.id == id))
+            ]
+        )
 
 class Linemod_Category(
     BasicLoadableIdObject['Linemod_Category'],
