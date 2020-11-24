@@ -11,7 +11,7 @@ from common_utils.check_utils import check_required_keys, check_file_exists, \
     check_dir_exists, check_value, check_type_from_list, check_type, \
     check_value_from_list
 from common_utils.file_utils import file_exists, make_dir_if_not_exists, \
-    get_dir_contents_len, delete_all_files_in_dir, copy_file
+    get_dir_contents_len, delete_all_files_in_dir, copy_file, create_softlink
 from common_utils.adv_file_utils import get_next_dump_path
 from common_utils.path_utils import get_filename, get_dirpath_from_filepath, \
     get_extension_from_path, rel_to_abs_path, find_moved_abs_path, \
@@ -203,8 +203,9 @@ class COCO_Dataset:
 
     def move_images(
         self, dst_img_dir: str,
-        preserve_filenames: bool=False, overwrite_duplicates: bool=False, update_img_paths: bool=True, overwrite: bool=False,
-        show_pbar: bool=True
+        softlink: bool=False,
+        preserve_filenames: bool=False, overwrite_duplicates: bool=False, update_img_paths: bool=True,
+        overwrite: bool=False, show_pbar: bool=True
     ):
         """
         Combines all image directories specified in the coco_url of each coco image in self.images
@@ -220,6 +221,7 @@ class COCO_Dataset:
                           combined image directory.
         overwrite: If True, all files in dst_img_dir will be deleted before copying images into the folder.
         """
+        mode_str = 'copy' if not softlink else 'link'
         used_img_dir_list = []
         for coco_image in self.images:
             used_img_dir = get_dirpath_from_filepath(coco_image.coco_url)
@@ -256,7 +258,7 @@ class COCO_Dataset:
                 img_filename = get_filename(coco_image.coco_url)
                 dst_img_path = f'{dst_img_dir}/{img_filename}'
                 if file_exists(dst_img_path) and not overwrite_duplicates:
-                    logger.error(f'Failed to copy {coco_image.coco_url} to {dst_img_dir}')
+                    logger.error(f'Failed to {mode_str} {coco_image.coco_url} to {dst_img_dir}')
                     logger.error(f'{img_filename} already exists in destination directory.')
                     logger.error(f'Hint: In order to use preserve_filenames=True, all filenames in the dataset must be unique.')
                     logger.error(
@@ -264,7 +266,10 @@ class COCO_Dataset:
                         f' in order to automatically assign the destination filename.'
                     )
                     raise Exception
-            copy_file(src_path=coco_image.coco_url, dest_path=dst_img_path, silent=True)
+            if not softlink:
+                copy_file(src_path=coco_image.coco_url, dest_path=dst_img_path, silent=True)
+            else:
+                create_softlink(src_path=rel_to_abs_path(coco_image.coco_url), dst_path=rel_to_abs_path(dst_img_path))
             if update_img_paths:
                 coco_image.coco_url = dst_img_path
                 coco_image.file_name = get_filename(dst_img_path)
@@ -444,6 +449,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided categories.')
                             logger.error(f'category_names: {category_names}')
+                            logger.error(f'Image directory: {img_dir}')
                             logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     poly_list.append(
@@ -459,6 +465,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided categories.')
                             logger.error(f'category_names: {category_names}')
+                            logger.error(f'Image directory: {img_dir}')
                             logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     bbox_list.append(
@@ -486,6 +493,7 @@ class COCO_Dataset:
                         else:
                             logger.error(f'shape.label={shape.label} does not exist in provided category keypoints.')
                             logger.error(f'keypoint_names: {keypoint_names}')
+                            logger.error(f'Image directory: {img_dir}')
                             logger.error(f'Image filename: {img_filename}')
                             raise Exception
                     if shape.label not in kpt_label2points_list:
@@ -541,6 +549,7 @@ class COCO_Dataset:
             if len(postponed_kpts) > 0 and ensure_no_unbounded_kpts:
                 logger.error(f'Unresolved postponed_kpts: {postponed_kpts}')
                 logger.error(f'Unresolved postponed_labels: {postponed_labels}')
+                logger.error(f'Image directory: {img_dir}')
                 logger.error(f'Image filename: {img_filename}')
                 raise Exception
 
@@ -549,6 +558,7 @@ class COCO_Dataset:
                 # (This case often results from mistakes during annotation creation.)
                 if len(kpt_label2points_list) > 0:
                     logger.error(f'The following keypoints were left unbounded:\n{kpt_label2points_list}')
+                    logger.error(f'Image directory: {img_dir}')
                     logger.error(f'Image filename: {img_filename}')
                     raise Exception
 
