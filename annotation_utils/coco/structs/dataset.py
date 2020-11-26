@@ -17,9 +17,9 @@ from common_utils.path_utils import get_filename, get_dirpath_from_filepath, \
     get_extension_from_path, rel_to_abs_path, find_moved_abs_path, \
     get_extension_from_filename
 from common_utils.cv_drawing_utils import \
-    cv_simple_image_viewer, SimpleVideoViewer, \
     draw_bbox, draw_keypoints, draw_segmentation, draw_skeleton, \
     draw_text_rows_at_point
+from streamer.cv_viewer import cv_simple_image_viewer, SimpleVideoViewer
 from common_utils.common_types.point import Point2D, Point2D_List, Point3D, Point3D_List
 from common_utils.common_types.segmentation import Polygon, Segmentation
 from common_utils.common_types.bbox import BBox
