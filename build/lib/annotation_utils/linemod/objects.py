@@ -1,10 +1,19 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 import numpy as np
+from tqdm import tqdm
 from common_utils.file_utils import file_exists
+from common_utils.path_utils import get_filename
 from common_utils.base.basic import BasicLoadableIdObject, BasicLoadableObject, BasicLoadableIdHandler, BasicHandler
 from common_utils.common_types.point import Point2D, Point3D, Point2D_List, Point3D_List
 from common_utils.common_types.angle import QuaternionList
+from common_utils.common_types.segmentation import Segmentation
+from common_utils.common_types.bbox import BBox
+from common_utils.common_types.keypoint import Keypoint2D_List, Keypoint3D_List
+from common_utils.time_utils import get_ctime
+from ..coco.structs.dataset import COCO_Dataset
+from ..coco.structs.objects import COCO_Image, COCO_Annotation, COCO_Category, COCO_License
+from ..coco.camera import Camera as COCO_Camera
 
 class LinemodCamera(BasicLoadableObject['LinemodCamera']):
     def __init__(self, fx: float, fy: float, cx: float, cy: float):
@@ -237,3 +246,130 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
             annotations=Linemod_Annotation_Handler.from_dict_list(item_dict['annotations']),
             categories=Linemod_Category_Handler.from_dict_list(item_dict['categories'])
         )
+    
+    def to_coco(
+        self, img_dir: str=None, mask_dir: str=None, coco_license: COCO_License=None, check_paths: bool=True,
+        mask_lower_bgr: Tuple[int]=None, mask_upper_bgr: Tuple[int]=(255,255,255),
+        show_pbar: bool=True
+    ) -> COCO_Dataset:
+        dataset = COCO_Dataset.new(description='Dataset converted from Linemod to COCO format.')
+        dataset.licenses.append(
+            coco_license if coco_license is not None else COCO_License(
+                url='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
+                name='MIT License',
+                id=len(dataset.licenses)
+            )
+        )
+        coco_license0 = dataset.licenses[-1]
+        for linemod_image in self.images:
+            file_name = get_filename(linemod_image.file_name)
+            img_path = linemod_image.file_name if img_dir is None else f'{img_dir}/{file_name}'
+            if file_exists(img_path):
+                date_captured = get_ctime(img_path)
+            else:
+                if check_paths:
+                    raise FileNotFoundError(f"Couldn't find image at {img_path}")
+                date_captured = ''
+            coco_image = COCO_Image(
+                license_id=coco_license0.id,
+                file_name=file_name,
+                coco_url=img_path,
+                width=linemod_image.width, height=linemod_image.height,
+                date_captured=date_captured, flickr_url=None,
+                id=linemod_image.id
+            )
+            dataset.images.append(coco_image)
+        
+        pbar = tqdm(total=len(self.annotations), unit='annotation(s)') if show_pbar else None
+        if pbar is not None:
+            pbar.set_description('Converting Linemod to COCO')
+        for linemod_ann in self.annotations:
+            mask_filename = get_filename(linemod_ann.mask_path)
+            if mask_dir is not None:
+                mask_path = f'{mask_dir}/{mask_filename}'
+                if not file_exists(mask_path):
+                    if check_paths:
+                        raise FileNotFoundError(f"Couldn't find mask at {mask_path}")
+                    else:
+                        seg = Segmentation()
+                else:
+                    seg = Segmentation.from_mask_path(
+                        mask_path,
+                        lower_bgr=mask_lower_bgr,
+                        upper_bgr=mask_upper_bgr
+                    )
+            elif file_exists(linemod_ann.mask_path):
+                seg = Segmentation.from_mask_path(
+                    linemod_ann.mask_path,
+                    lower_bgr=mask_lower_bgr,
+                    upper_bgr=mask_upper_bgr
+                )
+            elif img_dir is not None and file_exists(f'{img_dir}/{mask_filename}'):
+                seg = Segmentation.from_mask_path(
+                    f'{img_dir}/{mask_filename}',
+                    lower_bgr=mask_lower_bgr,
+                    upper_bgr=mask_upper_bgr
+                )
+            elif not check_paths:
+                seg = Segmentation()
+            else:
+                raise FileNotFoundError(
+                    f"""
+                    Couldn't resolve mask_path for calculating segmentation.
+                    Please either specify mask_dir or correct the mask paths
+                    in your linemod dataset.
+                    linemod_ann.id: {linemod_ann.id}
+                    linemod_ann.mask_path: {linemod_ann.mask_path}
+                    """
+                )
+            if len(seg) > 0:
+                bbox = seg.to_bbox()
+            else:
+                xmin = int(linemod_ann.corner_2d.to_numpy(demarcation=True)[:, 0].min())
+                xmax = int(linemod_ann.corner_2d.to_numpy(demarcation=True)[:, 0].max())
+                ymin = int(linemod_ann.corner_2d.to_numpy(demarcation=True)[:, 1].min())
+                ymax = int(linemod_ann.corner_2d.to_numpy(demarcation=True)[:, 1].max())
+                bbox = BBox(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
+            
+            keypoints = Keypoint2D_List.from_point_list(linemod_ann.fps_2d, visibility=2)
+            keypoints_3d = Keypoint3D_List.from_point_list(linemod_ann.fps_3d, visibility=2)
+            num_keypoints = len(keypoints)
+
+            if linemod_ann.category_id not in [cat.id for cat in dataset.categories]:
+                linemod_cat = self.categories.get_obj_from_id(linemod_ann.category_id)
+                cat_keypoints = list('abcdefghijklmnopqrstuvwxyz'.upper())[:num_keypoints]
+                cat_keypoints_idx_list = [idx for idx in range(len(cat_keypoints))]
+                cat_keypoints_idx_list_shift_left = cat_keypoints_idx_list[1:]+cat_keypoints_idx_list[:1]
+                dataset.categories.append(
+                    COCO_Category(
+                        id=linemod_ann.category_id,
+                        supercategory=linemod_cat.supercategory,
+                        name=linemod_cat.name,
+                        keypoints=cat_keypoints,
+                        skeleton=[[start_idx, end_idx] for start_idx, end_idx in zip(cat_keypoints_idx_list, cat_keypoints_idx_list_shift_left)]
+                    )
+                )
+            
+            coco_ann = COCO_Annotation(
+                id=linemod_ann.id,
+                category_id=linemod_ann.category_id,
+                image_id=linemod_ann.image_id,
+                segmentation=seg,
+                bbox=bbox,
+                area=bbox.area(),
+                keypoints=keypoints,
+                num_keypoints=num_keypoints,
+                iscrowd=0,
+                keypoints_3d=keypoints_3d,
+                camera=COCO_Camera(
+                    f=[linemod_ann.K.fx, linemod_ann.K.fy],
+                    c=[linemod_ann.K.cx, linemod_ann.K.cy],
+                    T=[0, 0]
+                )
+            )
+            dataset.annotations.append(coco_ann)
+            if pbar is not None:
+                pbar.update()
+        if pbar is not None:
+            pbar.close()
+        return dataset
