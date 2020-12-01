@@ -39,7 +39,8 @@ setup(
         'pandas>=1.0.4',
         'xlrd>=1.2.0',
         'pyclay-common_utils @ https://github.com/cm107/common_utils/archive/master.zip',
-        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip'
+        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip',
+        'pyclay-streamer @ https://github.com/cm107/streamer/archive/master.zip'
     ],
     python_requires='>=3.7'
 )
