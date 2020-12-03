@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import List
 import json
 import operator
@@ -26,13 +24,13 @@ class COCO_License_Handler(
         self.license_list = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> COCO_License_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return COCO_License_Handler(
             license_list=[COCO_License.from_dict(license_dict) for license_dict in dict_list]
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_License_Handler:
+    def load_from_path(cls, json_path: str):
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
         return COCO_License_Handler.from_dict_list(json_data)
@@ -49,7 +47,7 @@ class COCO_License_Handler(
                     if verbose:
                         logger.info(f'Deleted License Id: {idx}')
 
-    def remove_if_no_imgs(self, img_handler: COCO_Image_Handler, id_list: List[int]=None, verbose: bool=False):
+    def remove_if_no_imgs(self, img_handler, id_list: List[int]=None, verbose: bool=False):
         rm_license_id_list = []
         if id_list is not None:
             for license_id in id_list:
@@ -166,13 +164,13 @@ class COCO_Image_Handler(
             raise TypeError
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> COCO_Image_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return COCO_Image_Handler(
             image_list=[COCO_Image.from_dict(image_dict) for image_dict in dict_list]
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Image_Handler:
+    def load_from_path(cls, json_path: str):
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
         return COCO_Image_Handler.from_dict_list(json_data)
@@ -189,7 +187,7 @@ class COCO_Image_Handler(
                     if verbose:
                         logger.info(f'Deleted Image Id: {idx}')
     
-    def remove_if_no_anns(self, ann_handler: COCO_Annotation_Handler, license_handler: COCO_License_Handler=None, id_list: List[int]=None, verbose: bool=False):
+    def remove_if_no_anns(self, ann_handler, license_handler: COCO_License_Handler=None, id_list: List[int]=None, verbose: bool=False):
         """Removes all of the COCO_Image objects in the handler that do not have any corresponding annotations.
         
         Arguments:
@@ -266,13 +264,13 @@ class COCO_Annotation_Handler(
         json.dump(json_data, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict], strict: bool=True) -> COCO_Annotation_Handler:
+    def from_dict_list(cls, dict_list: List[dict], strict: bool=True):
         return COCO_Annotation_Handler(
             annotation_list=[COCO_Annotation.from_dict(ann_dict, strict=strict) for ann_dict in dict_list]
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Annotation_Handler:
+    def load_from_path(cls, json_path: str, strict: bool=True):
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
         return COCO_Annotation_Handler.from_dict_list(json_data, strict=strict)
@@ -290,7 +288,7 @@ class COCO_Annotation_Handler(
                         logger.info(f'Deleted Annotation Id: {idx}')
     
     def remove_if_no_categories(
-        self, cat_handler: COCO_Category_Handler,
+        self, cat_handler,
         img_handler: COCO_Image_Handler=None, license_handler: COCO_License_Handler=None, id_list: List[int]=None, verbose: bool=False
     ):
         rm_ann_id_list = []
@@ -456,13 +454,13 @@ class COCO_Category_Handler(
         json.dump(json_data, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict], strict: bool=True) -> COCO_Category_Handler:
+    def from_dict_list(cls, dict_list: List[dict], strict: bool=True):
         return COCO_Category_Handler(
             category_list=[COCO_Category.from_dict(cat_dict, strict=strict) for cat_dict in dict_list]
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Category_Handler:
+    def load_from_path(cls, json_path: str, strict: bool=True):
         check_file_exists(json_path)
         json_data = json.load(open(json_path, 'r'))
         return COCO_Category_Handler.from_dict_list(json_data, strict=strict)

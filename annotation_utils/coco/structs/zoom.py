@@ -1,4 +1,3 @@
-from __future__ import annotations
 import cv2
 import numpy as np
 from typing import cast, Tuple
@@ -34,7 +33,7 @@ class COCO_Zoom(BasicLoadableObject['COCO_Zoom']):
         return result
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> COCO_Zoom:
+    def from_dict(cls, item_dict: dict):
         return COCO_Zoom(
             magnitude=item_dict['magnitude'],
             center=Point2D.from_list(item_dict['center']) if 'center' in item_dict else None

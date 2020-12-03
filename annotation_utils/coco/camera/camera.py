@@ -1,4 +1,3 @@
-from __future__ import annotations
 import numpy as np
 from logger import logger
 from common_utils.check_utils import check_required_keys, check_type_from_list, check_type
@@ -30,7 +29,7 @@ class Camera(BasicObject['Camera']):
         }
 
     @classmethod
-    def from_dict(cls, intrinsic_param_dict: dict) -> Camera:
+    def from_dict(cls, intrinsic_param_dict: dict):
         check_type(intrinsic_param_dict, valid_type_list=[dict])
         if len(intrinsic_param_dict) > 0:
             check_required_keys(intrinsic_param_dict, required_keys=['f', 'c', 'T'])

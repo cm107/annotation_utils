@@ -1,4 +1,3 @@
-from __future__ import annotations
 import sys
 import traceback
 import numpy as np
@@ -40,7 +39,7 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
         return result
 
     @classmethod
-    def from_dict(cls, item_dict: dict) -> NDDS_Frame:
+    def from_dict(cls, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=[
@@ -214,7 +213,7 @@ class NDDS_Frame_Handler(
         self.frames = self.obj_list
     
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> NDDS_Frame_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return NDDS_Frame_Handler([NDDS_Frame.from_dict(item_dict) for item_dict in dict_list])
 
     def _check_paths_valid(self, src_img_dir: str):
@@ -294,7 +293,7 @@ class NDDS_Frame_Handler(
                 pbar.update()
 
     @classmethod
-    def load_from_dir(cls, img_dir: str, json_dir: str, show_pbar: bool=True) -> NDDS_Frame_Handler:
+    def load_from_dir(cls, img_dir: str, json_dir: str, show_pbar: bool=True):
         check_dir_exists(json_dir)
         check_dir_exists(img_dir)
 

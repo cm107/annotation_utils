@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 
 from common_utils.common_types.bbox import BBox
@@ -47,7 +46,7 @@ class Detectron2_Annotation(BasicLoadableObject['Detectron2_Annotation']):
         }
 
     @classmethod
-    def from_dict(cls, ann_dict: dict) -> Detectron2_Annotation:
+    def from_dict(cls, ann_dict: dict):
         check_required_keys(ann_dict, required_keys=['iscrowd', 'bbox', 'category_id', 'bbox_mode'])
         
         if ann_dict['bbox_mode'] == BoxMode.XYWH_ABS:
@@ -79,7 +78,7 @@ class Detectron2_Annotation_List(
         self.ann_list = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> Detectron2_Annotation_List:
+    def from_dict_list(cls, dict_list: List[dict]):
         return Detectron2_Annotation_List(ann_list=[Detectron2_Annotation.from_dict(dict_item) for dict_item in dict_list])
 
 class Detectron2_Annotation_Dict(BasicLoadableObject['Detectron2_Annotation_Dict']):
@@ -95,7 +94,7 @@ class Detectron2_Annotation_Dict(BasicLoadableObject['Detectron2_Annotation_Dict
         self.annotations = annotations if annotations is not None else Detectron2_Annotation_List()
 
     @classmethod
-    def from_dict(cls, ann_dict: dict) -> Detectron2_Annotation_Dict:
+    def from_dict(cls, ann_dict: dict):
         check_required_keys(
             ann_dict,
             required_keys=['file_name', 'height', 'width', 'image_id', 'annotations']
@@ -117,5 +116,5 @@ class Detectron2_Annotation_Dict_List(
         self.ann_dict_list = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, ann_dict_list: List[dict]) -> Detectron2_Annotation_Dict_List:
+    def from_dict_list(cls, ann_dict_list: List[dict]):
         return Detectron2_Annotation_Dict_List(ann_dict_list=[Detectron2_Annotation_Dict.from_dict(ann_dict) for ann_dict in ann_dict_list])

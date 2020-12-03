@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from logger import logger
 from common_utils.check_utils import check_type_from_list, check_type

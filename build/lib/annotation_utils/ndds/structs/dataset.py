@@ -1,4 +1,3 @@
-from __future__ import annotations
 from tqdm import tqdm
 from typing import Dict
 from common_utils.check_utils import check_dir_exists, check_file_exists, check_required_keys
@@ -89,7 +88,7 @@ class NDDS_Dataset(BasicLoadableObject['NDDS_Dataset']):
         return img_dir
 
     @classmethod
-    def from_dict(cls, item_dict: dict) -> NDDS_Dataset:
+    def from_dict(cls, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=['camera_config', 'obj_config', 'frames']
@@ -104,7 +103,7 @@ class NDDS_Dataset(BasicLoadableObject['NDDS_Dataset']):
     def load_from_dir(
         cls, json_dir: str,
         img_dir: str=None, camera_config_path: str=None, obj_config_path: str=None, show_pbar: bool=False
-    ) -> NDDS_Dataset:
+    ):
         """Loads NDDS_Dataset object from a directory path.
 
         Arguments:

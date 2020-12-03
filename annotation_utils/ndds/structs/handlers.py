@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 
 from logger import logger
@@ -14,7 +13,7 @@ class NDDS_Annotation_Object_Handler(
         self.objects = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> NDDS_Annotation_Object_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return NDDS_Annotation_Object_Handler(
             ndds_obj_list=[NDDS_Annotation_Object.from_dict(obj_dict) for obj_dict in dict_list]
         )

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 import yaml
 import json
@@ -203,7 +202,7 @@ class DatasetConfigCollection(
         }
 
     @classmethod
-    def from_dict(cls, collection_dict: dict, check_paths: bool=True) -> DatasetConfigCollection:
+    def from_dict(cls, collection_dict: dict, check_paths: bool=True):
         check_required_keys(
             collection_dict,
             required_keys=[
@@ -315,7 +314,7 @@ class DatasetConfigCollection(
             raise Exception
 
     @classmethod
-    def load_from_path(cls, path: str) -> DatasetConfigCollection:
+    def load_from_path(cls, path: str):
         check_file_exists(path)
         extension = get_extension_from_path(path)
         if extension == 'json':
@@ -328,7 +327,7 @@ class DatasetConfigCollection(
             raise Exception
         return DatasetConfigCollection.from_dict(collection_dict)
 
-    def filter_by_tag(self, tags: List[str]=None, new_collection_tag: str=None) -> DatasetConfigCollection:
+    def filter_by_tag(self, tags: List[str]=None, new_collection_tag: str=None):
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
         collection_tag = self.tag if new_collection_tag is None else new_collection_tag
         return DatasetConfigCollection(
@@ -359,7 +358,7 @@ class DatasetConfigCollectionHandler(
         return [collection.to_dict() for collection in self]
 
     @classmethod
-    def from_dict_list(cls, collection_dict_list: List[dict], check_paths: bool=True) -> DatasetConfigCollectionHandler:
+    def from_dict_list(cls, collection_dict_list: List[dict], check_paths: bool=True):
         return DatasetConfigCollectionHandler(
             collection_list=[DatasetConfigCollection.from_dict(collection_dict, check_paths=check_paths) for collection_dict in collection_dict_list]
         )
@@ -381,7 +380,7 @@ class DatasetConfigCollectionHandler(
             raise Exception
 
     @classmethod
-    def load_from_path(cls, path: str, check_paths: bool=True) -> DatasetConfigCollectionHandler:
+    def load_from_path(cls, path: str, check_paths: bool=True):
         check_file_exists(path)
         extension = get_extension_from_path(path)
         if extension == 'json':
@@ -394,11 +393,11 @@ class DatasetConfigCollectionHandler(
             raise Exception
         return DatasetConfigCollectionHandler.from_dict_list(collection_dict_list, check_paths=check_paths)
 
-    def filter_by_collection_tag(self, tags: List[str]=None) -> DatasetConfigCollectionHandler:
+    def filter_by_collection_tag(self, tags: List[str]=None):
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
         return DatasetConfigCollectionHandler([collection for collection in self if collection.tag in target_tags])
 
-    def filter_by_dataset_tag(self, tags: List[str]=None) -> DatasetConfigCollectionHandler:
+    def filter_by_dataset_tag(self, tags: List[str]=None):
         target_tags = [None] if tags is None else [tags] if type(tags) is not list else tags
         return DatasetConfigCollectionHandler([collection.filter_by_tag(tags=target_tags) for collection in self])
     

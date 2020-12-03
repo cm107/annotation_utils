@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 import numpy as np
 from shapely.geometry import Point as ShapelyPoint
@@ -18,15 +17,15 @@ class Cuboid2D(Point2D_List): # Move to common_utils
         return f"Cuboid2D({self.point_list})"
 
     @classmethod
-    def from_numpy(cls, arr: np.ndarray, demarcation: bool=True) -> Cuboid2D:
+    def from_numpy(cls, arr: np.ndarray, demarcation: bool=True):
         return Cuboid2D(point_list=super().from_numpy(arr=arr, demarcation=demarcation).point_list)
 
     @classmethod
-    def from_list(cls, value_list: list, demarcation: bool=True) -> Cuboid2D:
+    def from_list(cls, value_list: list, demarcation: bool=True):
         return Cuboid2D(point_list=super().from_list(value_list=value_list, demarcation=demarcation).point_list)
 
     @classmethod
-    def from_shapely(cls, shapely_point_list: List[ShapelyPoint]) -> Cuboid2D:
+    def from_shapely(cls, shapely_point_list: List[ShapelyPoint]):
         return Cuboid2D(point_list=super().from_shapely(shapely_point_list=shapely_point_list).point_list)
 
 class Cuboid3D(Point3D_List): # Move to common_utils
@@ -39,9 +38,9 @@ class Cuboid3D(Point3D_List): # Move to common_utils
         return f"Cuboid3D({self.point_list})"
 
     @classmethod
-    def from_numpy(cls, arr: np.ndarray, demarcation: bool=True) -> Cuboid3D:
+    def from_numpy(cls, arr: np.ndarray, demarcation: bool=True):
         return Cuboid3D(point_list=super().from_numpy(arr=arr, demarcation=demarcation).point_list)
 
     @classmethod
-    def from_list(cls, value_list: list, demarcation: bool=True) -> Cuboid3D:
+    def from_list(cls, value_list: list, demarcation: bool=True):
         return Cuboid3D(point_list=super().from_list(value_list=value_list, demarcation=demarcation).point_list)

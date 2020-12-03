@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List, Tuple
 import numpy as np
 from logger import logger
@@ -52,7 +51,7 @@ class CameraSettings(BasicLoadableObject['CameraSettings']):
         self.captured_image_size = captured_image_size
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> CameraSettings:
+    def from_dict(cls, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=['name', 'horizontal_fov', 'intrinsic_settings', 'captured_image_size']
@@ -74,7 +73,7 @@ class CameraSettingsHandler(
         check_type_from_list(self.settings_list, valid_type_list=[CameraSettings])
     
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> CameraSettingsHandler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return CameraSettingsHandler(settings_list=[CameraSettings.from_dict(item_dict) for item_dict in dict_list])
 
 class CameraConfig(BasicLoadableObject['CameraConfig']):
@@ -84,7 +83,7 @@ class CameraConfig(BasicLoadableObject['CameraConfig']):
         check_type(self.camera_settings, valid_type_list=[CameraSettingsHandler])
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> CameraConfig:
+    def from_dict(cls, item_dict: dict):
         check_required_keys(item_dict, required_keys=['camera_settings'])
         return CameraConfig(
             camera_settings=CameraSettingsHandler.from_dict_list(item_dict['camera_settings'])
@@ -120,7 +119,7 @@ class ExportedObject(BasicLoadableObject['ExportedObject']):
         }
     
     @classmethod
-    def from_dict(self, item_dict: dict) -> ExportedObject:
+    def from_dict(self, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=[
@@ -147,7 +146,7 @@ class ExportedObjectHandler(
         check_type_from_list(self.exported_obj_list, valid_type_list=[ExportedObject])
     
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> ExportedObjectHandler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return ExportedObjectHandler(exported_obj_list=[ExportedObject.from_dict(item_dict) for item_dict in dict_list])
 
 class ObjectSettings(BasicLoadableObject['ObjectSettings']):
@@ -159,7 +158,7 @@ class ObjectSettings(BasicLoadableObject['ObjectSettings']):
         check_type(self.exported_objects, valid_type_list=[ExportedObjectHandler])
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> ObjectSettings:
+    def from_dict(cls, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=['exported_object_classes', 'exported_objects']

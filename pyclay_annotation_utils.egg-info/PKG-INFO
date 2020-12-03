@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyclay-annotation-utils
-Version: 0.3.7
+Version: 0.3.7+py36
 Summary: Utilities that are used for assisting with making annotated data.
 Home-page: https://github.com/cm107/annotation_utils
 Author: Clayton Mork
@@ -80,5 +80,5 @@ Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.7
+Requires-Python: ==3.6.*
 Description-Content-Type: text/markdown

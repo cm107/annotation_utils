@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 from logger import logger
 
@@ -23,10 +22,10 @@ class Shape:
         return self.__str__()
 
     @classmethod
-    def buffer(self, shape: Shape) -> Shape:
+    def buffer(self, shape):
         return shape
 
-    def copy(self) -> Shape:
+    def copy(self):
         return Shape(
             label=self.label,
             group_id=self.group_id,
@@ -297,7 +296,7 @@ class LabelMeAnnotation:
     def __repr__(self):
         return self.__str__()
 
-    def copy(self) -> LabelMeAnnotation:
+    def copy(self):
         labelme_annotation = LabelMeAnnotation(
             annotation_path=self.annotation_path,
             img_dir=self.img_dir,

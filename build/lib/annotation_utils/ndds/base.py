@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 import numpy as np
 import os
@@ -45,7 +44,7 @@ class NDDS_Annotation_Object:
         return self.__str__()
     
     @classmethod
-    def from_dict(self, object_dict: dict) -> NDDS_Annotation_Object:
+    def from_dict(self, object_dict: dict):
         return NDDS_Annotation_Object(
             class_name=object_dict['class'],
             instance_id=object_dict['instance_id'],

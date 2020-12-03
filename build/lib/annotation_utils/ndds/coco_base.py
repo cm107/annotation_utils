@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List, Generic, TypeVar
 import json
 import os
@@ -284,7 +283,7 @@ class CocoDataset:
         return str(self.__dict__)
 
     @classmethod
-    def load_from_dict_path(self, path: str) -> CocoDataset:
+    def load_from_dict_path(self, path: str):
         json_dict_list = json.load(open(path, 'r'))
         info = json_dict_list["info"]
         licenses = json_dict_list["licenses"]

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 import numpy as np
 import cv2
@@ -55,7 +54,7 @@ class NDDS_Annotation_Object(BasicLoadableObject['NDDS_Annotation_Object']):
         }
 
     @classmethod
-    def from_dict(self, object_dict: dict) -> NDDS_Annotation_Object:
+    def from_dict(self, object_dict: dict):
         check_required_keys(
             object_dict,
             required_keys=[
@@ -144,7 +143,7 @@ class CameraData(BasicLoadableObject['CameraData']):
         }
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> CameraData:
+    def from_dict(cls, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=['location_worldframe', 'quaternion_xyzw_worldframe']

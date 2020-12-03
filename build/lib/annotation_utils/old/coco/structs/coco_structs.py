@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from logger import logger
 from common_utils.common_types import Point, Keypoint, Rectangle
@@ -34,10 +33,10 @@ class COCO_Info:
         return self.__str__()
 
     @classmethod
-    def buffer(self, coco_info: COCO_Info) -> COCO_Info:
+    def buffer(self, coco_info):
         return coco_info
 
-    def copy(self) -> COCO_Info:
+    def copy(self):
         return COCO_Info(
             description=self.description,
             url=self.url,
@@ -60,10 +59,10 @@ class COCO_License:
         return self.__str__()
 
     @classmethod
-    def buffer(self, coco_license: COCO_License) -> COCO_License:
+    def buffer(self, coco_license):
         return coco_license
 
-    def copy(self) -> COCO_License:
+    def copy(self):
         return COCO_License(
             url=self.url,
             id=self.id,
@@ -113,7 +112,7 @@ class COCO_License_Handler:
         else:
             raise StopIteration
 
-    def copy(self) -> COCO_License_Handler:
+    def copy(self):
         result = COCO_License_Handler()
         result.license_list = self.license_list
         return result
@@ -185,10 +184,10 @@ class COCO_Image:
         return self.__str__()
 
     @classmethod
-    def buffer(self, coco_image: COCO_Image) -> COCO_Image:
+    def buffer(self, coco_image):
         return coco_image
 
-    def copy(self) -> COCO_Image:
+    def copy(self):
         return COCO_Image(
             license_id=self.license_id,
             file_name=self.file_name,
@@ -243,7 +242,7 @@ class COCO_Image_Handler:
         else:
             raise StopIteration
 
-    def copy(self) -> COCO_Image_Handler:
+    def copy(self):
         result = COCO_Image_Handler()
         result.image_list = self.image_list
         return result
@@ -372,10 +371,10 @@ class COCO_Annotation:
         return self.__str__()
 
     @classmethod
-    def buffer(self, coco_annotation: COCO_Annotation) -> COCO_Annotation:
+    def buffer(self, coco_annotation):
         return coco_annotation
 
-    def copy(self) -> COCO_Annotation:
+    def copy(self):
         return COCO_Annotation(
             segmentation=self.segmentation,
             num_keypoints=self.num_keypoints,
@@ -489,7 +488,7 @@ class COCO_Annotation_Handler:
         else:
             raise StopIteration
 
-    def copy(self) -> COCO_Annotation_Handler:
+    def copy(self):
         result = COCO_Annotation_Handler()
         result.annotation_list = self.annotation_list
         return result
@@ -540,10 +539,10 @@ class COCO_Category:
         return self.__str__()
 
     @classmethod
-    def buffer(self, coco_category: COCO_Category) -> COCO_Category:
+    def buffer(self, coco_category):
         return coco_category
 
-    def copy(self) -> COCO_Category:
+    def copy(self):
         return COCO_Category(
             supercategory=self.supercategory,
             id=self.id,
@@ -604,7 +603,7 @@ class COCO_Category_Handler:
         else:
             raise StopIteration
 
-    def copy(self) -> COCO_Category_Handler:
+    def copy(self):
         result = COCO_Category_Handler()
         result.category_list = self.category_list
         return result

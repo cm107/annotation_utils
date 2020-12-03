@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 import labelme
 import json
@@ -66,7 +65,7 @@ class LabelmeShape:
         }
 
     @classmethod
-    def from_dict(cls, shape_dict: dict) -> LabelmeShape:
+    def from_dict(cls, shape_dict: dict):
         check_required_keys(shape_dict, required_keys=['label', 'points', 'shape_type', 'flags'])
         return LabelmeShape(
             label=shape_dict['label'],
@@ -117,7 +116,7 @@ class LabelmeShapeHandler:
         return [shape.to_dict() for shape in self]
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> LabelmeShapeHandler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return LabelmeShapeHandler(
             shape_list=[LabelmeShape.from_dict(shape_dict) for shape_dict in dict_list]
         )
@@ -149,7 +148,7 @@ class LabelmeAnnotation:
         }
     
     @classmethod
-    def from_dict(cls, labelme_dict: dict) -> LabelmeAnnotation:
+    def from_dict(cls, labelme_dict: dict):
         check_required_keys(labelme_dict, required_keys=['version', 'flags', 'shapes', 'imagePath', 'imageData', 'imageHeight', 'imageWidth'])
         return LabelmeAnnotation(
             version=labelme_dict['version'],
@@ -172,7 +171,7 @@ class LabelmeAnnotation:
         json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> LabelmeAnnotation:
+    def load_from_path(cls, json_path: str):
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return LabelmeAnnotation.from_dict(json_dict)
@@ -253,13 +252,13 @@ class LabelmeAnnotationHandler:
                 ann.save_to_path(save_path=save_path, img_path=src_img_path)
 
     @classmethod
-    def load_from_pathlist(cls, json_path_list: list) -> LabelmeAnnotationHandler:
+    def load_from_pathlist(cls, json_path_list: list):
         return LabelmeAnnotationHandler(
             labelme_ann_list=[LabelmeAnnotation.load_from_path(json_path) for json_path in json_path_list]
         )
 
     @classmethod
-    def load_from_dir(cls, load_dir: str) -> LabelmeAnnotationHandler:
+    def load_from_dir(cls, load_dir: str):
         check_dir_exists(load_dir)
         json_path_list = get_all_files_of_extension(dir_path=load_dir, extension='json')
         return cls.load_from_pathlist(json_path_list)

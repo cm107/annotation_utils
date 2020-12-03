@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List, Tuple
 import numpy as np
 from tqdm import tqdm
@@ -32,7 +31,7 @@ class LinemodCamera(BasicLoadableObject['LinemodCamera']):
         )
     
     @classmethod
-    def from_matrix(self, arr: np.ndarray) -> LinemodCamera:
+    def from_matrix(self, arr: np.ndarray):
         assert arr.shape == (3, 3)
         assert arr[0, 1] == 0
         assert arr[1, 0] == 0
@@ -47,7 +46,7 @@ class LinemodCamera(BasicLoadableObject['LinemodCamera']):
         )
     
     @classmethod
-    def from_image_shape(self, image_shape: List[int]) -> LinemodCamera:
+    def from_image_shape(self, image_shape: List[int]):
         height, width = image_shape[:2]
         return LinemodCamera(
             fx=max([width, height])/2,
@@ -67,7 +66,7 @@ class LinemodCamera(BasicLoadableObject['LinemodCamera']):
         np.savetxt(fname=save_path, X=self.to_matrix())
 
     @classmethod
-    def load_from_txt(self, load_path: str) -> LinemodCamera:
+    def load_from_txt(self, load_path: str):
         if not file_exists(load_path):
             raise FileNotFoundError(f"Couldn't find file at {load_path}")
         mat = np.loadtxt(load_path)
@@ -92,7 +91,7 @@ class Linemod_Image_Handler(
         self.images = self.obj_list
     
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> Linemod_Image_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return Linemod_Image_Handler([Linemod_Image.from_dict(item_dict) for item_dict in dict_list])
 
 class Linemod_Annotation(
@@ -152,7 +151,7 @@ class Linemod_Annotation(
         return result
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> Linemod_Annotation:
+    def from_dict(cls, item_dict: dict):
         return Linemod_Annotation(
             data_root=item_dict['data_root'],
             mask_path=item_dict['mask_path'],
@@ -181,13 +180,13 @@ class Linemod_Annotation_Handler(
         self.images = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> Linemod_Annotation_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return Linemod_Annotation_Handler([Linemod_Annotation.from_dict(item_dict) for item_dict in dict_list])
 
     def get(
         self, type: str=None, class_name: str=None,
         image_id: int=None, category_id: int=None, id: int=None
-    ) -> Linemod_Annotation_Handler:
+    ):
         return Linemod_Annotation_Handler(
             [
                 ann for ann in self \
@@ -217,7 +216,7 @@ class Linemod_Category_Handler(
         self.images = self.obj_list
     
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> Linemod_Category_Handler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return Linemod_Category_Handler([Linemod_Category.from_dict(item_dict) for item_dict in dict_list])
 
 class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
@@ -240,7 +239,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
         }
     
     @classmethod
-    def from_dict(cls, item_dict: dict) -> Linemod_Dataset:
+    def from_dict(cls, item_dict: dict):
         return Linemod_Dataset(
             images=Linemod_Image_Handler.from_dict_list(item_dict['images']),
             annotations=Linemod_Annotation_Handler.from_dict_list(item_dict['annotations']),

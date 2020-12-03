@@ -1,4 +1,3 @@
-from __future__ import annotations
 from common_utils.check_utils import check_required_keys
 from common_utils.base.basic import BasicLoadableObject
 from .handlers import NDDS_Annotation_Object_Handler
@@ -13,7 +12,7 @@ class NDDS_Annotation(BasicLoadableObject['NDDS_Annotation']):
         self.objects = objects if objects is not None else NDDS_Annotation_Object_Handler()
     
     @classmethod
-    def from_dict(self, ann_dict: dict) -> NDDS_Annotation:
+    def from_dict(self, ann_dict: dict):
         check_required_keys(
             ann_dict,
             required_keys=[

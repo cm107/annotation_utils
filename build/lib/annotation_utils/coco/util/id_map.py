@@ -1,4 +1,3 @@
-from __future__ import annotations
 import operator
 from logger import logger
 from common_utils.check_utils import check_type
@@ -16,7 +15,7 @@ class ID_Mapper:
     def __len__(self) -> int:
         return len(self.id_maps)
 
-    def __getitem__(self, idx: int) -> ID_Mapper:
+    def __getitem__(self, idx: int):
         if len(self.id_maps) == 0:
             logger.error(f"ID_Mapper is empty.")
             raise IndexError
@@ -26,7 +25,7 @@ class ID_Mapper:
         else:
             return self.id_maps[idx]
 
-    def __setitem__(self, idx: int, value: ID_Mapper):
+    def __setitem__(self, idx: int, value):
         check_type(value, valid_type_list=[ID_Mapper])
         self.id_maps[idx] = value
 
@@ -34,7 +33,7 @@ class ID_Mapper:
         self.n = 0
         return self
 
-    def __next__(self) -> ID_Mapper:
+    def __next__(self):
         if self.n < len(self.id_maps):
             result = self.id_maps[self.n]
             self.n += 1

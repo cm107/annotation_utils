@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List, Dict
 import json
 import cv2
@@ -114,7 +113,7 @@ class COCO_Dataset:
         self.categories = categories
 
     @classmethod
-    def buffer(cls, coco_dataset: COCO_Dataset) -> COCO_Dataset:
+    def buffer(cls, coco_dataset):
         """
         A buffer that will return the same value, but mark the object as a COCO_Dataset object.
         This can be useful if your IDE doesn't recognize the type of your coco dataset object.
@@ -123,7 +122,7 @@ class COCO_Dataset:
         """
         return coco_dataset
 
-    def copy(self) -> COCO_Dataset:
+    def copy(self):
         """
         Copies the entirety of the COCO Dataset to a new object, which is located at a different
         location in memory.
@@ -137,7 +136,7 @@ class COCO_Dataset:
         )
 
     @classmethod
-    def new(cls, description: str=None) -> COCO_Dataset:
+    def new(cls, description: str=None):
         """
         Create an empty COCO Dataset.
         description (optional): A description of the new dataset that you are creating.
@@ -164,7 +163,7 @@ class COCO_Dataset:
         }
 
     @classmethod
-    def from_dict(cls, dataset_dict: dict, strict: bool=True) -> COCO_Dataset:
+    def from_dict(cls, dataset_dict: dict, strict: bool=True):
         """
         Converts a coco dataset dictionary (the standard COCO format) to a COCO_Dataset class object.
         """
@@ -292,7 +291,7 @@ class COCO_Dataset:
         json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def load_from_path(cls, json_path: str, img_dir: str=None, check_paths: bool=True, strict: bool=True) -> COCO_Dataset:
+    def load_from_path(cls, json_path: str, img_dir: str=None, check_paths: bool=True, strict: bool=True):
         """
         Loads a COCO_Dataset object from a COCO json file.
 
@@ -378,7 +377,7 @@ class COCO_Dataset:
         ignore_unspecified_categories: bool=False,
         license_url: str='https://github.com/cm107/annotation_utils/blob/master/LICENSE',
         license_name: str='MIT License'
-    ) -> COCO_Dataset:
+    ):
         """
         Used to convert a LabelmeAnnotationHandler object to a COCO_Dataset object.
         This is meant to be used for converting a labelme dataset to a COCO dataset.
@@ -624,7 +623,7 @@ class COCO_Dataset:
 
         return dataset
 
-    def to_ndds(self) -> NDDS_Frame_Handler:
+    def to_ndds(self):
         raise NotImplementedError
 
     @classmethod
@@ -645,7 +644,7 @@ class COCO_Dataset:
         allow_same_instance_for_contained: bool=False,
         class_merge_map: Dict[str, str]=None,
         show_pbar: bool=False
-    ) -> COCO_Dataset:
+    ):
         """Creates a COCO_Dataset object from an NDDS_Dataset object.
         The conversion is based on the naming convention of the labels in the NDDS Dataset, so it is important
         to fix the labels in the NDDS_Dataset object before conversion when necessary.
@@ -971,7 +970,7 @@ class COCO_Dataset:
                 check_file_exists(coco_image.coco_url)
 
     @classmethod
-    def combine(cls, dataset_list: List[COCO_Dataset], img_dir_list: List[str]=None, show_pbar: bool=False) -> COCO_Dataset:
+    def combine(cls, dataset_list: list, img_dir_list: List[str]=None, show_pbar: bool=False):
         """
         Combines a list of COCO_Dataset's into a single COCO_Dataset.
 
@@ -1088,7 +1087,7 @@ class COCO_Dataset:
         return result_dataset
 
     @classmethod
-    def combine_from_config(cls, config: DatasetConfigCollectionHandler, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
+    def combine_from_config(cls, config: DatasetConfigCollectionHandler, img_sort_attr_name: str=None, show_pbar: bool=False):
         """
         This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
         Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
@@ -1138,7 +1137,7 @@ class COCO_Dataset:
         return COCO_Dataset.combine(dataset_list, show_pbar=show_pbar)
 
     @classmethod
-    def combine_from_config_path(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False) -> COCO_Dataset:
+    def combine_from_config_path(cls, config_path: str, img_sort_attr_name: str=None, show_pbar: bool=False):
         """
         This is the same as COCO_Dataset.combine, but with this method you don't have to construct each dataset manually.
         Instead, you can just provide a dataset configuration file that specifies the location of all of your coco json files
@@ -1153,7 +1152,7 @@ class COCO_Dataset:
         dataset_path_config = DatasetConfigCollectionHandler.load_from_path(config_path)
         return COCO_Dataset.combine_from_config(config=dataset_path_config, img_sort_attr_name=img_sort_attr_name, show_pbar=show_pbar)
 
-    def split_into_parts(self, ratio: List[int], shuffle: bool=True) -> List[COCO_Dataset]:
+    def split_into_parts(self, ratio: List[int], shuffle: bool=True) -> list:
         dataset_parts = []
 
         image_handlers = self.images.split(ratio=ratio, shuffle=shuffle)
@@ -1177,7 +1176,7 @@ class COCO_Dataset:
         self, dest_dir: str,
         split_dirname_list: List[str]=['train', 'test', 'val'], ratio: list=[2, 1, 0], coco_filename_list: List[str]=None,
         shuffle: bool=True, preserve_filenames: bool=False, overwrite: bool=False
-    ) -> List[COCO_Dataset]:
+    ) -> list:
         """
         Use this method to split a single coco dataset into multiple datasets.
         This can be useful for when you need to split a single coco dataset into train, test, and validation datasets.

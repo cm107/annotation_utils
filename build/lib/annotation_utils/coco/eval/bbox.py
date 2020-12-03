@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 from common_utils.common_types.bbox import BBox
@@ -21,7 +20,7 @@ class BBoxResult(BasicLoadableObject):
         }
 
     @classmethod
-    def from_dict(self, item_dict: dict) -> BBoxResult:
+    def from_dict(self, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=['image_id', 'category_id', 'bbox', 'score']
@@ -42,7 +41,7 @@ class BBoxResultHandler(
         self.bbox_results = self.obj_list
     
     @classmethod
-    def from_dict_list(self, dict_list: List[dict]) -> BBoxResultHandler:
+    def from_dict_list(self, dict_list: List[dict]):
         return BBoxResultHandler(
             bbox_results=[BBoxResult.from_dict(item_dict) for item_dict in dict_list]
         )

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import cv2
 from typing import List
 import json
@@ -48,7 +46,7 @@ class COCO_Info(BasicLoadableObject['COCO_Info']):
         return print_str
 
     @classmethod
-    def from_dict(cls, info_dict: dict) -> COCO_Info:
+    def from_dict(cls, info_dict: dict):
         check_required_keys(
             info_dict,
             required_keys=['description', 'url', 'version', 'year', 'contributor', 'date_created']
@@ -63,7 +61,7 @@ class COCO_Info(BasicLoadableObject['COCO_Info']):
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Info:
+    def load_from_path(cls, json_path: str):
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Info.from_dict(json_dict)
@@ -77,7 +75,7 @@ class COCO_License(BasicLoadableIdObject['COCO_License']):
     def __str__(self):
         return f"url: {self.url}, id: {self.id}, name: {self.name}"
 
-    def is_equal_to(self, other: COCO_License, exclude_id: bool=True) -> bool:
+    def is_equal_to(self, other, exclude_id: bool=True) -> bool:
         result = True
         result = result and self.url == other.url
         result = result and self.name == other.name
@@ -86,7 +84,7 @@ class COCO_License(BasicLoadableIdObject['COCO_License']):
         return result
 
     @classmethod
-    def from_dict(cls, license_dict: dict) -> COCO_License:
+    def from_dict(cls, license_dict: dict):
         check_required_keys(
             license_dict,
             required_keys=['url', 'id', 'name']
@@ -98,7 +96,7 @@ class COCO_License(BasicLoadableIdObject['COCO_License']):
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_License:
+    def load_from_path(cls, json_path: str):
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_License.from_dict(json_dict)
@@ -130,7 +128,7 @@ class COCO_Image(BasicLoadableIdObject['COCO_Image']):
         return print_str
 
     def is_equal_to(
-        self, other: COCO_Image,
+        self, other,
         exclude_id: bool=True, exclude_date_captured: bool=False
     ) -> bool:
         result = True
@@ -159,7 +157,7 @@ class COCO_Image(BasicLoadableIdObject['COCO_Image']):
         }
 
     @classmethod
-    def from_dict(cls, image_dict: dict) -> COCO_Image:
+    def from_dict(cls, image_dict: dict):
         check_required_keys(
             image_dict,
             required_keys=[
@@ -180,7 +178,7 @@ class COCO_Image(BasicLoadableIdObject['COCO_Image']):
         )
 
     @classmethod
-    def from_img_path(self, img_path: str, license_id: int, image_id: int) -> COCO_Image:
+    def from_img_path(self, img_path: str, license_id: int, image_id: int):
         check_file_exists(img_path)
         img = cv2.imread(img_path)
         img_h, img_w = img.shape[:2]
@@ -196,7 +194,7 @@ class COCO_Image(BasicLoadableIdObject['COCO_Image']):
         )
 
     @classmethod
-    def load_from_path(cls, json_path: str) -> COCO_Image:
+    def load_from_path(cls, json_path: str):
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Image.from_dict(json_dict)
@@ -310,7 +308,7 @@ class COCO_Annotation(BasicLoadableIdObject['COCO_Annotation']):
         json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, ann_dict: dict, strict: bool=True) -> COCO_Annotation:
+    def from_dict(cls, ann_dict: dict, strict: bool=True):
         if strict:
             check_required_keys(
                 ann_dict,
@@ -355,7 +353,7 @@ class COCO_Annotation(BasicLoadableIdObject['COCO_Annotation']):
             )
 
     @classmethod
-    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Annotation:
+    def load_from_path(cls, json_path: str, strict: bool=True):
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Annotation.from_dict(ann_dict=json_dict, strict=strict)
@@ -388,7 +386,7 @@ class COCO_Category(BasicLoadableIdObject['COCO_Category']):
         return print_str
 
     def is_equal_to(
-        self, other: COCO_Category,
+        self, other,
         exclude_id: bool=True
     ) -> bool:
         result = True
@@ -416,7 +414,7 @@ class COCO_Category(BasicLoadableIdObject['COCO_Category']):
                 result_dict['skeleton'] = self.skeleton
             return result_dict
 
-    def save_to_path(self: T, save_path: str, overwrite: bool=False, strict: bool=True):
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
         if file_exists(save_path) and not overwrite:
             logger.error(f'File already exists at save_path: {save_path}')
             raise Exception
@@ -424,7 +422,7 @@ class COCO_Category(BasicLoadableIdObject['COCO_Category']):
         json.dump(json_dict, open(save_path, 'w'), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, category_dict: dict, strict: bool=True) -> COCO_Category:
+    def from_dict(cls, category_dict: dict, strict: bool=True):
         if strict:
             check_required_keys(
                 category_dict,
@@ -459,7 +457,7 @@ class COCO_Category(BasicLoadableIdObject['COCO_Category']):
     def from_label_skeleton(
         cls, supercategory: str, name: str, id: int,
         label_skeleton: List[list], skeleton_idx_offset: int=0
-    ) -> COCO_Category:
+    ):
         label_list = []
         for [start_label, end_label] in label_skeleton:
             check_type_from_list([start_label, end_label], valid_type_list=[str])
@@ -491,7 +489,7 @@ class COCO_Category(BasicLoadableIdObject['COCO_Category']):
         return str_skeleton
 
     @classmethod
-    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Category:
+    def load_from_path(cls, json_path: str, strict: bool=True):
         check_file_exists(json_path)
         json_dict = json.load(open(json_path, 'r'))
         return COCO_Category.from_dict(json_dict, strict=strict)

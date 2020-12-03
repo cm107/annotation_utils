@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from logger import logger
 from common_utils.path_utils import rel_to_abs_path
@@ -28,7 +27,7 @@ class Path:
     def __len__(self) -> int:
         return len(self.split())
 
-    def __getitem__(self, idx: int) -> Path:
+    def __getitem__(self, idx: int):
         if type(idx) is int:
             if len(self) == 0:
                 logger.error(f"{type(self).__name__} is empty.")
@@ -44,7 +43,7 @@ class Path:
             logger.error(f'Expected int or slice. Got type(idx)={type(idx)}')
             raise TypeError
 
-    def __setitem__(self, idx: int, value: Path):
+    def __setitem__(self, idx: int, value):
         check_type(value, valid_type_list=[Path, str])
         if type(value) is str:
             value0 = Path(value)
@@ -85,7 +84,7 @@ class Path:
         self.n = 0
         return self
 
-    def __next__(self) -> Path:
+    def __next__(self):
         if self.n < len(self):
             result = Path(self.split()[self.n])
             self.n += 1
@@ -93,14 +92,14 @@ class Path:
         else:
             raise StopIteration
 
-    def __add__(self, other: Path) -> Path:
+    def __add__(self, other):
         return Path.from_split(self.split() + other.split()).prune_slashes()
 
     @classmethod
-    def buffer(cls, path: Path) -> Path:
+    def buffer(cls, path):
         return path
 
-    def copy(self) -> Path:
+    def copy(self):
         return Path(self.path_str)
 
     def split(self) -> List[str]:
@@ -109,35 +108,35 @@ class Path:
         return result
 
     @classmethod
-    def from_split(self, str_list: List[str]) -> Path:
+    def from_split(self, str_list: List[str]):
         return Path('/'.join(str_list))
 
-    def head(self) -> Path:
+    def head(self):
         return self[0]
 
-    def no_head(self) -> Path:
+    def no_head(self):
         return self[1:]
 
-    def tail(self) -> Path:
+    def tail(self):
         return self[-1]
 
-    def no_tail(self) -> Path:
+    def no_tail(self):
         return self[:-1]
 
     def to_str(self) -> str:
         return self.path_str
 
-    def pop_head(self) -> Path:
+    def pop_head(self):
         result = self.head()
         self.path_str = self.no_head().to_str()
         return result
 
-    def pop_tail(self) -> Path:
+    def pop_tail(self):
         result = self.tail()
         self.path_str = self.no_tail().to_str()
         return result
 
-    def push_head(self, path_part: Path):
+    def push_head(self, path_part):
         check_type(path_part, valid_type_list=[Path, str])
         if type(path_part) is str:
             path_part0 = Path(path_part)
@@ -145,7 +144,7 @@ class Path:
             path_part0 = path_part
         return Path.from_split([path_part0.path_str] + self.split())
 
-    def push_tail(self, path_part: Path):
+    def push_tail(self, path_part):
         check_type(path_part, valid_type_list=[Path, str])
         if type(path_part) is str:
             path_part0 = Path(path_part)
@@ -162,24 +161,24 @@ class Path:
     def has_extension(self) -> bool:
         return self.get_extension() != ''
 
-    def abs(self) -> Path:
+    def abs(self):
         return Path(rel_to_abs_path(self.to_str()))
 
-    def prune_slashes(self) -> Path:
+    def prune_slashes(self):
         path_str = self.to_str()
         while '//' in path_str:
             path_str = path_str.replace('//', '/')
         return Path(path_str)
 
     @classmethod
-    def get_unique_paths(cls, paths: List[Path]) -> List[Path]:
+    def get_unique_paths(cls, paths: list) -> list:
         path_str_list = [path.path_str for path in paths]
         unique_path_str_list = list(dict.fromkeys(path_str_list))
         unique_paths = [Path(unique_path_str) for unique_path_str in unique_path_str_list]
         return unique_paths
 
     @classmethod
-    def has_common_head(cls, paths: List[Path]) -> bool:
+    def has_common_head(cls, paths: list) -> bool:
         if len(paths) > 1:
             path_len_list = [len(path) for path in paths]
             if 0 in path_len_list:
@@ -196,7 +195,7 @@ class Path:
             return False
 
     @classmethod
-    def has_common_tail(cls, paths: List[Path]) -> bool:
+    def has_common_tail(cls, paths: list) -> bool:
         if len(paths) > 1:
             path_len_list = [len(path) for path in paths]
             if 0 in path_len_list:
@@ -213,7 +212,7 @@ class Path:
             return False
 
     @classmethod
-    def get_common_head(cls, paths: List[Path]) -> (bool, Path):
+    def get_common_head(cls, paths: list):
         if len(paths) > 1:
             path_len_list = [len(path) for path in paths]
             if 0 in path_len_list:
@@ -230,7 +229,7 @@ class Path:
             return False, None
 
     @classmethod
-    def get_common_tail(cls, paths: List[Path]) -> (bool, Path):
+    def get_common_tail(cls, paths: list):
         if len(paths) > 1:
             path_len_list = [len(path) for path in paths]
             if 0 in path_len_list:
@@ -246,7 +245,7 @@ class Path:
         else:
             return False, None
 
-    def replace(self, old: Path, new: Path) -> Path:
+    def replace(self, old, new):
         check_type_from_list([old, new], valid_type_list=[Path, str])
         if type(old) is str:
             old_path = Path(old)
@@ -262,10 +261,10 @@ class Path:
             result = result.replace('//', '/')
         return Path(result)
 
-    def possible_rel_paths(self) -> List[Path]:
+    def possible_rel_paths(self) -> list:
         return [Path.from_split(self.split()[i:]) for i in range(len(self))]
 
-    def possible_container_dirs(self) -> List[Path]:
+    def possible_container_dirs(self) -> list:
         result = [
             Path.from_split(self.split()[:i]) if self.has_extension() else Path.from_split(self.split()[:i+1]) \
                 for i in range(len(self))
@@ -274,12 +273,12 @@ class Path:
         return result
 
     @classmethod
-    def del_duplicates(cls, path_list: List[Path]) -> List[Path]:
+    def del_duplicates(cls, path_list: list) -> list:
         path_str_list = list(dict.fromkeys([path.path_str for path in path_list]))
         return [Path(path_str) for path_str in path_str_list]
 
     @classmethod
-    def get_common_container_dirs(cls, path_list: List[Path]) -> List[Path]:
+    def get_common_container_dirs(cls, path_list: list) -> list:
         if len(path_list) == 0:
             logger.error(f"Encountered len(path_list) == 0")
             raise Exception
@@ -290,7 +289,7 @@ class Path:
         return [Path(common_container_dir) for common_container_dir in common_container_dirs]
 
     @classmethod
-    def get_longest_container_dir(cls, path_list: List[Path]) -> Path:
+    def get_longest_container_dir(cls, path_list: list):
         if len(path_list) == 0:
             logger.error(f"Encountered len(path_list) == 0")
             raise Exception
@@ -302,7 +301,7 @@ class Path:
         return longest_container_dir
 
     @staticmethod
-    def _root_src_tail2dst_head(src_path: Path, dst_path: Path) -> bool:
+    def _root_src_tail2dst_head(src_path, dst_path) -> bool:
         check_type(src_path, valid_type_list=[Path])
         check_type(dst_path, valid_type_list=[Path])
         if len(src_path) > 0:
@@ -317,7 +316,7 @@ class Path:
         return success
 
     @classmethod
-    def _root_src_head2dst_tail(cls, src_path: Path, dst_path: Path) -> bool:
+    def _root_src_head2dst_tail(cls, src_path, dst_path) -> bool:
         check_type(src_path, valid_type_list=[Path])
         check_type(dst_path, valid_type_list=[Path])
         if len(src_path) > 0:
@@ -332,7 +331,7 @@ class Path:
         return success
 
     @classmethod
-    def tail2head(cls, src_obj: List[Path], dst_obj: List[Path]) -> bool:
+    def tail2head(cls, src_obj: list, dst_obj: list) -> bool:
         # TODO: Assertion test
         check_type_from_list([src_obj, dst_obj], valid_type_list=[Path, list])
         if type(src_obj) is list:
@@ -379,7 +378,7 @@ class Path:
         return success
 
     @classmethod
-    def head2tail(cls, src_obj: List[Path], dst_obj: List[Path]) -> bool:
+    def head2tail(cls, src_obj: list, dst_obj: list) -> bool:
         check_type_from_list([src_obj, dst_obj], valid_type_list=[Path, list])
         if type(src_obj) is list:
             check_type_from_list(src_obj, valid_type_list=[Path])

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from common_utils.check_utils import check_list_length
 
@@ -13,7 +12,7 @@ class Quaternion: # TODO: Replace with Quaternion from common_utils
         return [self.x, self.y, self.z, self.w]
 
     @classmethod
-    def from_list(self, coords: List[float]) -> Quaternion:
+    def from_list(self, coords: List[float]):
         check_list_length(coords, correct_length=4)
         return Quaternion(x=coords[0], y=coords[1], z=coords[2], w=coords[3])
 

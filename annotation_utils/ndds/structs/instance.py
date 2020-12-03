@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 import numpy as np
 
@@ -14,7 +13,7 @@ from .objects import NDDS_Annotation_Object
 
 class ObjectInstance(BasicLoadableObject['ObjectInstance'], BasicObject['ObjectInstance']):
     def __init__(
-        self, instance_type: str, ndds_ann_obj: NDDS_Annotation_Object, instance_name: str=None, contained_instance_list: List[ObjectInstance]=None
+        self, instance_type: str, ndds_ann_obj: NDDS_Annotation_Object, instance_name: str=None, contained_instance_list: list=None
     ):
         super().__init__()
         
@@ -66,7 +65,7 @@ class ObjectInstance(BasicLoadableObject['ObjectInstance'], BasicObject['ObjectI
         }
 
     @classmethod
-    def from_dict(self, item_dict: dict) -> ObjectInstance:
+    def from_dict(self, item_dict: dict):
         return ObjectInstance(
             instance_type=item_dict['instance_type'],
             ndds_ann_obj=NDDS_Annotation_Object.from_dict(item_dict['ndds_ann_obj']),
@@ -74,7 +73,7 @@ class ObjectInstance(BasicLoadableObject['ObjectInstance'], BasicObject['ObjectI
             contained_instance_list=[ObjectInstance.from_dict(instance_dict) for instance_dict in item_dict['contained_instance_list']]
         )
 
-    def append_contained(self, new_contained_instance: ObjectInstance, allow_same_instance_for_contained: bool=False):
+    def append_contained(self, new_contained_instance, allow_same_instance_for_contained: bool=False):
         check_value(self.instance_type, valid_value_list=['bbox', 'seg'])
         check_type(new_contained_instance, valid_type_list=[ObjectInstance])
         check_value(new_contained_instance.instance_type, valid_value_list=['bbox', 'seg', 'kpt'])
@@ -176,7 +175,7 @@ class ObjectInstanceHandler(
         self.instance_list = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> ObjectInstanceHandler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return ObjectInstanceHandler([ObjectInstance.from_dict(item_dict) for item_dict in dict_list])
 
     def append(self, obj_instance: ObjectInstance):
@@ -252,7 +251,7 @@ class LabeledObject(BasicLoadableObject['LabeledObject'], BasicObject['LabeledOb
         }
     
     @classmethod
-    def from_dict(self, item_dict: dict) -> LabeledObject:
+    def from_dict(self, item_dict: dict):
         return LabeledObject(
             obj_name=item_dict['obj_name'],
             instances=ObjectInstanceHandler.from_dict_list(item_dict['instances'])
@@ -267,7 +266,7 @@ class LabeledObjectHandler(
         self.labeled_obj_list = self.obj_list
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[dict]) -> LabeledObjectHandler:
+    def from_dict_list(cls, dict_list: List[dict]):
         return LabeledObjectHandler([LabeledObject.from_dict(item_dict) for item_dict in dict_list])
 
     def append(self, labeled_obj: LabeledObject):

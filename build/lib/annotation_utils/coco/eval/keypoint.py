@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 from logger import logger
 from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
@@ -33,7 +32,7 @@ class KeypointResult(BasicLoadableObject):
         return result_dict
 
     @classmethod
-    def from_dict(self, item_dict: dict) -> KeypointResult:
+    def from_dict(self, item_dict: dict):
         check_required_keys(
             item_dict,
             required_keys=['image_id', 'category_id', 'keypoints']
@@ -57,7 +56,7 @@ class KeypointResultHandler(
         self.kpt_results = self.obj_list
     
     @classmethod
-    def from_dict_list(self, dict_list: List[dict]) -> KeypointResultHandler:
+    def from_dict_list(self, dict_list: List[dict]):
         return KeypointResultHandler(
             kpt_results=[KeypointResult.from_dict(item_dict) for item_dict in dict_list]
         )
@@ -82,7 +81,7 @@ class BBoxKeypointResult(BasicLoadableObject):
         return result_dict
 
     @classmethod
-    def from_dict(self, item_dict: dict) -> BBoxKeypointResult:
+    def from_dict(self, item_dict: dict):
         return BBoxKeypointResult(
             image_id=item_dict['image_id'],
             category_id=item_dict['category_id'],
@@ -100,7 +99,7 @@ class BBoxKeypointResultHandler(
         self.kpt_results = self.obj_list
     
     @classmethod
-    def from_dict_list(self, dict_list: List[dict]) -> BBoxKeypointResultHandler:
+    def from_dict_list(self, dict_list: List[dict]):
         return BBoxKeypointResultHandler(
             kpt_results=[BBoxKeypointResult.from_dict(item_dict) for item_dict in dict_list]
         )

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from common_utils.check_utils import check_list_length
 
 class Point2D: # TODO: Replace with Point2D from common_utils
@@ -13,7 +12,7 @@ class Point2D: # TODO: Replace with Point2D from common_utils
         return self.__str__()
 
     @classmethod
-    def from_list(self, coords: list) -> Point2D:
+    def from_list(self, coords: list):
         check_list_length(coords, correct_length=2)
         return Point2D(x=coords[0], y=coords[1])
 
@@ -33,7 +32,7 @@ class Point3D: # TODO: Replace with Point3D from common_utils
         return self.__str__()
 
     @classmethod
-    def from_list(self, coords: list) -> Point3D:
+    def from_list(self, coords: list):
         check_list_length(coords, correct_length=3)
         return Point3D(x=coords[0], y=coords[1], z=coords[2])
     

@@ -1,4 +1,3 @@
-from __future__ import annotations
 from logger import logger
 from common_utils.base.basic import BasicLoadableObject
 from .bbox import BBoxResultHandler
@@ -25,7 +24,7 @@ class COCO_Results(BasicLoadableObject):
         return result_dict
     
     @classmethod
-    def from_dict(self, item_dict: dict) -> COCO_Results:
+    def from_dict(self, item_dict: dict):
         if not ('bbox_results' in item_dict or 'kpt_results' in item_dict):
             logger.warning(f'There are no results to load from item_dict.')
         return COCO_Results(

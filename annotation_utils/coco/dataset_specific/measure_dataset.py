@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import List
 import cv2
 import numpy as np
@@ -26,7 +25,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
         self.digit_dataset = COCO_Dataset.new(description='Digit Dataset converted from NDDS')
 
     @classmethod
-    def _from_base(self, dataset: COCO_Dataset) -> Measure_COCO_Dataset:
+    def _from_base(self, dataset: COCO_Dataset):
         # return Measure_COCO_Dataset(*dataset.__dict__.values())
         return Measure_COCO_Dataset(
             info=dataset.info,
@@ -37,7 +36,7 @@ class Measure_COCO_Dataset(COCO_Dataset):
         )
 
     @classmethod
-    def from_ndds(self, *args, **kwargs) -> Measure_COCO_Dataset:
+    def from_ndds(self, *args, **kwargs):
         return Measure_COCO_Dataset._from_base(super().from_ndds(*args, **kwargs))
 
     def _prep_output_dir(self, measure_dir: str, whole_number_dir: str, digit_dir: str):

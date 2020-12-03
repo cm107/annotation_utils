@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 from logger import logger
 from ..structs import COCO_Info, COCO_License_Handler, \
@@ -20,7 +19,7 @@ class COCO_Writer:
         self.output_path = output_path
 
     @classmethod
-    def from_buffer(self, buffer: COCO_Field_Buffer, output_path: str) -> COCO_Writer:
+    def from_buffer(self, buffer: COCO_Field_Buffer, output_path: str):
         return COCO_Writer(
             info=buffer.info,
             licenses=buffer.licenses,
