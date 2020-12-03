@@ -1,7 +1,8 @@
 import cv2
 from annotation_utils.ndds.structs import NDDS_Dataset
 from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_dir
-from common_utils.cv_drawing_utils import draw_bbox, cv_simple_image_viewer
+from common_utils.cv_drawing_utils import draw_bbox
+from streamer.cv_viewer import cv_simple_image_viewer
 
 # Load NDDS Dataset
 ndds_dataset = NDDS_Dataset.load_from_dir(

@@ -29,7 +29,7 @@ setup(
         'opencv-python>=4.1.1.26',
         'numpy>=1.17.2',
         'Shapely>=1.6.4.post2',
-        'matplotlib>=3.1.1',
+        'matplotlib',
         'Pillow>=6.1.0',
         'pycocotools>=2.0.0',
         'pylint>=2.4.2',
@@ -39,7 +39,8 @@ setup(
         'pandas>=1.0.4',
         'xlrd>=1.2.0',
         'pyclay-common_utils @ https://github.com/cm107/common_utils/archive/master.zip',
-        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip'
+        'pyclay-logger @ https://github.com/cm107/logger/archive/master.zip',
+        'pyclay-streamer @ https://github.com/cm107/streamer/archive/master.zip'
     ],
     python_requires='>=3.7'
 )

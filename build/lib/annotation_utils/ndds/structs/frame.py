@@ -197,7 +197,7 @@ class NDDS_Frame(BasicLoadableObject['NDDS_Frame']):
         # # Debug
         # logger.yellow(f'self.is_img_path: {self.is_img_path}')
         # is_img_compare = cv2.hconcat([is_img_orig, working_is_img])
-        # from common_utils.cv_drawing_utils import cv_simple_image_viewer
+        # from streamer.cv_viewer import cv_simple_image_viewer
         # quit_flag = cv_simple_image_viewer(img=is_img_compare, preview_width=1000, window_name=f'Class Map Merge')
         # if quit_flag:
         #     import sys
@@ -300,6 +300,7 @@ class NDDS_Frame_Handler(
 
         img_pathlist = get_valid_image_paths(img_dir)
         json_path_list = [path for path in get_all_files_of_extension(dir_path=json_dir, extension='json') if not get_filename(path).startswith('_')]
+        json_path_list.sort()
         handler = NDDS_Frame_Handler()
         if show_pbar:
             pbar = tqdm(total=len(json_path_list), unit='ann(s)', leave=True)

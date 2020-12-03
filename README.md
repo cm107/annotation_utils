@@ -28,6 +28,12 @@ pip install pyclay-annotation_utils
 
 Note: The github package is updated more often than the pypi package.
 
+**Note: In order to overwrite an older version with the latest version, use the following command instead.**
+```bash
+# Warning: This will automatically upgrade the dependencies too.
+pip install --upgrade pyclay-annotation_utils
+```
+
 ## Install From Source
 This package can also be installed locally.
 

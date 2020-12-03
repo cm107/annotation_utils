@@ -3,9 +3,7 @@ import cv2
 import numpy as np
 from typing import cast, Tuple
 
-from common_utils.cv_drawing_utils import cv_simple_image_viewer, draw_bbox, draw_text_rows_at_point
 from common_utils.common_types.bbox import BBox
-from common_utils.common_types.segmentation import Segmentation, Polygon
 from common_utils.common_types.point import Point2D
 from common_utils.base.basic import BasicLoadableObject
 
