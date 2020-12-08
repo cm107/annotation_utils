@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List
-import labelme
+# import labelme
 import json
 from tqdm import tqdm
 import operator
@@ -126,7 +126,7 @@ class LabelmeAnnotation:
     def __init__(
         self,
         img_path: str, img_h: int, img_w: int,
-        version: str=labelme.__version__, flags: dict={},
+        version: str='?', flags: dict={},
         shapes: LabelmeShapeHandler=None,
         img_data: str=None
     ):
