@@ -3,6 +3,7 @@ from __future__ import annotations
 import cv2
 from typing import List
 import json
+from pycocotools import mask
 
 from logger import logger
 from common_utils.time_utils import get_present_year, get_present_time_Ymd, \
@@ -340,8 +341,18 @@ class COCO_Annotation(BasicLoadableIdObject['COCO_Annotation']):
                     'id', 'category_id', 'image_id'
                 ]
             )
+            if 'segmentation' not in ann_dict:
+                seg = None
+            elif ann_dict['iscrowd'] == 1 and type(ann_dict['segmentation']) == dict:
+                compressed_rle = mask.frPyObjects(ann_dict['segmentation'], ann_dict['segmentation']['size'][0], ann_dict['segmentation']['size'][1])
+                seg_mask = mask.decode(compressed_rle)
+                contours, _ = cv2.findContours(seg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                seg = Segmentation.from_contour(contour_list=contours)
+            else:
+                seg = Segmentation.from_list(ann_dict['segmentation'], demarcation=False)
+
             return COCO_Annotation(
-                segmentation=Segmentation.from_list(ann_dict['segmentation'], demarcation=False) if 'segmentation' in ann_dict else None,
+                segmentation=seg,
                 num_keypoints=ann_dict['num_keypoints'] if 'num_keypoints' in ann_dict else None,
                 area=ann_dict['area'] if 'area' in ann_dict else None,
                 iscrowd=ann_dict['iscrowd'] if 'iscrowd' in ann_dict else None,

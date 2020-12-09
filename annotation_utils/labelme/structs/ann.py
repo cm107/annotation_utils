@@ -234,7 +234,7 @@ class LabelmeAnnotationHandler:
             logger.error(f'Found the following duplicate image filenames in LabelmeAnnotationHandler:\n{duplicate_img_filename_list}')
             raise Exception
 
-    def save_to_dir(self, json_save_dir: str, src_img_dir: str, overwrite: bool=False, dst_img_dir: str=None):
+    def save_to_dir(self, json_save_dir: str, src_img_dir: str, overwrite: bool=False, dst_img_dir: str=None, show_pbar: bool=True):
         self._check_paths_valid(src_img_dir=src_img_dir)
         make_dir_if_not_exists(json_save_dir)
         delete_all_files_in_dir(json_save_dir, ask_permission=not overwrite)
@@ -242,7 +242,10 @@ class LabelmeAnnotationHandler:
             make_dir_if_not_exists(dst_img_dir)
             delete_all_files_in_dir(dst_img_dir, ask_permission=not overwrite)
 
-        for ann in tqdm(self, total=len(self), unit='ann', leave=True):
+        pbar = tqdm(total=len(self), unit='annotation(s)', leave=True) if show_pbar else None
+        if pbar is not None:
+            pbar.set_description('Writing Labelme Annotations')
+        for ann in self:
             save_path = f'{json_save_dir}/{get_rootname_from_path(ann.img_path)}.json'
             src_img_path = f'{src_img_dir}/{get_filename(ann.img_path)}'
             if dst_img_dir is not None:
@@ -251,6 +254,10 @@ class LabelmeAnnotationHandler:
                 ann.save_to_path(save_path=save_path, img_path=dst_img_path)
             else:
                 ann.save_to_path(save_path=save_path, img_path=src_img_path)
+            if pbar is not None:
+                pbar.update()
+        if pbar is not None:
+            pbar.close()
 
     @classmethod
     def load_from_pathlist(cls, json_path_list: list) -> LabelmeAnnotationHandler:

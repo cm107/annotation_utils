@@ -315,7 +315,7 @@ class COCO_Dataset:
                 check_file_exists(coco_image.coco_url)
         return dataset
 
-    def to_labelme(self, priority: str='seg') -> LabelmeAnnotationHandler:
+    def to_labelme(self, priority: str='seg', show_pbar: bool=True) -> LabelmeAnnotationHandler:
         """
         Convert a COCO_Dataset object to a LabelmeAnnotationHandler.
         The goal of this method is to convert a COCO formatted dataset to a Labelme formatted dataset.
@@ -326,6 +326,9 @@ class COCO_Dataset:
         """
         check_value(priority, valid_value_list=['seg', 'bbox'])
         handler = LabelmeAnnotationHandler()
+        pbar = tqdm(total=len(self.images), unit='image(s)') if show_pbar else None
+        if pbar is not None:
+            pbar.set_description('Converting COCO to Labelme')
         for coco_image in self.images:
             labelme_ann = LabelmeAnnotation(
                 img_path=coco_image.coco_url,
@@ -366,6 +369,10 @@ class COCO_Dataset:
                             )
                         )
             handler.append(labelme_ann)
+            if pbar is not None:
+                pbar.update()
+        if pbar is not None:
+            pbar.close()
         return handler
 
     @classmethod
