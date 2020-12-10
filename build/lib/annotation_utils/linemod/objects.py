@@ -477,7 +477,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
                     linemod_image.file_name = dst_filename
                     dst_img_path = f'{dst_dataroot}/{dst_filename}'
                 if not use_softlink:
-                    copy_file(src_path=img_path, dest_path=dst_img_path)
+                    copy_file(src_path=img_path, dest_path=dst_img_path, silent=True)
                 else:
                     create_softlink(src_path=rel_to_abs_path(img_path), dst_path=rel_to_abs_path(dst_img_path))
                 processed_image_id_list.append(linemod_image.id)
@@ -501,7 +501,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
                 dst_mask_path = f'{dst_dataroot}/{dst_filename}'
                 linemod_ann.mask_path = dst_mask_path
             if not use_softlink:
-                copy_file(src_path=mask_path, dest_path=dst_mask_path)
+                copy_file(src_path=mask_path, dest_path=dst_mask_path, silent=True)
             else:
                 create_softlink(src_path=rel_to_abs_path(mask_path), dst_path=rel_to_abs_path(dst_mask_path))
             
@@ -525,7 +525,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
                     dst_depth_path = f'{dst_dataroot}/{dst_filename}'
                     linemod_ann.depth_path = dst_depth_path
                 if not use_softlink:
-                    copy_file(src_path=depth_path, dest_path=dst_depth_path)
+                    copy_file(src_path=depth_path, dest_path=dst_depth_path, silent=True)
                 else:
                     create_softlink(src_path=rel_to_abs_path(depth_path), dst_path=rel_to_abs_path(dst_depth_path))
             
@@ -551,7 +551,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
                     dst_rt_filename = f'{linemod_ann.id}_RT.pkl'
                     dst_rt_path = f'{dst_dataroot}/{dst_rt_filename}'
                 if not use_softlink:
-                    copy_file(src_path=rt_path, dest_path=dst_rt_path)
+                    copy_file(src_path=rt_path, dest_path=dst_rt_path, silent=True)
                 else:
                     create_softlink(src_path=rel_to_abs_path(rt_path), dst_path=rel_to_abs_path(dst_rt_path))
             if pbar is not None:
@@ -564,7 +564,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
             if file_exists(dst_camera_path):
                 raise FileExistsError(f'Camera settings already saved at {dst_camera_path}')
             if not use_softlink:
-                copy_file(src_path=camera_path, dest_path=dst_camera_path)
+                copy_file(src_path=camera_path, dest_path=dst_camera_path, silent=True)
             else:
                 create_softlink(src_path=rel_to_abs_path(camera_path), dst_path=rel_to_abs_path(dst_camera_path))
         
@@ -576,7 +576,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
             if file_exists(dst_fps_path):
                 raise FileExistsError(f'FPS settings already saved at {dst_fps_path}')
             if not use_softlink:
-                copy_file(src_path=fps_path, dest_path=dst_fps_path)
+                copy_file(src_path=fps_path, dest_path=dst_fps_path, silent=True)
             else:
                 create_softlink(src_path=rel_to_abs_path(fps_path), dst_path=rel_to_abs_path(dst_fps_path))
         if pbar is not None:
