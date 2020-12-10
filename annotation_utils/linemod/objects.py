@@ -423,7 +423,7 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
                     ann.mask_path = f'{dataroot}/{get_filename(ann.mask_path)}'
                 else:
                     ann.mask_path = f'{dataroot}/{ann.mask_path}'
-            if include_depth:
+            if include_depth and ann.depth_path is not None:
                 if '/' in ann.depth_path:
                     ann.depth_path = f'{dataroot}/{get_filename(ann.depth_path)}'
                 else:
