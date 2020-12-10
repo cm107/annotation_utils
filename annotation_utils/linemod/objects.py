@@ -460,11 +460,11 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
             # Images
             linemod_image = self.images.get(id=linemod_ann.image_id)[0]
             if linemod_image.id not in processed_image_id_list:
-                img_path = f'{linemod_ann.data_root}/{linemod_image.file_name}'
+                img_path = f'{linemod_ann.data_root}/{get_filename(linemod_image.file_name)}'
                 if not file_exists(img_path):
                     raise FileNotFoundError(f"Couldn't find image at {img_path}")
                 if preserve_filename:
-                    dst_img_path = f'{dst_dataroot}/{linemod_image.file_name}'
+                    dst_img_path = f'{dst_dataroot}/{get_filename(linemod_image.file_name)}'
                     if file_exists(dst_img_path):
                         raise FileExistsError(
                             f"""
