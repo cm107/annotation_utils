@@ -1,7 +1,12 @@
-from typing import cast
+from typing import cast, List, Dict
 from tqdm import tqdm
-from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_dir
+import cv2
+import numpy as np
+from common_utils.file_utils import make_dir_if_not_exists, delete_all_files_in_dir, \
+    dir_exists, file_exists
 from common_utils.base.basic import BasicLoadableHandler
+from common_utils.cv_drawing_utils import draw_text_rows_at_point
+from common_utils.image_utils import collage_from_img_buffer
 from streamer.recorder.stream_writer import StreamWriter
 from ..structs.dataset import COCO_Dataset
 
@@ -136,3 +141,152 @@ def infer_tests_wrapper(
                 del stream_writer
         return _wrapper_inner
     return _wrapper
+
+def gen_infer_comparison(
+    gt: BasicLoadableHandler, dt: BasicLoadableHandler, error: BasicLoadableHandler,
+    model_names: List[str], test_names: List[str],
+    collage_shape: (int, int),
+    test_img_dir_map: Dict[str, str]=None,
+    model_aliases: Dict[str, str]=None, test_aliases: Dict[str, str]=None,
+    video_save: str=None, img_dump_dir: str=None, show_preview: bool=False,
+    show_pbar: bool=True,
+    draw_settings=None, draw_inference: bool=False,
+    details_func=None, debug_verbose: bool=False
+):
+    for handler in [gt, dt, error]:
+        assert isinstance(handler, BasicLoadableHandler)
+        for attr_key in ['frame', 'test_name']:
+            assert hasattr(handler[0], attr_key)
+    for handler in [dt, error]:
+        assert hasattr(handler[0], 'model_name')
+    model_names0 = list(set([datum.model_name for datum in dt])) if model_names == 'all' else model_names
+    test_names0 = list(set([datum.test_name for datum in gt])) if test_names == 'all' else test_names
+    for val_list in [model_names0, test_names0]:
+        if val_list != 'all':
+            assert isinstance(val_list, (tuple, list))
+            for val in val_list:
+                assert isinstance(val, str)
+    assert isinstance(collage_shape, (tuple, list))
+    for val in collage_shape:
+        assert isinstance(val, int)
+    assert len(collage_shape) == 2
+    assert len(model_names0) <= collage_shape[0] * collage_shape[1]
+    if img_dump_dir is not None:
+        make_dir_if_not_exists(img_dump_dir)
+        delete_all_files_in_dir(img_dump_dir, ask_permission=False)
+    if test_img_dir_map is None:
+        test_img_dir_map0 = {test_name: test_name for test_name in test_names0}
+    else:
+        assert isinstance(test_img_dir_map, dict)
+        for key, val in test_img_dir_map.items():
+            assert key in test_names0
+            assert isinstance(key, str)
+            assert isinstance(val, str)
+        test_img_dir_map0 = {
+            test_name: (test_img_dir_map[test_name] if test_name in test_img_dir_map else test_name) \
+            for test_name in test_names0
+        }
+    for test_name, img_dir in test_img_dir_map0.items():
+        if not dir_exists(img_dir):
+            raise FileNotFoundError(
+                f"""
+                Couldn't find image directory {img_dir} for {test_name}.
+                Please modify test_img_dir_map to match the image directory path for {test_name}.
+                test_img_dir_map: {test_img_dir_map0}
+                """
+            )
+    stream_writer = StreamWriter(show_preview=show_preview, video_save_path=video_save, dump_dir=img_dump_dir)
+
+    total_images = len(gt.get(test_name=test_names0))
+    pbar = tqdm(total=total_images, unit='image(s)', leave=True) if show_pbar else None
+    if pbar is not None:
+        pbar.set_description('Generating Comparison')
+    for test_name in test_names0:
+        if img_dump_dir is not None:
+            test_img_dump_dir = f'{img_dump_dir}/{test_name}'
+            make_dir_if_not_exists(test_img_dump_dir)
+            stream_writer.dump_writer._save_dir = test_img_dump_dir
+
+        img_dir = test_img_dir_map0[test_name]
+        gt_test_data = gt.get(test_name=test_name)
+        gt_test_data.sort(attr_name='frame')
+        dt_test_data = dt.get(test_name=test_name)
+        dt_test_data.sort(attr_name='frame')
+        error_test_data = error.get(test_name=test_name)
+        error_test_data.sort(attr_name='frame')
+        
+        for gt_datum in gt_test_data:
+            file_name = gt_datum.frame
+            img_path = f'{img_dir}/{file_name}'
+            if not file_exists(img_path):
+                if debug_verbose:
+                    print(
+                        f"""
+                        Couldn't find image. Skipping.
+                            test_name: {test_name}
+                            img_path: {img_path}
+                        """
+                    )
+                pbar.update()
+                continue
+            img = cv2.imread(img_path)
+            dt_frame_data = dt_test_data.get(frame=gt_datum.frame)
+            error_frame_data = error_test_data.get(frame=gt_datum.frame)
+
+            img_buffer = cast(List[np.ndarray], [])
+            for model_name in model_names0:
+                dt_model_data = dt_frame_data.get(model_name=model_name)
+                dt_model_datum = dt_model_data[0] if len(dt_model_data) > 0 else None
+                error_model_data = error_frame_data.get(model_name=model_name)
+                error_datum = error_model_data[0] if len(error_model_data) > 0 else None
+
+                result = img.copy()
+                if draw_inference or draw_settings is not None:
+                    if draw_settings is not None:
+                        if dt_model_datum is not None:
+                            result = dt_model_datum.draw(result, settings=draw_settings)
+                    else:
+                        if dt_model_datum is not None:
+                            result = dt_model_datum.draw(result)
+                
+                if test_aliases is not None and gt_datum.test_name in test_aliases:
+                    test_text = test_aliases[gt_datum.test_name]
+                else:
+                    test_text = gt_datum.test_name if gt_datum is not None else None
+                if model_aliases is not None and dt_model_datum.model_name in model_aliases:
+                    model_text = model_aliases[dt_model_datum.model_name]
+                else:
+                    model_text = dt_model_datum.model_name if dt_model_datum is not None else None
+
+                if details_func is not None:
+                    for key in ['gt', 'dt', 'error']:
+                        assert key in details_func.__annotations__, f'{details_func.__name__} must have a {key} parameter.'
+                    details_func_params = {'img': result, 'gt': gt_datum, 'dt': dt_model_datum, 'error': error_datum}
+                    suggested_params = {'test_text': test_text, 'model_text': model_text, 'frame_text': gt_datum.frame}
+                    for key, val in suggested_params.items():
+                        if key in details_func.__annotations__:
+                            details_func_params[key] = val
+                    result = details_func(**details_func_params)
+                else:
+                    row_text_list = [
+                        f'Test: {test_text}',
+                        f'Model: {model_text}',
+                        f'Frame: {gt_datum.frame}'
+                    ]
+                    result_h, result_w = result.shape[:2]
+                    combined_row_height = len(row_text_list)*0.04*result_h
+                    result = draw_text_rows_at_point(
+                        img=result,
+                        row_text_list=row_text_list,
+                        x=result_w*0.01, y=result_h*0.01,
+                        combined_row_height=combined_row_height
+                    )
+                img_buffer.append(result)
+            collage_img = collage_from_img_buffer(
+                img_buffer=img_buffer, collage_shape=collage_shape
+            )
+            stream_writer.step(img=collage_img, file_name=file_name)
+            if pbar is not None:
+                pbar.update()
+    if pbar is not None:
+        pbar.close()
