@@ -21,6 +21,8 @@ annotation_utils/coco/structs/objects.py
 annotation_utils/coco/structs/zoom.py
 annotation_utils/coco/util/__init__.py
 annotation_utils/coco/util/id_map.py
+annotation_utils/coco/wrappers/__init__.py
+annotation_utils/coco/wrappers/infer_wrappers.py
 annotation_utils/dataset/__init__.py
 annotation_utils/dataset/dataset_prep.py
 annotation_utils/dataset/config/__init__.py
