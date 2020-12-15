@@ -14,6 +14,7 @@ def infer_tests_wrapper(
     weight_path: str, model_name: str, dataset: COCO_Dataset, test_name: str,
     handler_constructor: type,
     data_dump_dir: str=None, video_dump_dir: str=None, img_dump_dir: str=None,
+    skip_if_data_dump_exists: bool=False,
     show_preview: bool=False,
     show_pbar: bool=True
 ):
@@ -67,13 +68,13 @@ def infer_tests_wrapper(
             # Prepare Dump Directory
             if data_dump_dir is not None:
                 make_dir_if_not_exists(data_dump_dir)
-                delete_all_files_in_dir(data_dump_dir, ask_permission=True)
+                # delete_all_files_in_dir(data_dump_dir, ask_permission=True)
             if video_dump_dir is not None:
                 make_dir_if_not_exists(video_dump_dir)
-                delete_all_files_in_dir(video_dump_dir, ask_permission=True)
+                # delete_all_files_in_dir(video_dump_dir, ask_permission=True)
             if img_dump_dir is not None:
                 make_dir_if_not_exists(img_dump_dir)
-                delete_all_files_in_dir(img_dump_dir, ask_permission=True)
+                # delete_all_files_in_dir(img_dump_dir, ask_permission=True)
             stream_writer = cast(StreamWriter, None)
 
             # Accumulate/Save Inference Data On Tests
@@ -88,6 +89,12 @@ def infer_tests_wrapper(
                 assert param in infer_func.__annotations__, f"{infer_func.__name__} needs to accept a {param} keyword argument to be wrapped by infer_tests_wrapper"
             for weight_path0, model_name0 in zip(weight_paths, model_names):
                 video_save_path = f'{video_dump_dir}/{model_name0}.avi' if video_dump_dir is not None else None
+                data_dump_save = f'{data_dump_dir}/{model_name0}.json' if data_dump_dir is not None else None
+                if data_dump_save is not None and file_exists(data_dump_save) and skip_if_data_dump_exists:
+                    if test_pbar is not None:
+                        for dataset0, test_name0 in zip(datasets, test_names):
+                            test_pbar.update(len(dataset0.images))
+                    continue
                 if stream_writer is None:
                     stream_writer = StreamWriter(
                         show_preview=show_preview,
@@ -131,7 +138,7 @@ def infer_tests_wrapper(
                     if test_pbar is not None:
                         test_pbar.update(len(dataset0.images))
                 if data_dump_dir is not None:
-                    data.save_to_path(f'{data_dump_dir}/{model_name0}.json', overwrite=True)
+                    data.save_to_path(data_dump_save, overwrite=True)
                 if stream_writer is not None and stream_writer.video_writer is not None and stream_writer.video_writer.recorder is not None:
                     stream_writer.video_writer.recorder.close()
                     stream_writer.video_writer.recorder = None

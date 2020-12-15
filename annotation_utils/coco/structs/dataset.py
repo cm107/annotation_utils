@@ -26,6 +26,7 @@ from common_utils.common_types.bbox import BBox
 from common_utils.common_types.keypoint import Keypoint2D, Keypoint2D_List, Keypoint3D, Keypoint3D_List
 from common_utils.time_utils import get_ctime
 from common_utils.image_utils import scale_to_max, pad_to_max
+from common_utils.base.basic import BasicLoadableObject, BasicLoadableHandler, BasicHandler
 
 from .objects import COCO_Info
 from .handlers import COCO_License_Handler, COCO_Image_Handler, \
@@ -39,7 +40,7 @@ from ..util import COCO_Mapper_Handler
 from ...dataset.config import DatasetConfigCollectionHandler, DatasetConfigCollection, DatasetConfig
 from ...ndds.structs import NDDS_Dataset, CameraConfig
 
-class COCO_Dataset:
+class COCO_Dataset(BasicLoadableObject['COCO_Dataset']):
     """
     This is a class that can be thought of as a COCO dataset manipulation tool.
 
@@ -107,6 +108,7 @@ class COCO_Dataset:
         self, info: COCO_Info, licenses: COCO_License_Handler, images: COCO_Image_Handler,
         annotations: COCO_Annotation_Handler, categories: COCO_Category_Handler
     ):
+        super().__init__()
         self.info = info
         self.licenses = licenses
         self.images = images
@@ -2152,3 +2154,91 @@ class COCO_Dataset:
                     break
         pbar.close()
         recorder.close()
+
+class COCO_Dataset_List(
+    BasicLoadableHandler['COCO_Dataset_List', 'COCO_Dataset'],
+    BasicHandler['COCO_Dataset_List', 'COCO_Dataset']
+):
+    def __init__(self, datasets: List[COCO_Dataset]=None):
+        super().__init__(obj_type=COCO_Dataset, obj_list=datasets)
+        self.datasets = self.obj_list
+    
+    def to_dict_list(self, strict: bool=True) -> List[dict]:
+        return [dataset.to_dict(strict=strict) for dataset in self]
+
+    @classmethod
+    def from_dict_list(cls, dict_list: List[dict], strict: bool=True) -> COCO_Dataset_List:
+        return COCO_Dataset_List([COCO_Dataset.from_dict(item_dict, strict=strict) for item_dict in dict_list])
+    
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json.dump(self.to_dict_list(strict=strict), open(save_path, 'w'), indent=2, ensure_ascii=False)
+    
+    @classmethod
+    def load_from_path(cls, json_path: str, strict: bool=True) -> COCO_Dataset_List:
+        if not file_exists(json_path):
+            raise FileNotFoundError(f"Couldn't find {self.__class__.__name__} dump json at {json_path}.")
+        item_dict_list = json.load(open(json_path, 'r'))
+        return COCO_Dataset_List.from_dict_list(item_dict_list, strict=strict)
+
+class Labeled_COCO_Dataset(BasicLoadableObject['Labeled_COCO_Dataset']):
+    def __init__(self, coco_dataset: COCO_Dataset, test_name: str=None):
+        super().__init__()
+        self.coco_dataset = coco_dataset
+        self.test_name = test_name
+    
+    def to_dict(self, strict: bool=True) -> dict:
+        return {
+            'coco_dataset': self.coco_dataset.to_dict(strict=strict),
+            'test_name': self.test_name
+        }
+    
+    @classmethod
+    def from_dict(cls, item_dict: dict, strict: bool=True) -> Labeled_COCO_Dataset:
+        return Labeled_COCO_Dataset(
+            coco_dataset=COCO_Dataset.from_dict(item_dict['coco_dataset'], strict=strict),
+            test_name=item_dict['test_name']
+        )
+    
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json.dump(self.to_dict(strict=strict), open(save_path, 'w'), indent=2, ensure_ascii=False)
+    
+    @classmethod
+    def load_from_path(cls, json_path: str, strict: bool=True) -> Labeled_COCO_Dataset:
+        if not file_exists(json_path):
+            raise FileNotFoundError(f"Couldn't find {self.__class__.__name__} dump json at {json_path}.")
+        item_dict = json.load(open(json_path, 'r'))
+        return Labeled_COCO_Dataset.from_dict(item_dict, strict=strict)
+
+class Labeled_COCO_Dataset_List(
+    BasicLoadableHandler['Labeled_COCO_Dataset_List', 'Labeled_COCO_Dataset'],
+    BasicHandler['Labeled_COCO_Dataset_List', 'Labeled_COCO_Dataset']
+):
+    def __init__(self, datasets: List[Labeled_COCO_Dataset]=None):
+        super().__init__(obj_type=Labeled_COCO_Dataset, obj_list=datasets)
+        self.datasets = self.obj_list
+    
+    def to_dict_list(self, strict: bool=True) -> List[dict]:
+        return [dataset.to_dict(strict=strict) for dataset in self]
+    
+    @classmethod
+    def from_dict_list(cls, dict_list: List[dict], strict: bool=True) -> Labeled_COCO_Dataset_List:
+        return Labeled_COCO_Dataset_List([Labeled_COCO_Dataset.from_dict(item_dict, strict=strict) for item_dict in dict_list])
+    
+    def save_to_path(self, save_path: str, overwrite: bool=False, strict: bool=True):
+        if file_exists(save_path) and not overwrite:
+            logger.error(f'File already exists at save_path: {save_path}')
+            raise Exception
+        json.dump(self.to_dict_list(strict=strict), open(save_path, 'w'), indent=2, ensure_ascii=False)
+    
+    @classmethod
+    def load_from_path(cls, json_path: str, strict: bool=True) -> Labeled_COCO_Dataset_List:
+        if not file_exists(json_path):
+            raise FileNotFoundError(f"Couldn't find {self.__class__.__name__} dump json at {json_path}.")
+        item_dict_list = json.load(open(json_path, 'r'))
+        return Labeled_COCO_Dataset_List.from_dict_list(item_dict_list, strict=strict)
