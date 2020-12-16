@@ -34,10 +34,14 @@ def infer_tests_wrapper(
     def _wrapper(infer_func):
         def _wrapper_inner(*args, **kwargs):
             # Check/Adjust Parameters
-            if isinstance(weight_path, str):
+            if isinstance(weight_path, (str, dict)):
                 weight_paths = [weight_path]
             elif isinstance(weight_path, (tuple, list)):
-                assert all([type(part) is str for part in weight_path])
+                assert all([type(part) in [str, dict] for part in weight_path])
+                for part in weight_path:
+                    if isinstance(part, dict):
+                        for key, val in part.items():
+                            assert isinstance(val, str)
                 weight_paths = weight_path
             else:
                 raise TypeError
@@ -131,7 +135,7 @@ def infer_tests_wrapper(
                     kwargs['leave_stream_writer_open'] = True
                     if data_dump_dir is not None:
                         data0 = infer_func(*args, **kwargs)
-                        assert isinstance(data0, handler_constructor)
+                        assert isinstance(data0, handler_constructor), f"Encountered dump data of type {type(data0).__name__}. Expected {handler_constructor.__name__}."
                         data += data0
                     else:
                         infer_func(*args, **kwargs)

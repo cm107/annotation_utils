@@ -153,6 +153,18 @@ class AP_Result_List(
     def keypoint_results(self) -> AP_Result_List:
         return AP_Result_List([result for result in self if result.ann_type == 'keypoints'])
 
+    @property
+    def model_names(self) -> List[str]:
+        result = [datum.model_name for datum in self]
+        result.sort()
+        return result
+
+    @property
+    def test_names(self) -> List[str]:
+        result = [datum.test_name for datum in self]
+        result.sort()
+        return result
+
     def get_model(self, model_name: str) -> AP_Result_List:
         if isinstance(model_name, str):
             return AP_Result_List([result for result in self if result.model_name == model_name])
@@ -279,7 +291,8 @@ class AP_Result_List(
         legend_prop: float=0.7,
         xlabel: str=None, ylabel: str=None, title: str=None,
         xticklabel_fontsize: int=6, xticklabel_rotation: int=13,
-        show_bar_values: bool=False, bar_values_fontsize: int=6
+        show_bar_values: bool=False, bar_values_fontsize: int=6,
+        combine_test_targets: bool=False
     ):
         if ann_type == 'bbox':
             ap_res_list = self.bbox_results
@@ -288,14 +301,41 @@ class AP_Result_List(
         else:
             raise ValueError
 
-        data = ap_res_list.get_model(model_targets).get_test(test_targets).to_df()
+        data = ap_res_list.get_model(model_targets).get_test(test_targets)
+        if not combine_test_targets:
+            data = data.to_df()
+        else:
+            data0 = AP_Result_List()
+            for model_name in data.model_names:                
+                ap_res = AP_Result(
+                    model_name=model_name,
+                    test_name=None,
+                    ann_type=ann_type,
+                    ap=float(np.mean([datum.ap for datum in data if datum.model_name == model_name])),
+                    ap_50=float(np.mean([datum.ap_50 for datum in data if datum.model_name == model_name])),
+                    ap_75=float(np.mean([datum.ap_75 for datum in data if datum.model_name == model_name])),
+                    ap_s=float(np.mean([datum.ap_s for datum in data if datum.model_name == model_name])),
+                    ap_m=float(np.mean([datum.ap_m for datum in data if datum.model_name == model_name])),
+                    ap_l=float(np.mean([datum.ap_l for datum in data if datum.model_name == model_name])),
+                    ar=float(np.mean([datum.ar for datum in data if datum.model_name == model_name])),
+                    ar_50=float(np.mean([datum.ar_50 for datum in data if datum.model_name == model_name])),
+                    ar_75=float(np.mean([datum.ar_75 for datum in data if datum.model_name == model_name])),
+                    ar_s=float(np.mean([datum.ar_s for datum in data if datum.model_name == model_name])),
+                    ar_m=float(np.mean([datum.ar_m for datum in data if datum.model_name == model_name])),
+                    ar_l=float(np.mean([datum.ar_l for datum in data if datum.model_name == model_name])),
+                    prec50=None,
+                    prec75=None,
+                    rec=None
+                )
+                data0.append(ap_res)
+            data = data0.to_df()
         if data.empty:
             return
 
         fig = make_subplots(rows=1, cols=1)
         fig = plt.figure()
 
-        ax = sns.barplot(x='model_name', y=ap_target, hue='test_name', data=data, order=model_targets)
+        ax = sns.barplot(x='model_name', y=ap_target, hue='test_name' if not combine_test_targets else None, data=data, order=model_targets)
         if show_bar_values:
             for p in ax.patches:
                 text = f'{int(p.get_height()*100)}%' if not np.isnan(p.get_height()) else f'0%'
@@ -326,9 +366,10 @@ class AP_Result_List(
             label.set_fontsize(xticklabel_fontsize)
             label.set_rotation(xticklabel_rotation)
 
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * legend_prop, box.height])
-        legend = ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        if not combine_test_targets:
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width * legend_prop, box.height])
+            legend = ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
         
         if model_target_aliases is not None:
             assert len(model_target_aliases) == len(ax.get_xticklabels()), f'model_target_aliases:\n{model_target_aliases}\nax.get_xticklabels():\n{ax.get_xticklabels()}'
