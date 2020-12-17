@@ -38,7 +38,7 @@ setup(
         'pyqt5>=5.14.1',
         'pandas>=1.0.4',
         'xlrd>=1.2.0',
-        'pyclay-streamer @ https://github.com/cm107/streamer/archive/master.zip'
+        'pyclay-streamer>=0.1.3'
     ],
     python_requires='>=3.7'
 )
