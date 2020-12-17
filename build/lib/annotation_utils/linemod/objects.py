@@ -581,3 +581,16 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
                 create_softlink(src_path=rel_to_abs_path(fps_path), dst_path=rel_to_abs_path(dst_fps_path))
         if pbar is not None:
             pbar.close()
+    
+    def sample_3d_hyperparams(self, idx: int=0, include_center: bool=True) -> (Point3D_List, Point3D_List, LinemodCamera):
+        linemod_ann_sample = self.annotations[idx]
+        kpt_3d = linemod_ann_sample.fps_3d.copy()
+        if include_center:
+            kpt_3d.append(linemod_ann_sample.center_3d)
+        corner_3d = linemod_ann_sample.corner_3d
+        K = linemod_ann_sample.K
+        return kpt_3d, corner_3d, K
+
+    def sample_dsize(self, idx: int=0) -> (int, int):
+        linemod_image_sample = self.images[idx]
+        return (linemod_image_sample.width, linemod_image_sample.height)
