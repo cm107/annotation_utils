@@ -115,10 +115,10 @@ def infer_tests_wrapper(
                 data = handler_constructor()
                 assert isinstance(data, BasicLoadableHandler)
                 assert hasattr(data, '__add__')
-                if video_dump_dir is not None:
-                    video_save_path = f'{video_dump_dir}/{model_name0}.avi'
-                else:
-                    video_save_path = None
+                # if video_dump_dir is not None:
+                #     video_save_path = f'{video_dump_dir}/{model_name0}.avi'
+                # else:
+                #     video_save_path = None
                 for dataset0, test_name0 in zip(datasets, test_names):
                     if test_pbar is not None:
                         test_pbar.set_description(f'{model_name0} {test_name0}')
