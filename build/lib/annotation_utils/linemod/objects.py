@@ -2,8 +2,11 @@ from __future__ import annotations
 from typing import List, Tuple
 import numpy as np
 from tqdm import tqdm
-from common_utils.file_utils import file_exists
-from common_utils.path_utils import get_filename
+from common_utils.file_utils import file_exists, dir_exists, \
+    copy_file, create_softlink, make_dir_if_not_exists, \
+    delete_all_files_in_dir
+from common_utils.path_utils import get_filename, get_extension_from_filename, \
+    rel_to_abs_path, get_rootname_from_path, get_dirpath_from_filepath
 from common_utils.base.basic import BasicLoadableIdObject, BasicLoadableObject, BasicLoadableIdHandler, BasicHandler
 from common_utils.common_types.point import Point2D, Point3D, Point2D_List, Point3D_List
 from common_utils.common_types.angle import QuaternionList
@@ -373,3 +376,221 @@ class Linemod_Dataset(BasicLoadableObject['Linemod_Dataset']):
         if pbar is not None:
             pbar.close()
         return dataset
+
+    @classmethod
+    def combine(cls, dataset_list: List[Linemod_Dataset], show_pbar: bool=True) -> Linemod_Dataset:
+        combined_dataset = Linemod_Dataset()
+        pbar = tqdm(total=len(dataset_list), unit='dataset(s)', leave=True) if show_pbar else None
+        if pbar is not None:
+            pbar.set_description('Combining Linemod Datasets')
+        for dataset in dataset_list:
+            assert isinstance(dataset, Linemod_Dataset)
+            image_id_map = {}
+            category_id_map = {}
+            for linemod_image in dataset.images:
+                linemod_image0 = linemod_image.copy()
+                linemod_image0.id = len(combined_dataset.images)
+                image_id_map[linemod_image.id] = linemod_image0.id
+                combined_dataset.images.append(linemod_image0)
+            for linemod_category in dataset.categories:
+                found = False
+                for existing_category in combined_dataset.categories:
+                    if linemod_category.name == existing_category.name and linemod_category.supercategory == existing_category.supercategory:
+                        category_id_map[linemod_category.id] = existing_category.id
+                        found = True
+                        break
+                if not found:
+                    linemod_category0 = linemod_category.copy()
+                    linemod_category0.id = len(combined_dataset.categories)
+                    category_id_map[linemod_category.id] = linemod_category0.id
+                    combined_dataset.categories.append(linemod_category0)
+            for linemod_ann in dataset.annotations:
+                linemod_ann0 = linemod_ann.copy()
+                linemod_ann0.id = len(combined_dataset.annotations)
+                linemod_ann0.image_id = image_id_map[linemod_ann.image_id]
+                linemod_ann0.category_id = category_id_map[linemod_ann.category_id]
+                combined_dataset.annotations.append(linemod_ann0)
+            if pbar is not None:
+                pbar.update()
+        if pbar is not None:
+            pbar.close()
+        return combined_dataset
+    
+    def set_dataroot(self, dataroot: str, include_mask: bool=True, include_depth: bool=True):
+        for ann in self.annotations:
+            if include_mask:
+                if '/' in ann.mask_path:
+                    ann.mask_path = f'{dataroot}/{get_filename(ann.mask_path)}'
+                else:
+                    ann.mask_path = f'{dataroot}/{ann.mask_path}'
+            if include_depth and ann.depth_path is not None:
+                if '/' in ann.depth_path:
+                    ann.depth_path = f'{dataroot}/{get_filename(ann.depth_path)}'
+                else:
+                    ann.depth_path = f'{dataroot}/{ann.depth_path}'
+            ann.data_root = dataroot
+
+    def set_images_dir(self, img_dir: str):
+        for linemod_image in self.images:
+            if '/' in linemod_image.file_name:
+                linemod_image.file_name = f'{img_dir}/{get_filename(linemod_image.file_name)}'
+            else:
+                linemod_image.file_name = f'{img_dir}/{linemod_image.file_name}'
+
+    def move(
+        self, dst_dataroot: str, include_depth: bool=True, include_RT: bool=False,
+        camera_path: str=None, fps_path: str=None,
+        preserve_filename: bool=False, use_softlink: bool=False,
+        ask_permission_on_delete: bool=True,
+        show_pbar: bool=True
+    ):
+        make_dir_if_not_exists(dst_dataroot)
+        delete_all_files_in_dir(
+            dst_dataroot,
+            ask_permission=ask_permission_on_delete, verbose=False
+        )
+        processed_image_id_list = []
+        pbar = tqdm(total=len(self.annotations), unit='annotation(s)', leave=True) if show_pbar else None
+        if pbar is not None:
+            pbar.set_description('Moving Linemod Dataset Data')
+        for linemod_ann in self.annotations:
+            if not dir_exists(linemod_ann.data_root):
+                raise FileNotFoundError(f"Couldn't find data_root at {linemod_ann.data_root}")
+            
+            # Images
+            linemod_image = self.images.get(id=linemod_ann.image_id)[0]
+            if linemod_image.id not in processed_image_id_list:
+                img_path = f'{linemod_ann.data_root}/{get_filename(linemod_image.file_name)}'
+                if not file_exists(img_path):
+                    raise FileNotFoundError(f"Couldn't find image at {img_path}")
+                if preserve_filename:
+                    dst_img_path = f'{dst_dataroot}/{get_filename(linemod_image.file_name)}'
+                    if file_exists(dst_img_path):
+                        raise FileExistsError(
+                            f"""
+                            Image already exists at {dst_img_path}
+                            Hint: Use preserve_filename=False to bypass this error.
+                            """
+                        )
+                else:
+                    dst_filename = f'{linemod_image.id}.{get_extension_from_filename(linemod_image.file_name)}'
+                    linemod_image.file_name = dst_filename
+                    dst_img_path = f'{dst_dataroot}/{dst_filename}'
+                if not use_softlink:
+                    copy_file(src_path=img_path, dest_path=dst_img_path, silent=True)
+                else:
+                    create_softlink(src_path=rel_to_abs_path(img_path), dst_path=rel_to_abs_path(dst_img_path))
+                processed_image_id_list.append(linemod_image.id)
+            
+            # Masks
+            if not file_exists(linemod_ann.mask_path):
+                raise FileNotFoundError(f"Couldn't find mask at {linemod_ann.mask_path}")
+            mask_path = linemod_ann.mask_path
+            if preserve_filename:
+                dst_mask_path = f'{dst_dataroot}/{get_filename(linemod_ann.mask_path)}'
+                if file_exists(dst_mask_path):
+                    raise FileExistsError(
+                        f"""
+                        Mask already exists at {dst_mask_path}
+                        Hint: Use preserve_filename=False to bypass this error.
+                        """
+                    )
+            else:
+                mask_filename = get_filename(linemod_ann.mask_path)
+                dst_filename = f'{linemod_ann.id}_mask.{get_extension_from_filename(mask_filename)}'
+                dst_mask_path = f'{dst_dataroot}/{dst_filename}'
+                linemod_ann.mask_path = dst_mask_path
+            if not use_softlink:
+                copy_file(src_path=mask_path, dest_path=dst_mask_path, silent=True)
+            else:
+                create_softlink(src_path=rel_to_abs_path(mask_path), dst_path=rel_to_abs_path(dst_mask_path))
+            
+            # Depth
+            if include_depth and linemod_ann.depth_path is not None:
+                if not file_exists(linemod_ann.depth_path):
+                    raise FileNotFoundError(f"Couldn't find depth at {linemod_ann.depth_path}")
+                depth_path = linemod_ann.depth_path
+                if preserve_filename:
+                    dst_depth_path = f'{dst_dataroot}/{get_filename(linemod_ann.depth_path)}'
+                    if file_exists(dst_depth_path):
+                        raise FileExistsError(
+                            f"""
+                            Depth already exists at {dst_depth_path}
+                            Hint: Use preserve_filename=False to bypass this error.
+                            """
+                        )
+                else:
+                    depth_filename = get_filename(linemod_ann.depth_path)
+                    dst_filename = f'{linemod_ann.id}_depth.{get_extension_from_filename(depth_filename)}'
+                    dst_depth_path = f'{dst_dataroot}/{dst_filename}'
+                    linemod_ann.depth_path = dst_depth_path
+                if not use_softlink:
+                    copy_file(src_path=depth_path, dest_path=dst_depth_path, silent=True)
+                else:
+                    create_softlink(src_path=rel_to_abs_path(depth_path), dst_path=rel_to_abs_path(dst_depth_path))
+            
+            # RT pickle files
+            if include_RT:
+                rootname = get_rootname_from_path(mask_path)
+                if rootname.endswith('_mask'):
+                    rootname = rootname.replace('_mask', '')
+                rt_filename = f'{rootname}_RT.pkl'
+                rt_path = f'{linemod_ann.data_root}/{rt_filename}'
+                if not file_exists(rt_path):
+                    raise FileNotFoundError(f"Couldn't find RT pickle file at {rt_path}")
+                if preserve_filename:
+                    dst_rt_path = f'{dst_dataroot}/{rt_filename}'
+                    if file_exists(dst_depth_path):
+                        raise FileExistsError(
+                            f"""
+                            RT pickle file already exists at {dst_rt_path}
+                            Hint: Use preserve_filename=False to bypass this error.
+                            """
+                        )
+                else:
+                    dst_rt_filename = f'{linemod_ann.id}_RT.pkl'
+                    dst_rt_path = f'{dst_dataroot}/{dst_rt_filename}'
+                if not use_softlink:
+                    copy_file(src_path=rt_path, dest_path=dst_rt_path, silent=True)
+                else:
+                    create_softlink(src_path=rel_to_abs_path(rt_path), dst_path=rel_to_abs_path(dst_rt_path))
+            if pbar is not None:
+                pbar.update()
+        # Camera setting
+        if camera_path is not None:
+            if not file_exists(camera_path):
+                raise FileNotFoundError(f"Couldn't find camera settings at {camera_path}")
+            dst_camera_path = f'{dst_dataroot}/{get_filename(camera_path)}'
+            if file_exists(dst_camera_path):
+                raise FileExistsError(f'Camera settings already saved at {dst_camera_path}')
+            if not use_softlink:
+                copy_file(src_path=camera_path, dest_path=dst_camera_path, silent=True)
+            else:
+                create_softlink(src_path=rel_to_abs_path(camera_path), dst_path=rel_to_abs_path(dst_camera_path))
+        
+        # FPS setting
+        if fps_path is not None:
+            if not file_exists(fps_path):
+                raise FileNotFoundError(f"Couldn't find FPS settings at {fps_path}")
+            dst_fps_path = f'{dst_dataroot}/{get_filename(fps_path)}'
+            if file_exists(dst_fps_path):
+                raise FileExistsError(f'FPS settings already saved at {dst_fps_path}')
+            if not use_softlink:
+                copy_file(src_path=fps_path, dest_path=dst_fps_path, silent=True)
+            else:
+                create_softlink(src_path=rel_to_abs_path(fps_path), dst_path=rel_to_abs_path(dst_fps_path))
+        if pbar is not None:
+            pbar.close()
+    
+    def sample_3d_hyperparams(self, idx: int=0, include_center: bool=True) -> (Point3D_List, Point3D_List, LinemodCamera):
+        linemod_ann_sample = self.annotations[idx]
+        kpt_3d = linemod_ann_sample.fps_3d.copy()
+        if include_center:
+            kpt_3d.append(linemod_ann_sample.center_3d)
+        corner_3d = linemod_ann_sample.corner_3d
+        K = linemod_ann_sample.K
+        return kpt_3d, corner_3d, K
+
+    def sample_dsize(self, idx: int=0) -> (int, int):
+        linemod_image_sample = self.images[idx]
+        return (linemod_image_sample.width, linemod_image_sample.height)
