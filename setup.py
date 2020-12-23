@@ -33,9 +33,7 @@ setup(
         'Pillow>=6.1.0',
         'pycocotools>=2.0.0',
         'pylint>=2.4.2',
-        'labelme>=3.16.7',
         'PyYAML>=5.1.2',
-        'pyqt5>=5.14.1',
         'pandas>=1.0.4',
         'xlrd>=1.2.0',
         'pyclay-streamer @ https://github.com/cm107/streamer/archive/master.zip'
