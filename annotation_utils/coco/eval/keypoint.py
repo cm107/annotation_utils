@@ -75,8 +75,8 @@ class BBoxKeypointResult(BasicLoadableObject):
         result_dict =  {
             'image_id': self.image_id,
             'category_id': self.category_id,
-            'bbox': self.bbox.to_list(output_format='pminsize'),
-            'keypoints': self.keypoints.to_list(demarcation=False),
+            'bbox': self.bbox.to_list(output_format='pminsize') if self.bbox is not None else None,
+            'keypoints': self.keypoints.to_list(demarcation=False) if self.keypoints is not None else None,
             'score': self.score
         }
         return result_dict
@@ -86,8 +86,8 @@ class BBoxKeypointResult(BasicLoadableObject):
         return BBoxKeypointResult(
             image_id=item_dict['image_id'],
             category_id=item_dict['category_id'],
-            keypoints=Keypoint2D_List.from_list(item_dict['keypoints'], demarcation=False),
-            bbox=BBox.from_list(item_dict['bbox'], input_format='pminsize'),
+            keypoints=Keypoint2D_List.from_list(item_dict['keypoints'], demarcation=False) if item_dict['keypoints'] is not None else None,
+            bbox=BBox.from_list(item_dict['bbox'], input_format='pminsize') if item_dict['bbox'] is not None else None,
             score=item_dict['score']
         )
 

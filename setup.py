@@ -30,6 +30,7 @@ setup(
         'numpy>=1.17.2',
         'Shapely>=1.6.4.post2',
         'matplotlib',
+        'plotly',
         'Pillow>=6.1.0',
         'pycocotools>=2.0.0',
         'pylint>=2.4.2',
