@@ -2223,6 +2223,14 @@ class Labeled_COCO_Dataset_List(
         super().__init__(obj_type=Labeled_COCO_Dataset, obj_list=datasets)
         self.datasets = self.obj_list
     
+    @property
+    def test_names(self) -> List[str]:
+        return list(set([datum.test_name for datum in self]))
+
+    @property
+    def num_frames(self) -> int:
+        return sum([len(labeled_dataset.coco_dataset.images) for labeled_dataset in self])
+
     def to_dict_list(self, strict: bool=True) -> List[dict]:
         return [dataset.to_dict(strict=strict) for dataset in self]
     

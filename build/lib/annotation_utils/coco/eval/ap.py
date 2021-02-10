@@ -285,7 +285,8 @@ class AP_Result_List(
         fig.show()
 
     def save_plot(
-        self, test_targets: List[str], model_targets: List[str], ann_type: str, save_path: str,
+        self, save_path: str,
+        test_targets: List[str]=None, model_targets: List[str]=None, ann_type: str='bbox',
         model_target_aliases: List[str]=None,
         ap_target: str='ap',
         legend_prop: float=0.7,
@@ -301,6 +302,8 @@ class AP_Result_List(
         else:
             raise ValueError
 
+        model_targets = model_targets if model_targets is not None else ap_res_list.model_names
+        test_targets = test_targets if test_targets is not None else ap_res_list.test_names
         data = ap_res_list.get_model(model_targets).get_test(test_targets)
         if not combine_test_targets:
             data = data.to_df()
