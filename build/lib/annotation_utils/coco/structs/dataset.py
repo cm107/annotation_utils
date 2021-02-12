@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Dict
+import os
 import json
 import cv2
 import numpy as np
@@ -205,7 +206,7 @@ class COCO_Dataset(BasicLoadableObject['COCO_Dataset']):
 
     def move_images(
         self, dst_img_dir: str,
-        softlink: bool=False,
+        softlink: bool=False, softlink_relative_to_cwd: bool=False,
         preserve_filenames: bool=False, overwrite_duplicates: bool=False, update_img_paths: bool=True,
         overwrite: bool=False, show_pbar: bool=True
     ):
@@ -213,7 +214,14 @@ class COCO_Dataset(BasicLoadableObject['COCO_Dataset']):
         Combines all image directories specified in the coco_url of each coco image in self.images
         to a single image directory.
 
-        dst_img_dir: The directory where you would like to save the combined image set.
+        dst_img_dir:
+            The directory where you would like to save the combined image set.
+        softlink:
+            Set this to True if you want to create softlinks instead of hard copies.
+        softlink_relative_to_cwd:
+            Set this to True if you want softlinks to be created with paths relative to the current working directory.
+            Note that all source image paths and destination paths must be under the current working directory.
+
         preserve_filenames: If False, unique filenames will be generated so as to not create a filename conflict.
         overwrite_duplicates: Only applicable when preserve_filenames=True.
                               In the event that two images with the same filename are moved to dst_img_dir from
@@ -271,7 +279,26 @@ class COCO_Dataset(BasicLoadableObject['COCO_Dataset']):
             if not softlink:
                 copy_file(src_path=coco_image.coco_url, dest_path=dst_img_path, silent=True)
             else:
-                create_softlink(src_path=rel_to_abs_path(coco_image.coco_url), dst_path=rel_to_abs_path(dst_img_path))
+                softlink_src = rel_to_abs_path(coco_image.coco_url)
+                softlink_dst = rel_to_abs_path(dst_img_path)
+                cwd_path = f'{os.getcwd()}/'
+                if softlink_relative_to_cwd:
+                    if not softlink_src.startswith(cwd_path) or not softlink_dst.startswith(cwd_path):
+                        raise Exception(
+                            f"""
+                            Cannot softlink relative to cwd if softlink_src or softlink_dst are not
+                            under cwd.
+                            softlink_src: {softlink_src}
+                            softlink_dst: {softlink_dst}
+                            os.getcwd(): {os.getcwd()}
+                            """
+                        )
+                    softlink_src = softlink_src.replace(cwd_path, '')
+                    softlink_dst = softlink_dst.replace(cwd_path, '')
+                    softlink_src_prefix = '../' * (len(softlink_dst.split('/'))-1)
+                    softlink_src = f'{softlink_src_prefix}{softlink_src}'
+                    
+                create_softlink(src_path=softlink_src, dst_path=softlink_dst)
             if update_img_paths:
                 coco_image.coco_url = dst_img_path
                 coco_image.file_name = get_filename(dst_img_path)
